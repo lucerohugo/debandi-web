@@ -1,0 +1,6 @@
+POST http://localhost:8000/api/pedidos/confirmar_export_dbf/
+Content-Type: application/json
+
+{
+    "pedidos": [18, 27, 28, 29]
+}

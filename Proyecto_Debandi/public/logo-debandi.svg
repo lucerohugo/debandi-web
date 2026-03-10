@@ -1,0 +1,9 @@
+<svg viewBox="0 0 300 120" xmlns="http://www.w3.org/2000/svg" width="200" height="80">
+  <!-- Fondo -->
+  <rect width="300" height="120" fill="#8cced9" rx="10"/>
+  
+  <!-- Texto "Debandi" en cursiva elegante -->
+  <text x="150" y="85" font-family="'Playfair Display', 'Georgia', serif" font-size="72" font-style="italic" font-weight="300" fill="white" text-anchor="middle" letter-spacing="-2">
+    Debandi
+  </text>
+</svg>

@@ -1,0 +1,69 @@
+# ===================================
+# PROYECTO DEBANDI - GITIGNORE UNIFICADO
+# Frontend: Proyecto_Debandi (Next.js)
+# Backend: back_debandi (Django)
+# ===================================
+
+# Python / Django
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+build-output.log
+
+# Media y archivos estáticos (generados)
+media/
+staticfiles/
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos de backup y comprimidos
+*.zip
+*.bak
+
+# Carpeta back_base (no se usa)
+back_base/
+
+# Archivos temporales
+*.tmp
+.FullName
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
