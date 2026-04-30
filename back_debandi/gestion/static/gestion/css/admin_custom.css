@@ -1,0 +1,76 @@
+/* ============================================================================
+   OVERRIDE DJANGO ADMIN RESPONSIVE LAYOUT
+   Fuerza que los filtros siempre estén a la derecha (sidebar derecha)
+   ============================================================================ */
+
+/* Asegurar que el layout de changelist sea siempre en dos columnas */
+.change-list {
+    display: block !important;
+}
+
+#changelist {
+    display: flex;
+    gap: 20px;
+}
+
+#changelist-filter {
+    order: 2;
+    width: 240px;
+    min-width: 240px;
+    flex-shrink: 0;
+    padding-left: 20px;
+    border-left: 1px solid #ddd;
+    margin-left: 20px;
+}
+
+.results {
+    order: 1;
+    flex: 1;
+    min-width: 0;
+}
+
+.search {
+    order: 0;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+/* Asegurar que en pantallas pequeñas, el sidebar no baje */
+@media (max-width: 767px) {
+    #changelist {
+        flex-direction: row;
+    }
+    
+    #changelist-filter {
+        width: 220px;
+        min-width: 220px;
+        padding-left: 15px;
+        margin-left: 15px;
+        border-left: 1px solid #ddd;
+    }
+}
+
+/* Estilos para el buscador */
+.search {
+    padding: 0 20px 20px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.search input[type="search"],
+.search input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+}
+
+/* Estilos para la lista de resultados */
+.results {
+    margin-bottom: 20px;
+}
+
+/* Asegurar que los filtros estén siempre visibles a la derecha */
+#changelist-filter {
+    position: relative;
+    top: 0;
+    margin-top: 0;
+}

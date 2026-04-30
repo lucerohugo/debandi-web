@@ -1,482 +1,1236 @@
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action, api_view
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
+from django.db.models import Q
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
-from django.conf import settings
 import json
-from .models import Articulo, Marca, SubRubro, Rubro, General, CuentaBancaria
 
-# ============================================================================
-# VISTAS PARA ARTICULOS (Retornan JSON)
-# ============================================================================
-
-def get_image_url(image_field, request):
-    """Helper para generar URL completa de imagen"""
-    if not image_field:
-        return None
-    image_url = image_field.url
-    # Si la URL no comienza con http, agregarle el host
-    if not image_url.startswith('http'):
-        image_url = request.build_absolute_uri(image_url)
-    return image_url
+from .models import (
+    Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
+    Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
+    CuentaBancaria, General, Usuario, Vendedor
+)
+from .serializers import (
+    ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
+    MarcaSerializer, RubroSerializer, SubrubroSerializer, ArticuloSerializer, ArticuloFrontendSerializer,
+    ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
+    PedidosSerializer, PedidosCompletoSerializer, DetallePedidoSerializer,
+    CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer
+)
 
 
-def serialize_articulo(articulo, request):
-    """Helper para serializar un artículo a JSON"""
-    return {
-        'art_codi': articulo.art_codi,
-        'art_nomb': articulo.art_nomb,
-        'art_desc': articulo.art_desc,
-        'art_img': get_image_url(articulo.art_img, request),
-        'art_pnet': float(articulo.art_pnet),
-        'art_pfin': float(articulo.art_pfin),
-        'art_cost': float(articulo.art_cost) if articulo.art_cost else None,
-        'art_stkp': articulo.art_stkp,
-        'art_stkmin': articulo.art_stkmin,
-        'art_xbul': articulo.art_xbul,
-        'art_ubul': articulo.art_ubul,
-        'art_tiva': articulo.art_tiva,
-        'mar_codi': articulo.mar_codi.mar_codi if articulo.mar_codi else None,
-        'mar_nomb': articulo.mar_codi.mar_nomb if articulo.mar_codi else 'Sin marca',
-        'sub_codi': articulo.sru_codi.sru_codi if articulo.sru_codi else None,
-        'sru_nomb': articulo.sru_codi.sru_nomb if articulo.sru_codi else 'Sin subrubro',
-        'rub_nomb': articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else 'Sin rubro',
-        'art_acti': articulo.art_acti,
-    }
+# ================================================================
+# PAGINACIÓN
+# ================================================================
 
-@require_http_methods(["GET"])
-def articulos_list(request):
-    """Obtener artículos con filtrado por marca, rubro, precio, búsqueda y stock"""
-    try:
-        page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 30))
-        search_query = request.GET.get('q', '').strip()
-        
-        # Parámetros de filtro
-        marcas = request.GET.getlist('marcas')  # ?marcas=Bosch&marcas=DeWalt
-        rubros = request.GET.getlist('rubros')  # ?rubros=Taladros&rubros=Sierras
-        precio_min = request.GET.get('precio_min', None)
-        precio_max = request.GET.get('precio_max', None)
-        solo_stock = request.GET.get('solo_stock', 'false').lower() == 'true'
-        
-        # Base: solo artículos activos y visibles en web
-        articulos = Articulo.objects.select_related('mar_codi', 'sru_codi', 'sru_codi__rub_codi').filter(art_acti=True, art_visw=True)
-        
-        # Filtro por búsqueda
-        if search_query:
-            articulos = articulos.filter(
-                Q(art_nomb__icontains=search_query) |
-                Q(art_desc__icontains=search_query) |
-                Q(mar_codi__mar_nomb__icontains=search_query)
-            )
-        
-        # Filtro por marcas
-        if marcas:
-            articulos = articulos.filter(mar_codi__mar_nomb__in=marcas)
-        
-        # Filtro por rubros (por nombre del rubro, no por subrubro)
-        if rubros:
-            articulos = articulos.filter(sru_codi__rub_codi__rub_nomb__in=rubros)
-        
-        # Filtro por rango de precio (art_pfin - precio final con IVA)
-        if precio_min:
+class StandardPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 5000
+
+
+# ================================================================
+# BASE VIEWSET
+# ================================================================
+
+class BaseViewSet(viewsets.ModelViewSet):
+    permission_classes = []
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    pagination_class = StandardPagination
+
+
+# ================================================================
+# 🔥 MIXIN BULK CREATE (FIX FK)
+# ================================================================
+
+class BulkCreateMixin:
+    lookup_field_name = None
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+
+        if not isinstance(data, list):
+            data = [data]
+
+        resultados = []
+
+        for item in data:
             try:
-                articulos = articulos.filter(art_pfin__gte=float(precio_min))
-            except ValueError:
+                if not item.get(self.lookup_field_name):
+                    resultados.append({
+                        "error": f"Falta campo {self.lookup_field_name}",
+                        "data": item
+                    })
+                    continue
+
+                model = self.queryset.model
+                data_item = item.copy()
+
+                # 🔥 FIX CLAVE: convertir FK a *_id
+                for field in model._meta.fields:
+                    if field.is_relation and field.many_to_one:
+                        fk_name = field.name  # ej: pci_codi
+                        if fk_name in data_item:
+                            data_item[f"{fk_name}_id"] = data_item.pop(fk_name)
+
+                obj, created = model.objects.update_or_create(
+                    **{self.lookup_field_name: data_item[self.lookup_field_name]},
+                    defaults={k: v for k, v in data_item.items() if v is not None}
+                )
+
+                resultados.append({
+                    "id": getattr(obj, self.lookup_field_name),
+                    "created": created
+                })
+
+            except Exception as e:
+                resultados.append({
+                    "error": str(e),
+                    "data": item
+                })
+
+        return Response(resultados, status=status.HTTP_200_OK)
+
+
+# ================================================================
+# UBICACIONES
+# ================================================================
+
+class ProvinciaViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Provincia.objects.all()
+    serializer_class = ProvinciaSerializer
+    lookup_field_name = "pci_codi"
+
+
+class LocalidadViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Localidad.objects.all()
+    pagination_class = None
+    serializer_class = LocalidadSerializer
+    lookup_field_name = "loc_codi"
+
+    @action(detail=False, methods=['get'])
+    def frontend(self, request):
+        """GET /localidades/frontend/ - Retorna con camelCase"""
+        serializer = LocalidadFrontendSerializer(self.get_queryset(), many=True)
+        return Response(serializer.data)
+
+
+class ZonaViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Zona.objects.all()
+    serializer_class = ZonaSerializer
+    lookup_field_name = "zon_codi"
+
+
+# ================================================================
+# CATÁLOGO
+# ================================================================
+
+class MarcaViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Marca.objects.all()
+    serializer_class = MarcaSerializer
+    lookup_field_name = "mar_codi"
+    search_fields = ['mar_nomb']
+    ordering = ['mar_nomb']
+
+
+class RubroViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Rubro.objects.all()
+    serializer_class = RubroSerializer
+    lookup_field_name = "rub_codi"
+    search_fields = ['rub_nomb']
+    ordering = ['rub_nomb']
+
+
+class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = SubRubro.objects.all()
+    serializer_class = SubrubroSerializer
+    lookup_field_name = "sru_codi"
+    search_fields = ['sru_nomb', 'rub_codi__rub_nomb']
+    ordering = ['rub_codi', 'sru_nomb']
+
+    @action(detail=False, methods=['get'])
+    def por_rubro(self, request):
+        """GET /subrubros/por_rubro/?rub_codi=1 - Retorna subrubros de un rubro"""
+        rub_codi = request.query_params.get('rub_codi')
+        if not rub_codi:
+            return Response([], status=status.HTTP_200_OK)
+        
+        try:
+            rub_codi = int(rub_codi)
+        except (ValueError, TypeError):
+            return Response([], status=status.HTTP_200_OK)
+        
+        subrubros = SubRubro.objects.filter(rub_codi_id=rub_codi)
+        serializer = self.get_serializer(subrubros, many=True)
+        return Response(serializer.data)
+
+
+class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Articulo.objects.all()
+    serializer_class = ArticuloSerializer
+    lookup_field_name = "art_codi"
+    filterset_fields = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw']
+    search_fields = ['art_nomb', 'art_codi', 'mar_codi__mar_nomb']
+    ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
+    ordering = ['art_nomb']
+
+    @action(detail=False, methods=['get'])
+    def frontend(self, request):
+        """GET /articulos/frontend/ - Retorna con camelCase"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = ArticuloFrontendSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def activos(self, request):
+        """GET /articulos/activos/ - Solo artículos activos y visibles"""
+        queryset = self.get_queryset().filter(art_acti=True, art_visw=True)
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+# ================================================================
+# PERSONAS
+# ================================================================
+
+class ClientesViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Clientes.objects.all()
+    serializer_class = ClientesSerializer
+    lookup_field_name = "cli_codi"
+    filterset_fields = ['loc_codi', 'ven_codi']
+    search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
+    ordering = ['cli_nomb']
+
+    @method_decorator(csrf_exempt)
+    @action(detail=False, methods=['post'])
+    def login(self, request):
+        """POST /clientes/login/ - Login de cliente"""
+        from django.contrib.auth.hashers import check_password
+        
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response(
+                {'success': False, 'detail': 'Email y contraseña requeridos'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            cliente = Clientes.objects.get(cli_emai=email)
+        except Clientes.DoesNotExist:
+            return Response(
+                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Verificar contraseña
+        if not cliente.check_password(password):
+            return Response(
+                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = ClientesSerializer(cliente, context={'request': request})
+        return Response({
+            "success": True,
+            "cliente": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class VendedorViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = Vendedor.objects.all()
+    serializer_class = VendedorSerializer
+    lookup_field_name = "ven_codi"
+    filterset_fields = ['ven_actv', 'loc_codi']
+    search_fields = ['ven_nomb', 'ven_doc', 'ven_emai']
+    ordering = ['ven_nomb']
+
+    @method_decorator(csrf_exempt)
+    @action(detail=False, methods=['post'])
+    def login(self, request):
+        """POST /vendedores/login/ - Login de vendedor"""
+        from django.contrib.auth.hashers import check_password
+        
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response(
+                {'success': False, 'detail': 'Usuario y contraseña requeridos'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=True)
+        except Vendedor.DoesNotExist:
+            return Response(
+                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Verificar contraseña
+        if not vendedor.check_password(password):
+            return Response(
+                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = VendedorSerializer(vendedor, context={'request': request})
+        return Response({
+            "success": True,
+            "vendedor": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+# ================================================================
+# FAVORITOS Y CARRITO
+# ================================================================
+
+class FavoritosViewSet(BaseViewSet):
+    queryset = Favoritos.objects.all()
+    serializer_class = FavoritosSerializer
+    filterset_fields = ['cli_codi']
+    ordering = ['-fav_fecha']
+
+    def get_queryset(self):
+        """
+        Filtrar favoritos por cliente
+        Si se proporciona cli_codi en query params, usarlo
+        Si no, retornar todos (para admin)
+        """
+        queryset = Favoritos.objects.all()
+        cli_codi = self.request.query_params.get('cli_codi')
+        
+        if cli_codi:
+            try:
+                cli_codi = int(cli_codi)
+                queryset = queryset.filter(cli_codi_id=cli_codi)
+            except (ValueError, TypeError):
                 pass
         
-        if precio_max:
-            try:
-                articulos = articulos.filter(art_pfin__lte=float(precio_max))
-            except ValueError:
-                pass
-        
-        # Filtro por stock
-        if solo_stock:
-            articulos = articulos.filter(art_stkp__gt=0)
-        
-        total = articulos.count()
-        
-        # Paginación
-        start = (page - 1) * limit
-        articulos_paginados = articulos[start:start + limit]
-        
-        products = [serialize_articulo(art, request) for art in articulos_paginados]
-        
-        return JsonResponse({
-            'products': products,
-            'total': total,
-            'pages': (total + limit - 1) // limit,
-            'currentPage': page,
-            'count': total,
-            'results': products,
-        }, status=200)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return queryset.order_by('-fav_fecha')
 
-
-@require_http_methods(["GET"])
-def articulo_detail(request, pk):
-    """Obtener un artículo por ID"""
-    try:
-        articulo = Articulo.objects.select_related('mar_codi', 'sru_codi').get(art_codi=pk)
-        product = serialize_articulo(articulo, request)
-        return JsonResponse(product, status=200)
+    def create(self, request, *args, **kwargs):
+        """
+        POST /favoritos/ - Crear favorito para un cliente específico
+        Requiere art_codi y cli_codi en el request
+        """
+        data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
         
-    except Articulo.DoesNotExist:
-        return JsonResponse({'error': 'Producto no encontrado'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-
-
-@require_http_methods(["GET"])
-def articulos_search(request):
-    """Buscar artículos por nombre, descripción o marca"""
-    try:
-        query = request.GET.get('q', '').strip()
-        category = request.GET.get('category', '')
-        page = int(request.GET.get('page', 1))
-        limit = int(request.GET.get('limit', 30))
-        
-        # Filtrar solo artículos activos y visibles en web
-        articulos = Articulo.objects.select_related('mar_codi', 'sru_codi').filter(art_acti=True, art_visw=True)
-        
-        # Búsqueda por texto
-        if query:
-            articulos = articulos.filter(
-                Q(art_nomb__icontains=query) |
-                Q(art_desc__icontains=query) |
-                Q(mar_codi__mar_nomb__icontains=query)
+        # Validar que se proporcione art_codi
+        if 'art_codi' not in data or not data.get('art_codi'):
+            return Response(
+                {'error': 'art_codi es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Filtrar por categoría/subrubro
-        if category and category != 'all':
-            articulos = articulos.filter(sru_codi__sru_nomb__icontains=category)
+        # Si no hay cli_codi, usar el primer cliente disponible (solo para compatibilidad)
+        if 'cli_codi' not in data or not data.get('cli_codi'):
+            cliente = Clientes.objects.first()
+            if not cliente:
+                return Response(
+                    {'error': 'No hay clientes disponibles. Debe proporcionar cli_codi'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            data['cli_codi'] = cliente.cli_codi
         
-        total = articulos.count()
-        start = (page - 1) * limit
-        articulos = articulos[start:start + limit]
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['get'])
+    def cliente(self, request):
+        """GET /favoritos/cliente/?cli_codi=1 - Favoritos de un cliente específico"""
+        cli_codi = request.query_params.get('cli_codi')
+        if not cli_codi:
+            return Response([], status=status.HTTP_200_OK)
         
-        products = [serialize_articulo(art, request) for art in articulos]
-        
-        return JsonResponse({
-            'products': products,
-            'total': total,
-            'pages': (total + limit - 1) // limit,
-            'currentPage': page,
-            'count': total,
-            'results': products,
-        }, status=200)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        try:
+            cli_codi = int(cli_codi)
+            favoritos = Favoritos.objects.filter(cli_codi_id=cli_codi).order_by('-fav_fecha')
+            serializer = self.get_serializer(favoritos, many=True, context={'request': request})
+            return Response(serializer.data)
+        except (ValueError, TypeError):
+            return Response([], status=status.HTTP_200_OK)
 
 
-@require_http_methods(["GET"])
-def articulos_activos(request):
-    """Obtener solo artículos activos, visibles en web y con stock"""
-    try:
-        articulos = Articulo.objects.select_related('mar_codi', 'sru_codi').filter(
-            art_acti=True,
-            art_visw=True,
-            art_stkp__gt=0
+class CarritoItemViewSet(BaseViewSet):
+    queryset = CarritoItem.objects.all()
+    serializer_class = CarritoItemSerializer
+    filterset_fields = ['cli_codi']
+    ordering = ['-carr_fmod']
+
+    @action(detail=False, methods=['get'])
+    def cliente(self, request):
+        """GET /carrito/cliente/?cli_codi=1 - Carrito de un cliente"""
+        cli_codi = request.query_params.get('cli_codi')
+        if not cli_codi:
+            return Response([], status=status.HTTP_200_OK)
+        
+        try:
+            cli_codi = int(cli_codi)
+        except (ValueError, TypeError):
+            return Response([], status=status.HTTP_200_OK)
+        
+        carrito = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+        serializer = self.get_serializer(carrito, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def total(self, request):
+        """POST /carrito/total/ - Calcular total del carrito"""
+        cli_codi = request.data.get('cli_codi')
+        if not cli_codi:
+            return Response({'total': 0}, status=status.HTTP_200_OK)
+        
+        try:
+            cli_codi = int(cli_codi)
+            carrito = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+            total = sum(item.carr_cant * (item.carr_pfin or 0) for item in carrito)
+            return Response({'total': total})
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
+# ================================================================
+# PEDIDOS
+# ================================================================
+
+class DetallePedidoViewSet(BaseViewSet):
+    queryset = DetallePedido.objects.all()
+    serializer_class = DetallePedidoSerializer
+    filterset_fields = ['dpe_ped']
+    ordering = ['dpe_ped', 'dpe_codi']
+
+
+class PedidosViewSet(BaseViewSet):
+    queryset = Pedidos.objects.all()
+    serializer_class = PedidosSerializer
+    filterset_fields = ['ped_esta', 'ped_exp']
+    ordering_fields = ['ped_codi', 'ped_fech']
+    ordering = ['-ped_codi']
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return PedidosCompletoSerializer
+        return PedidosSerializer
+
+    @action(detail=False, methods=['get'])
+    def cliente(self, request):
+        """GET /pedidos/cliente/?cli_codi=1 - Pedidos de un cliente"""
+        cli_codi = request.query_params.get('cli_codi')
+        if not cli_codi:
+            return Response([], status=status.HTTP_200_OK)
+        
+        try:
+            cli_codi = int(cli_codi)
+            pedidos = Pedidos.objects.filter(cli_codi_id=cli_codi)
+            serializer = self.get_serializer(pedidos, many=True, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+    @action(detail=False, methods=['post'])
+    def marcar_exportados(self, request):
+        """
+        POST /pedidos/marcar_exportados/
+        Body: {"ped_codis": [1, 2, 3]}
+        """
+        from django.utils import timezone
+        
+        ped_codis = request.data.get('ped_codis', [])
+        
+        if not ped_codis or not isinstance(ped_codis, list):
+            return Response(
+                {'error': 'Se requiere lista de ped_codis'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            ped_codis = [int(x) for x in ped_codis]
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'ped_codis debe contener solo enteros'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        updated_count = Pedidos.objects.filter(
+            ped_codi__in=ped_codis,
+            ped_exp=False
+        ).update(
+            ped_exp=True,
+            ped_fexp=timezone.now()
         )
         
-        products = [serialize_articulo(art, request) for art in articulos]
-        return JsonResponse({'products': products}, status=200)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return Response({
+            'success': True,
+            'message': f'{updated_count} pedidos marcados como exportados',
+            'updated_count': updated_count,
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
 
 
-@require_http_methods(["GET"])
-def articulos_tabla(request):
-    """Obtener artículos en formato tabla con los campos específicos solicitados"""
-    try:
-        # Mismo filtro que articulos_list (solo activos y visibles en web)
-        articulos = Articulo.objects.select_related('mar_codi', 'sru_codi').filter(art_acti=True, art_visw=True)
-        products = [serialize_articulo(art, request) for art in articulos]
-        
-        return JsonResponse({'data': products}, status=200)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+# ================================================================
+# CONFIGURACIÓN
+# ================================================================
+
+class CuentaBancariaViewSet(BulkCreateMixin, BaseViewSet):
+    queryset = CuentaBancaria.objects.all()
+    serializer_class = CuentaBancariaSerializer
+    lookup_field_name = "bco_codi"
+    filterset_fields = ['bco_acti']
+    search_fields = ['bco_nomb', 'bco_ali']
+    ordering = ['-bco_acti', 'bco_nomb']
 
 
-@require_http_methods(["GET"])
+class GeneralViewSet(BaseViewSet):
+    queryset = General.objects.all()
+    serializer_class = GeneralSerializer
+    pagination_class = None
+
+    def get_serializer_context(self):
+        """Pasar request al contexto del serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
-# ============================================================================
-# VISTAS PARA CONFIGURACIÓN GENERAL
-# ============================================================================
-
-@require_http_methods(["GET"])
-def general_config(request):
-    """Obtener configuración general de la empresa"""
-    try:
-        # Obtener el primer (y único) registro de General
-        general = General.objects.first()
-        
-        if not general:
-            return JsonResponse({'error': 'Configuración general no encontrada'}, status=404)
-        
-        config = {
-            'gen_codi': general.gen_codi,
-            'gen_nomb': general.gen_nomb,
-            'gen_raz': general.gen_raz,
-            'gen_logo': get_image_url(general.gen_logo, request),
-            'gen_cuit': general.gen_cuit,
-            'gen_ingb': '',
-            'gen_razon': '',
-            'gen_dire': general.gen_dire,
-            'gen_tele': general.gen_tele,
-            'gen_emai': general.gen_emai,
-            'gen_colo': general.gen_colo,
-        }
-        
-        return JsonResponse(config, status=200)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+class UsuarioViewSet(BaseViewSet):
+    queryset = Usuario.objects.all()
+    serializer_class = UsuarioSerializer
+    search_fields = ['usu_nomb']
+    ordering = ['usu_nomb']
 
 
-# ============================================================================
-# VISTAS PARA CONFIGURACION DEL SISTEMA
-# ============================================================================
+# ================================================================
+# VENDEDOR LOGIN (SIN CSRF)
+# ================================================================
 
-@require_http_methods(["GET"])
-def app_config(request):
-    """
-    Obtener configuración centralizada de la aplicación.
-    Incluye paginación, validaciones, rate limiting y exportación.
-    """
-    config = {
-        "pagination": {
-            "default_limit": 30,
-            "max_limit": 500,
-            "items_per_page": 12,
-            "max_items_per_page": 50
-        },
-        "password_policy": {
-            "min_length": 8,
-            "require_uppercase": True,
-            "require_lowercase": True,
-            "require_numbers": True,
-            "require_special": False,
-            "messages": {
-                "min_length": "La contraseña debe tener al menos 8 caracteres",
-                "require_uppercase": "Debe contener al menos una mayúscula",
-                "require_lowercase": "Debe contener al menos una minúscula",
-                "require_numbers": "Debe contener al menos un número",
-                "require_special": "Debe contener al menos un carácter especial"
-            }
-        },
-        "export_config": {
-            "pdf": {
-                "columns": ["N°", "Producto", "Marca", "Categoría", "Stock", "Precio Original", "Precio Final"],
-                "column_widths": [8, 55, 25, 30, 15, 25, 25],
-                "orientation": "landscape",
-                "format": "a4",
-                "margin": 15
-            },
-            "excel": {
-                "columns": ["Código", "Producto", "Descripción", "Marca", "Categoría", "Stock", "Precio Neto", "Precio Final"],
-                "column_widths": [10, 30, 40, 15, 15, 10, 15, 15]
-            }
-        },
-        "rate_limits": {
-            "login": {
-                "max_attempts": 5,
-                "window_ms": 900000,
-                "message": "5 intentos en 15 minutos"
-            },
-            "register": {
-                "max_attempts": 3,
-                "window_ms": 3600000,
-                "message": "3 intentos en 1 hora"
-            },
-            "api": {
-                "requests": 100,
-                "window_ms": 60000,
-                "message": "100 requests por minuto"
-            }
-        },
-        "validation_rules": {
-            "email": {
-                "required": True,
-                "pattern": "email",
-                "message": "Email inválido"
-            },
-            "search_min_length": 2,
-            "max_search_results": 100
-        }
-    }
-    return JsonResponse(config)
-
-
-@require_http_methods(["POST"])
 @csrf_exempt
-def export_pdf_config(request):
+@require_http_methods(["POST", "OPTIONS"])
+def vendedor_login(request):
     """
-    Obtener configuración para exportación PDF personalizada.
-    El cliente envía los productos y esta vista retorna la configuración formateada.
+    POST /vendedores-login/
+    Login de vendedores
     """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        try:
+            data = json.loads(request.body)
+        except:
+            return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+        
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return JsonResponse(
+                {'success': False, 'detail': 'Usuario y contraseña requeridos'}, 
+                status=400
+            )
+
+        try:
+            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=True)
+        except Vendedor.DoesNotExist:
+            return JsonResponse(
+                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
+                status=401
+            )
+
+        # Verificar que tenga contraseña configurada
+        if not vendedor.ven_clav:
+            return JsonResponse(
+                {'success': False, 'detail': 'Vendedor sin contraseña configurada'}, 
+                status=401
+            )
+
+        # Verificar contraseña
+        if not vendedor.check_password(password):
+            return JsonResponse(
+                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
+                status=401
+            )
+
+        # Retornar datos del vendedor
+        return JsonResponse({
+            "success": True,
+            "vendedor": {
+                "ven_codi": vendedor.ven_codi,
+                "ven_nomb": vendedor.ven_nomb,
+                "ven_usua": vendedor.ven_usua,
+                "ven_emai": vendedor.ven_emai,
+                "ven_tele": vendedor.ven_tele,
+                "ven_dom": vendedor.ven_dom,
+                "ven_cuit": vendedor.ven_cuit,
+                "ven_actv": vendedor.ven_actv,
+                "loc_codi": vendedor.loc_codi_id,
+                "ven_clav": vendedor.ven_clav,
+            }
+        }, status=200)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'detail': str(e)
+        }, status=500)
+
+
+# ================================================================
+# VENDEDOR IMPERSONATION (Suplantación de clientes)
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(['POST', 'OPTIONS'])
+def vendedor_impersonate(request):
+    """
+    POST /vendedor/impersonate/
+    Permite que un vendedor suplante a uno de sus clientes
+    Body: { "cli_codi": <cliente_id> }
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        try:
+            data = json.loads(request.body)
+        except:
+            return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+        
+        cli_codi = data.get('cli_codi')
+        
+        if not cli_codi:
+            return JsonResponse(
+                {'success': False, 'error': 'cli_codi requerido'}, 
+                status=400
+            )
+
+        # Obtener cliente
+        try:
+            cliente = Clientes.objects.get(cli_codi=cli_codi)
+        except Clientes.DoesNotExist:
+            return JsonResponse(
+                {'success': False, 'error': 'Cliente no encontrado'}, 
+                status=404
+            )
+
+        # Guardar ven_codi actual en sesión (para poder restaurarlo después)
+        # La impersonación se maneja totalmente en el frontend con eventos
+        
+        # Serializar cliente para enviar al frontend
+        cliente_data = ClientesSerializer(cliente).data
+        
+        return JsonResponse({
+            "success": True,
+            "cliente": cliente_data,
+            "impersonation": {
+                "isImpersonating": True,
+                "vendedor": {
+                    "ven_codi": cliente.ven_codi_id,
+                    "ven_nomb": cliente.ven_codi.ven_nomb if cliente.ven_codi else None
+                }
+            }
+        }, status=200)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST', 'OPTIONS'])
+def vendedor_stop_impersonation(request):
+    """
+    POST /vendedor/stop-impersonation/
+    Detiene la suplantación de un cliente y restaura la sesión del vendedor
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        # Por ahora, esta función simplemente confirma que se detuvo la impersonación
+        # La restauración de la sesión se maneja desde el frontend/localStorage
+        
+        return JsonResponse({
+            "success": True,
+            "message": "Impersonation stopped",
+            "vendedor": None  # El frontend restaurará la sesión del vendedor desde localStorage
+        }, status=200)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['GET', 'OPTIONS'])
+def vendedor_check_impersonation(request):
+    """
+    GET /vendedor/check-impersonation/
+    Verifica si hay una impersonación activa
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        # Por ahora, devolvemos que no hay impersonación
+        # La impersonación se maneja completamente desde el frontend/localStorage
+        
+        return JsonResponse({
+            "isImpersonating": False,
+            "vendedor": None
+        }, status=200)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ================================================================
+# HEALTH CHECK & DEBUG
+# ================================================================
+
+@api_view(['GET', 'OPTIONS'])
+def health_check(request):
+    """Simple health check endpoint para verificar CORS"""
+    return Response({
+        "status": "ok",
+        "message": "API is running",
+        "origin": request.META.get('HTTP_ORIGIN', 'N/A'),
+        "method": request.method
+    })
+
+@api_view(['GET', 'POST', 'OPTIONS'])
+def get_csrf_token(request):
+    """
+    GET /csrf/ - Obtener token CSRF
+    Debe ser llamado antes de hacer POST a login/registro
+    """
+    from django.middleware.csrf import get_token
+    
+    if request.method == 'OPTIONS':
+        return Response({'status': 'ok'})
+    
+    token = get_token(request)
+    return Response({
+        "csrfToken": token,
+        "message": "CSRF token obtenido exitosamente"
+    })
+
+
+# ================================================================
+# AUTENTICACIÓN CLIENTES Y VENDEDORES (CON CSRF EXEMPT)
+# ================================================================
+
+# ================================================================
+# AUTENTICACIÓN CLIENTES Y VENDEDORES (SIN CSRF)
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def cliente_login(request):
+    """
+    POST /cliente-login/
+    Login de clientes
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
     try:
         data = json.loads(request.body)
-        products = data.get('products', [])
-        
-        # Obtener configuración base
-        config = {
-            "columns": ["N°", "Producto", "Marca", "Categoría", "Stock", "Precio Original", "Precio Final"],
-            "column_widths": [8, 55, 25, 30, 15, 25, 25],
-            "orientation": "landscape",
-            "format": "a4",
-            "margin": 15,
-            "filename": f"listado-productos-{timezone.now().strftime('%Y%m%d-%H%M%S')}.pdf",
-            "title": "DEBANDI - Listado de Productos",
-            "products_count": len(products)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return JsonResponse(
+            {'success': False, 'detail': 'Email y contraseña requeridos'}, 
+            status=400
+        )
+
+    try:
+        cliente = Clientes.objects.get(cli_emai=email)
+    except Clientes.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+            status=401
+        )
+
+    # Verificar contraseña
+    if not cliente.check_password(password):
+        return JsonResponse(
+            {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+            status=401
+        )
+
+    # Retornar datos del cliente
+    return JsonResponse({
+        "success": True,
+        "cliente": {
+            "cli_codi": cliente.cli_codi,
+            "cli_nomb": cliente.cli_nomb,
+            "cli_emai": cliente.cli_emai,
+            "cli_ndoc": cliente.cli_ndoc,
+            "cli_celu": cliente.cli_celu,
+            "cli_tele": cliente.cli_tele,
+            "cli_dire": cliente.cli_dire,
+            "cli_fchc": cliente.cli_fchc.isoformat() if cliente.cli_fchc else None,
+            "loc_codi": cliente.loc_codi_id,
+            "ven_codi": cliente.ven_codi_id if cliente.ven_codi else None,
         }
-        
-        return JsonResponse(config)
-        
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'JSON inválido'}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    }, status=200)
 
 
-# ============================================================================
-# CONFIGURACIÓN DE EXPORTACIÓN DE PDFs
-# ============================================================================
-
-@require_http_methods(["GET"])
-def export_config(request):
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def cliente_register(request):
     """
-    Retorna la configuración de exportación PDF según el tipo.
-    Parámetros GET:
-    - type: 'carrito', 'listado', 'pedido-{order_number}'
+    POST /cliente-register/
+    Registro de clientes
     """
-    try:
-        export_type = request.GET.get('type', 'listado')
-        
-        # Configuración por defecto para listado (todas las columnas)
-        if export_type == 'listado':
-            config = {
-                'title': 'DEBANDI - Listado de Productos',
-                'columns': ['Código', 'Producto', 'Marca', 'Rubro', 'Precio Neto', 'IVA', 'Precio Final'],
-                'columnWidths': [14, 50, 18, 25, 20, 15, 20],
-                'orientation': 'landscape',
-                'format': 'a4',
-                'margin': 10
-            }
-        # Configuración para carrito (con rubro y cantidad, sin stock)
-        elif export_type == 'carrito':
-            config = {
-                'title': 'DEBANDI - Carrito',
-                'columns': ['Código', 'Producto', 'Marca', 'Rubro', 'Precio Neto', 'IVA', 'Precio Final', 'Cantidad'],
-                'columnWidths': [12, 40, 16, 22, 18, 12, 18, 12],
-                'orientation': 'landscape',
-                'format': 'a4',
-                'margin': 10
-            }
-        # Configuración para pedidos (con rubro y cantidad)
-        elif export_type.startswith('pedido-'):
-            order_number = export_type.replace('pedido-', '')
-            config = {
-                'title': f'DEBANDI - Pedido {order_number}',
-                'columns': ['Código', 'Producto', 'Marca', 'Rubro', 'Precio Neto', 'IVA', 'Precio Final', 'Cantidad'],
-                'columnWidths': [12, 40, 16, 22, 18, 12, 18, 12],
-                'orientation': 'landscape',
-                'format': 'a4',
-                'margin': 10
-            }
-        else:
-            # Por defecto listado
-            config = {
-                'title': 'DEBANDI - Listado de Productos',
-                'columns': ['Código', 'Producto', 'Marca', 'Rubro', 'Precio Neto', 'IVA', 'Precio Final'],
-                'columnWidths': [14, 50, 18, 25, 20, 15, 20],
-                'orientation': 'landscape',
-                'format': 'a4',
-                'margin': 10
-            }
-        
-        return JsonResponse(config)
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
     
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-# ============================================================================
-# VISTAS PARA OBTENER FILTROS (MARCAS Y RUBROS)
-# ============================================================================
-
-@require_http_methods(["GET"])
-def marcas_list(request):
-    """Obtener todas las marcas que tienen artículos activos"""
     try:
-        # Obtener todas las marcas que tienen al menos un artículo activo
-        marcas = Marca.objects.filter(
-            articulo__art_acti=True
-        ).distinct().values('mar_codi', 'mar_nomb').order_by('mar_nomb')
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    email = data.get('email') or data.get('cli_emai')
+    password = data.get('password') or data.get('cli_clav')
+    name = data.get('name') or data.get('cli_nomb')
+    document = data.get('document') or data.get('cli_ndoc')
+    
+    if not all([email, password, name, document]):
+        return JsonResponse(
+            {'success': False, 'detail': 'Email, contraseña, nombre y documento son requeridos'}, 
+            status=400
+        )
+    
+    # Verificar si el email ya existe
+    if Clientes.objects.filter(cli_emai=email).exists():
+        return JsonResponse(
+            {'success': False, 'detail': 'El email ya está registrado'}, 
+            status=400
+        )
+    
+    try:
+        # Generar cli_codi automáticamente (próximo ID)
+        last_cliente = Clientes.objects.all().order_by('-cli_codi').first()
+        next_cli_codi = (last_cliente.cli_codi + 1) if last_cliente else 1
         
-        marcas_list = [
-            {'id': marca['mar_codi'], 'name': marca['mar_nomb']}
-            for marca in marcas
-        ]
+        # Obtener localidad por defecto (primer registro o la más común)
+        default_localidad = Localidad.objects.first()
+        if not default_localidad:
+            return JsonResponse(
+                {'success': False, 'detail': 'No hay localidades configuradas'}, 
+                status=500
+            )
+        
+        # Crear cliente SIN guardar contraseña en texto plano
+        cliente = Clientes(
+            cli_codi=next_cli_codi,
+            cli_emai=email,
+            cli_nomb=name,
+            cli_ndoc=document,
+            loc_codi=default_localidad
+        )
+        
+        # Usar set_password() para hashear explícitamente
+        cliente.set_password(password)
+        
+        # Guardar con contraseña hasheada
+        cliente.save()
         
         return JsonResponse({
-            'marcas': marcas_list,
-            'count': len(marcas_list)
+            "success": True,
+            "message": "Cliente registrado exitosamente",
+            "cliente": {
+                "cli_codi": cliente.cli_codi,
+                "cli_nomb": cliente.cli_nomb,
+                "cli_emai": cliente.cli_emai,
+                "cli_ndoc": cliente.cli_ndoc,
+                "loc_codi": cliente.loc_codi_id,
+            }
+        }, status=201)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse(
+            {'success': False, 'detail': str(e)}, 
+            status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def cliente_update_password(request):
+    """
+    POST /cliente-update-password/
+    Actualiza/establece la contraseña de un cliente (para testing o reseteo)
+    Body: {"email": "...", "password": "..."}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not email or not password:
+        return JsonResponse(
+            {'success': False, 'detail': 'Email y contraseña requeridos'}, 
+            status=400
+        )
+    
+    try:
+        cliente = Clientes.objects.get(cli_emai=email)
+        cliente.set_password(password)
+        cliente.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": f"Contraseña actualizada para {email}",
+            "cli_codi": cliente.cli_codi
+        }, status=200)
+    
+    except Clientes.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Cliente no encontrado'}, 
+            status=404
+        )
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'detail': str(e)}, 
+            status=500
+        )
+
+
+# ================================================================
+# FAVORITOS (SIN CSRF)
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(["POST", "DELETE", "OPTIONS"])
+def favoritos_manage(request):
+    """
+    POST /favoritos-manage/
+    Agregar o eliminar favoritos
+    
+    Body: {"cli_codi": 1, "art_codi": 5}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    cli_codi = data.get('cli_codi')
+    art_codi = data.get('art_codi')
+    
+    if not cli_codi or not art_codi:
+        return JsonResponse(
+            {'success': False, 'detail': 'cli_codi y art_codi son requeridos'},
+            status=400
+        )
+    
+    try:
+        # Verificar que existen el cliente y el artículo
+        cliente = Clientes.objects.get(cli_codi=cli_codi)
+        articulo = Articulo.objects.get(art_codi=art_codi)
+    except Clientes.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Cliente no encontrado'},
+            status=404
+        )
+    except Articulo.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Artículo no encontrado'},
+            status=404
+        )
+    
+    if request.method == 'POST':
+        # Agregar favorito
+        favorito, created = Favoritos.objects.get_or_create(
+            cli_codi=cliente,
+            art_codi=articulo
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Favorito agregado' if created else 'Ya está en favoritos',
+            'fav_codi': favorito.fav_codi,
+            'cli_codi': favorito.cli_codi_id,
+            'art_codi': favorito.art_codi_id,
+        }, status=201 if created else 200)
+    
+    elif request.method == 'DELETE':
+        # Eliminar favorito
+        favorito = Favoritos.objects.filter(
+            cli_codi=cliente,
+            art_codi=articulo
+        ).first()
+        
+        if not favorito:
+            return JsonResponse(
+                {'success': False, 'detail': 'Favorito no encontrado'},
+                status=404
+            )
+        
+        fav_codi = favorito.fav_codi
+        favorito.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Favorito eliminado',
+            'fav_codi': fav_codi
+        }, status=200)
+
+
+# ================================================================
+# BULK IMPORT ENDPOINT (CON PASSWORD HASHING)
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def importar_datos(request):
+    """
+    POST /importar_datos/
+    Importa datos en bulk desde JSON con soporte para hashing de contraseñas
+    
+    Body JSON:
+    {
+        "clientes": [{...}, ...],
+        "articulos": [{...}, ...],
+        "stock": [{...}, ...],
+        "rubros": [{...}, ...],
+        "subrubros": [{...}, ...],
+        "marcas": [{...}, ...],
+        "localidades": [{...}, ...],
+        ...
+    }
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    MODELOS = {
+        "clientes": (Clientes, "cli_codi"),
+        "articulos": (Articulo, "art_codi"),
+        "stock": (Stock, "art_codi") if hasattr(globals(), 'Stock') else None,
+        "rubros": (Rubro, "rub_codi"),
+        "subrubros": (SubRubro, "sru_codi"),
+        "marcas": (Marca, "mar_codi"),
+        "localidades": (Localidad, "loc_codi"),
+        "vendedores": (Vendedor, "ven_codi"),
+    }
+    
+    # Filtrar modelos que existen
+    MODELOS = {k: v for k, v in MODELOS.items() if v is not None}
+    
+    resultados = {}
+    
+    try:
+        with transaction.atomic():
+            for key, (model, lookup) in MODELOS.items():
+                items = data.get(key, [])
+                
+                resultados[key] = {
+                    "total": len(items),
+                    "ok": 0,
+                    "error": 0,
+                    "detalle": []
+                }
+                
+                for item in items:
+                    try:
+                        data_item = item.copy() if isinstance(item, dict) else dict(item)
+                        
+                        # =========================
+                        # NORMALIZAR VACÍOS → NULL
+                        # =========================
+                        data_item = {
+                            k: (None if v == "" else v)
+                            for k, v in data_item.items()
+                        }
+                        
+                        # =========================
+                        # CONVERTIR FK → *_id
+                        # =========================
+                        for field in model._meta.fields:
+                            if field.is_relation and field.many_to_one:
+                                fk_name = field.name
+                                if fk_name in data_item:
+                                    data_item[f"{fk_name}_id"] = data_item.pop(fk_name)
+                        
+                        # =====================================================
+                        # 🔥 CLIENTES (con password hashing)
+                        # =====================================================
+                        if key == "clientes":
+                            
+                            lookup_value = data_item.get("cli_codi")
+                            
+                            if lookup_value is None:
+                                resultados[key]["error"] += 1
+                                resultados[key]["detalle"].append({
+                                    "error": "Falta cli_codi",
+                                    "data": item
+                                })
+                                continue
+                            
+                            # Extraer contraseña antes de crear el objeto
+                            clave = data_item.pop("cli_clav", None)
+                            
+                            obj, created = model.objects.update_or_create(
+                                cli_codi=lookup_value,
+                                defaults=data_item
+                            )
+                            
+                            # Aplicar hashing de contraseña si existe
+                            if clave:
+                                obj.set_password(clave)
+                                obj.save()
+                            
+                            resultados[key]["ok"] += 1
+                            continue
+                        
+                        # =====================================================
+                        # 🔥 VENDEDORES (con password hashing)
+                        # =====================================================
+                        if key == "vendedores":
+                            
+                            lookup_value = data_item.get("ven_codi")
+                            
+                            if lookup_value is None:
+                                resultados[key]["error"] += 1
+                                resultados[key]["detalle"].append({
+                                    "error": "Falta ven_codi",
+                                    "data": item
+                                })
+                                continue
+                            
+                            # Extraer contraseña antes de crear el objeto
+                            clave = data_item.pop("ven_clav", None)
+                            
+                            obj, created = model.objects.update_or_create(
+                                ven_codi=lookup_value,
+                                defaults=data_item
+                            )
+                            
+                            # Aplicar hashing de contraseña si existe
+                            if clave:
+                                obj.set_password(clave)
+                                obj.save()
+                            
+                            resultados[key]["ok"] += 1
+                            continue
+                        
+                        # =====================================================
+                        # 🔥 ARTÍCULOS (sin ForeignKey en lookup)
+                        # =====================================================
+                        if key == "articulos":
+                            
+                            art_codi_id = data_item.get("art_codi") or data_item.get("art_codi_id")
+                            
+                            if art_codi_id is None:
+                                resultados[key]["error"] += 1
+                                resultados[key]["detalle"].append({
+                                    "error": "Falta art_codi",
+                                    "data": item
+                                })
+                                continue
+                            
+                            data_item.pop("art_codi", None)
+                            data_item.pop("art_codi_id", None)
+                            
+                            obj, created = model.objects.update_or_create(
+                                art_codi=art_codi_id,
+                                defaults=data_item
+                            )
+                            
+                            resultados[key]["ok"] += 1
+                            continue
+                        
+                        # =====================================================
+                        # 🔥 RESTO (default)
+                        # =====================================================
+                        lookup_value = data_item.get(lookup) or data_item.get(f"{lookup}_id")
+                        
+                        if lookup_value is None:
+                            resultados[key]["error"] += 1
+                            resultados[key]["detalle"].append({
+                                "error": f"Falta campo {lookup}",
+                                "data": item
+                            })
+                            continue
+                        
+                        lookup_field = f"{lookup}_id" if any(
+                            f.name == lookup and f.is_relation
+                            for f in model._meta.fields
+                        ) else lookup
+                        
+                        data_item.pop(lookup, None)
+                        data_item.pop(f"{lookup}_id", None)
+                        
+                        obj, created = model.objects.update_or_create(
+                            **{lookup_field: lookup_value},
+                            defaults=data_item
+                        )
+                        
+                        resultados[key]["ok"] += 1
+                    
+                    except Exception as e:
+                        resultados[key]["error"] += 1
+                        resultados[key]["detalle"].append({
+                            "error": str(e),
+                            "data": item
+                        })
+        
+        return JsonResponse({
+            "success": True,
+            "resultados": resultados
         }, status=200)
     
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-
-
-@require_http_methods(["GET"])
-def rubros_list(request):
-    """Obtener todos los rubros que tienen artículos activos"""
-    try:
-        # Obtener todos los rubros que tienen al menos un artículo activo
-        rubros = Rubro.objects.filter(
-            subrubro__articulo__art_acti=True
-        ).distinct().values('rub_codi', 'rub_nomb').order_by('rub_nomb')
-        
-        rubros_list = [
-            {'id': rubro['rub_codi'], 'name': rubro['rub_nomb']}
-            for rubro in rubros
-        ]
-        
         return JsonResponse({
-            'rubros': rubros_list,
-            'count': len(rubros_list)
-        }, status=200)
-    
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+            "success": False,
+            "error": str(e)
+        }, status=500)
 
-
-@require_http_methods(["GET"])
-def cuentas_bancarias_list(request):
-    """Obtener la primera cuenta bancaria activa para transferencias"""
-    try:
-        # Obtener la primera cuenta bancaria activa
-        cuenta = CuentaBancaria.objects.filter(bco_acti=True).order_by('bco_codi').first()
-        
-        if not cuenta:
-            return JsonResponse({'error': 'No hay cuentas bancarias disponibles'}, status=404)
-        
-        # Retornar en el formato que espera el frontend
-        return JsonResponse({
-            'banco': cuenta.bco_nomb,
-            'titular': cuenta.bco_titu,
-            'cbu': cuenta.bco_cbu,
-            'cuit': cuenta.bco_cuit,
-            'cuenta': cuenta.bco_num,
-            'alias': cuenta.bco_ali if cuenta.bco_ali else ''
-        }, status=200)
-    
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)

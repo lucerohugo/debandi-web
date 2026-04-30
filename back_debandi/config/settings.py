@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'rest_framework',
+    'django_filters',
     'gestion',
 
 ]
@@ -63,7 +65,8 @@ MIDDLEWARE = [
     
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # ← DESHABILITADO EN DESARROLLO
+    # En producción, descomentar para activar CSRF
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -169,9 +172,12 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# CSRF Configuration - Confiar en los mismos orígenes que CORS
+CSRF_TRUSTED_ORIGINS = get_cors_origins()
+
 # Session Configuration (para cookies)
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() == 'true'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
 SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '1209600'))  # 14 días
 
@@ -190,63 +196,22 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
-# Frontend URL para links de recuperación de contraseña
-FRONTEND_PASSWORD_RESET_URL = os.getenv('FRONTEND_PASSWORD_RESET_URL', 'http://localhost:3000/reset-password')
-PASSWORD_RESET_TIMEOUT = 3600  # 1 hora
-# ============================================================================
-# JWT CONFIGURATION - SEGURIDAD EN PRODUCCIÓN
-# ============================================================================
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Token expira en 1 hora
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh token expira en 7 días
-    'ROTATE_REFRESH_TOKENS': True,  # Genera nuevo refresh token cada vez
-    'BLACKLIST_AFTER_ROTATION': True,  # Invalida refresh tokens viejos
-    
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,  # Usa SECRET_KEY de Django
-    'VERIFYING_KEY': None,
-    
-    'USER_ID_FIELD': 'cli_codi',  # Campo de identificación en modelo Clientes
-    'USER_ID_CLAIM': 'cli_codi',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-    
-    'JTI_CLAIM': 'jti',
-}
-
-# ============================================================================
-# REDIS CACHE CONFIGURATION - PARA TOKENS Y BLACKLIST
-# ============================================================================
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'SOCKET_CONNECT_TIMEOUT': 5,  # 5 segundos timeout
-            'SOCKET_TIMEOUT': 5,
-            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-            'IGNORE_EXCEPTIONS': True,  # Fallback si Redis no disponible
-            'PARSER_KWARGS': {},
-        }
-    }
-}
-
 # ============================================================================
 # REST FRAMEWORK CONFIGURATION
 # ============================================================================
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',  # JSON por defecto para APIs
+        'rest_framework.renderers.BrowsableAPIRenderer',  # Interfaz HTML cuando se visita en navegador
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # Exigir autenticación por defecto
-    ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 30,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
     ],
 }
+
+# ============================================================================
+# DJANGO FILTERS CONFIGURATION
+# ============================================================================
+FILTERS_VERBOSITY = 'quiet'  # No mostrar formularios de filtros HTML

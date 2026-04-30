@@ -4,56 +4,149 @@ from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from decimal import Decimal
+import secrets
 
 
+# ================================================================
+# UBICACIONES GEOGRÁFICAS
+# ================================================================
 
-#Provincia--------------------------------------------------------------------------------------------------------------------------------
 class Provincia(models.Model):
-    pci_codi = models.AutoField(primary_key=True)
+    """Provincias/Departamentos"""
+    pci_codi = models.IntegerField(primary_key=True, editable=True)
     pci_nomb = models.CharField(max_length=100)
 
-    def __str__(self):
-        return self.pci_nomb     
+    class Meta:
+        verbose_name = "Provincia"
+        verbose_name_plural = "Provincias"
+        ordering = ["pci_nomb"]
 
-#Zona--------------------------------------------------------------------------------------------------------------------------------
+    def __str__(self):
+        return self.pci_nomb
+
+
 class Zona(models.Model):
-    zon_codi = models.AutoField(primary_key=True)
+    """Zonas geográficas"""
+    zon_codi = models.IntegerField(primary_key=True, editable=True)
     zon_nomb = models.CharField(max_length=100)
 
+    class Meta:
+        verbose_name = "Zona"
+        verbose_name_plural = "Zonas"
+        ordering = ["zon_nomb"]
+
     def __str__(self):
-        return self.zon_nomb     
+        return self.zon_nomb
 
 
-#Localidad--------------------------------------------------------------------------------------------------------------------------------
 class Localidad(models.Model):
-    loc_codi= models.AutoField(primary_key=True)
+    """Localidades/Ciudades"""
+    loc_codi = models.IntegerField(primary_key=True, editable=True)
     loc_nomb = models.CharField(max_length=100)
-    pci_codi = models.ForeignKey(Provincia, on_delete=models.PROTECT)
-    zon_codi = models.ForeignKey(Zona, on_delete=models.PROTECT)
+    loc_cpos = models.CharField(max_length=5, blank=True, null=True, help_text="Código postal")
+    pci_codi = models.ForeignKey(Provincia, on_delete=models.PROTECT, related_name="localidades")
+    zon_codi = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name="localidades")
+
+    class Meta:
+        verbose_name = "Localidad"
+        verbose_name_plural = "Localidades"
+        ordering = ["pci_codi", "loc_nomb"]
 
     def __str__(self):
-        return self.loc_nomb  
+        return f"{self.loc_nomb} ({self.loc_cpos})" if self.loc_cpos else self.loc_nomb  
 
 
-#Clientes--------------------------------------------------------------------------------------------------------------------------------
-class Clientes(models.Model):
-    cli_codi = models.AutoField(primary_key=True)   #codigo_cliente
-    cli_nomb = models.CharField(max_length=100) #nombre_cliente
-    cli_doc = models.CharField(max_length=8, unique=True, blank=True, null=True) #documento 
-    cli_emai = models.EmailField(unique=True, blank=True, null=True)  #email
-    cli_cuit = models.CharField(max_length=20, unique=True, blank=True, null=True)  #cuit
-    cli_tele=  models.CharField(max_length=20, blank=True)  #telefono
-    cli_dire = models.CharField(max_length=150, blank=True)  #direccion
-    cli_bar = models.CharField(max_length=100, blank=True)  #barrio
-    cli_pswd = models.CharField(max_length=255, blank=True)  #contraseña hasheada (PBKDF2-SHA256)
-    cli_rtok = models.CharField(max_length=255, blank=True, null=True)  #token de recuperacion de contraseña
-    cli_rexp = models.DateTimeField(blank=True, null=True)  #expiración del token de recuperacion #ver bien esto 4/12/2026
-    loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT) #localidad
-    ven_codi = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True) #vendedor
+# ================================================================
+# CATÁLOGO DE PRODUCTOS
+# ================================================================
+
+class Marca(models.Model):
+    """Marcas de productos"""
+    mar_codi = models.IntegerField(primary_key=True, editable=True)
+    mar_nomb = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        verbose_name = "Marca"
+        verbose_name_plural = "Marcas"
+        ordering = ["mar_nomb"]
+
+    def __str__(self):
+        return self.mar_nomb
 
 
-    cli_org = models.CharField(
-        max_length=20,  
+class Rubro(models.Model):
+    """Rubros/Categorías principales"""
+    rub_codi = models.IntegerField(primary_key=True, editable=True)
+    rub_nomb = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        verbose_name = "Rubro"
+        verbose_name_plural = "Rubros"
+        ordering = ["rub_nomb"]
+
+    def __str__(self):
+        return self.rub_nomb
+
+
+class SubRubro(models.Model):
+    """Sub-rubros/Categorías dentro de un rubro"""
+    sru_codi = models.IntegerField(primary_key=True, editable=True)
+    sru_nomb = models.CharField(max_length=100)
+    rub_codi = models.ForeignKey(Rubro, on_delete=models.PROTECT, related_name="subrubros")
+
+    class Meta:
+        verbose_name = "Sub-rubro"
+        verbose_name_plural = "Sub-rubros"
+        ordering = ["rub_codi", "sru_nomb"]
+        unique_together = ("rub_codi", "sru_nomb")
+
+    def __str__(self):
+        return f"{self.sru_nomb} ({self.rub_codi.rub_nomb})"
+
+
+class Articulo(models.Model):
+    """Artículos/Productos"""
+    IVA_CHOICES = (
+        ('21', '21%'),
+        ('27', '27%'),
+        ('10.5', '10,5%'),
+        ('0', '0% (Exento)'),
+    )
+
+    DEPOSITO_CHOICES = (
+        ('DEPOSITO_ABAJO', 'Depósito Abajo'),
+        ('DEPOSITO_ARRIBA', 'Depósito Arriba'),
+        ('DEPOSITO_ENFRENTE', 'Depósito Enfrente'),
+        ('PRINCIPAL', 'Principal'),
+        ('SIN_DEFINIR', 'Sin Definir'),
+    )
+
+    art_codi = models.IntegerField(primary_key=True, editable=True)
+    art_cint = models.CharField(max_length=50, blank=True, null=True, help_text="Código interno")
+    art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
+    art_nomb = models.CharField(max_length=100)
+    art_desc = models.TextField(blank=True, help_text="Descripción del artículo")
+    art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto")
+    art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=False, help_text="Precio final con IVA")
+    art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
+    art_stkp = models.PositiveIntegerField(default=0, help_text="Stock principal")
+    art_stkmin = models.PositiveIntegerField(default=0, help_text="Stock mínimo")
+    art_stkmax = models.PositiveIntegerField(default=0, help_text="Stock máximo")
+    art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack")
+    art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto")
+    art_img = models.ImageField(upload_to='articulos/', blank=True, null=True)
+    art_depo = models.CharField(max_length=30, choices=DEPOSITO_CHOICES, default='SIN_DEFINIR')
+    art_mext = models.BooleanField(default=False, help_text="Precio en moneda extranjera (USD)")
+
+    mar_codi = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="articulos", default=1)
+    sru_codi = models.ForeignKey(SubRubro, on_delete=models.PROTECT, blank=True, null=True, related_name="articulos")
+    art_tiva = models.CharField(max_length=5, choices=IVA_CHOICES, default='21', help_text="IVA del artículo")
+
+    art_acti = models.BooleanField(default=True, help_text="Artículo activo")
+    art_visw = models.BooleanField(default=True, help_text="Visible en web")
+
+    art_org = models.CharField(
+        max_length=20,
         choices=(
             ('ADMIN', 'Admin Django'),
             ('SCRIPT', 'Script automático'),
@@ -62,117 +155,19 @@ class Clientes(models.Model):
         default='ADMIN'
     )
 
-    cli_fchc = models.DateTimeField(
-        auto_now_add=True,
-        help_text="Fecha de creación"
-    )
+    art_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
+    art_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
 
-    cli_fmod = models.DateTimeField(
-        auto_now=True,
-        help_text="Última modificación"
-    )
-
-    # bdf / GeneXus
-    cli_exp = models.BooleanField(
-        default=False,
-        help_text="Indica si el cliente ya fue exportado a BrixSoft"
-    )
-
-    cli_fexp = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Fecha de exportación a GeneXus"
-    )
-
-    def __str__(self):
-        return f"{self.cli_nomb} - {self.cli_doc}"
-
-#Marca--------------------------------------------------------------------------------------------------------------------------------
-class Marca(models.Model):
-    mar_codi = models.AutoField(primary_key=True)
-    mar_nomb = models.CharField(max_length=100, unique=True)
-
-    def __str__(self):
-        return self.mar_nomb
-
-#Rubro--------------------------------------------------------------------------------------------------------------------------------
-class Rubro(models.Model):
-    rub_codi = models.AutoField(primary_key=True)
-    rub_nomb = models.CharField(max_length=100, unique=True)
-
-    def __str__(self):
-        return self.rub_nomb
-
-
-#Subrubro------------------------------------------------------------------------------------------------------------------------
-class SubRubro(models.Model):
-    sru_codi = models.AutoField(primary_key=True)
-    sru_nomb = models.CharField(max_length=100)
-    rub_codi = models.ForeignKey(Rubro,on_delete=models.PROTECT,related_name="subrubros")
+    art_fchc = models.DateTimeField(auto_now_add=True)
+    art_fmod = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('sru_nomb', 'sru_codi')
-
-    def __str__(self):
-        return f"{self.sru_nomb} {self.rub_codi.rub_nomb}"
-
-#Articulos------------------------------------------------------------------------------------------------------------------------- 
-class Articulo(models.Model):
-    # Constantes del IVA para Articulos
-    IVA_CHOICES = (
-        ('21', '21%'),
-        ('27', '27%'),
-        ('10.5', '10,5%'),
-        ('0', '0% (Exento)'),
-    )
-    
-    # Opciones de depósito
-    DEPOSITO_CHOICES = (
-        ('DEPOSITO_ABAJO', 'Depósito Abajo'),
-        ('DEPOSITO_ARRIBA', 'Depósito Arriba'),
-        ('DEPOSITO_ENFRENTE', 'Depósito Enfrente'),
-        ('PRINCIPAL', 'Principal'),
-        ('SIN_DEFINIR', 'Sin Definir'),
-    )
-    
-    art_codi = models.AutoField(primary_key=True)    #codigo_articulo
-    art_cint = models.CharField(max_length=50, blank=True, null=True)  #codigo_interno
-    art_sku = models.CharField(max_length=100, blank=True, null=True)  #sku
-    art_nomb = models.CharField(max_length=100)  #nombre_articulo 
-    art_desc = models.TextField(blank=True) #descripcion_articulo
-    art_pnet = models.DecimalField(max_digits=12, decimal_places=2)    #precio_neto
-    art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=False)       #precio final con iva y todo
-    art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)      #costo
-    art_stkp = models.PositiveIntegerField(default=0) # stock_principal
-    art_stkmin = models.PositiveIntegerField(default=0) # stock_minimo
-    art_stkmax = models.PositiveIntegerField(default=0) # stock_maximo
-    art_xbul = models.BooleanField(default=False)  # art_por_bulto O PACK
-    art_ubul = models.PositiveIntegerField(default=1) #unidades_por_bulto
-    art_img = models.ImageField(upload_to='articulos/', blank=True, null=True)  #imagen_articulo
-    art_depo = models.CharField(max_length=30, choices=DEPOSITO_CHOICES, default='SIN_DEFINIR')  #deposito_predeterminado
-    art_mext = models.BooleanField(default=False, help_text="Marcar si el precio está en moneda extranjera (USD)")  #moneda extranjera
-
-    mar_codi = models.ForeignKey(Marca, on_delete=models.PROTECT, default=12882)#marca id
-    sru_codi = models.ForeignKey(SubRubro, on_delete=models.PROTECT, blank=True, null=True) #subrubro id
-    art_tiva = models.CharField(max_length=5, choices=IVA_CHOICES, default='21', help_text="IVA del artículo")
-
-    art_acti = models.BooleanField(default=True)          #activo
-
-    #bdf
-    art_exp = models.BooleanField(
-        default=False,  
-        help_text="Indica si el/o los articulos ya fueron exportado a BrixSoft(Genexus)") #indica la exportacion en tilde o cruz
-    art_fexp = models.DateTimeField(
-        null=True, 
-        blank=True,  
-        help_text="Indica la fecha que se exportaron los articulos"
-        )  #indica la fecha de exportacion
-
-
-    
+        verbose_name = "Artículo"
+        verbose_name_plural = "Artículos"
+        ordering = ["art_nomb"]
 
     def get_iva_rate(self):
-        """Obtiene el IVA del artículo (siempre tiene valor por default)"""
+        """Obtiene el IVA del artículo"""
         return float(self.art_tiva) if self.art_tiva else 21
 
     def save(self, *args, **kwargs):
@@ -182,14 +177,7 @@ class Articulo(models.Model):
 
     @property
     def art_precio_final(self):
-        """Precio final con IVA incluido (alias de art_pfin)"""
-        return self.art_pfin
-
-    @property
-    def art_piva(self):
-        """Alias para compatibilidad con art_pfin"""
-        if self.art_xbul:
-            return self.art_pfin * self.art_ubul
+        """Precio final con IVA incluido"""
         return self.art_pfin
 
     @property
@@ -203,65 +191,126 @@ class Articulo(models.Model):
         return self.sru_codi.rub_codi.rub_nomb if self.sru_codi and self.sru_codi.rub_codi else '-'
 
     def __str__(self):
-        return f"{self.art_nomb} - {self.mar_codi.mar_nomb}"
+        marca = self.mar_codi.mar_nomb if self.mar_codi else "Sin marca"
+        return f"{self.art_nomb} - {marca}"
 
 
-    art_org = models.CharField( #articulo_origen es decir de donde viene,si de django ,si del script o api
-    max_length=20,
-    choices=(
-        ('ADMIN', 'Admin Django'),
-        ('SCRIPT', 'Script automático'),
-        ('API', 'API'),
-    ),
+# ================================================================
+# CLIENTES Y AUTENTICACIÓN
+# ================================================================
+
+class Clientes(models.Model):
+    """Clientes compradores"""
+    cli_codi = models.IntegerField(primary_key=True, editable=True)
+    cli_nomb = models.CharField(max_length=150, help_text="Nombre del cliente")
+    cli_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
+    cli_tdoc = models.CharField(max_length=20, default="DNI", help_text="Tipo de documento")
+    cli_ndoc = models.CharField(max_length=20, blank=True, null=True, help_text="Número de documento")
+    cli_doc = models.CharField(max_length=8, blank=True, null=True, help_text="Documento (legado)")
+    cli_cuit = models.CharField(max_length=20, blank=True, null=True, unique=True, help_text="CUIT")
+    cli_emai = models.EmailField(blank=True, null=True, unique=True, help_text="Email")
+    cli_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")
+    cli_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
+    cli_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
+    cli_bar = models.CharField(max_length=100, blank=True, help_text="Barrio")
+    cli_estc = models.CharField(max_length=50, blank=True, null=True, help_text="Estado civil")
+    cli_ocup = models.CharField(max_length=100, blank=True, null=True, help_text="Ocupación")
+
+    cli_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
+    cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
+    cli_rexp = models.DateTimeField(blank=True, null=True, help_text="Expiración del token")
+
+    loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="clientes")
+    ven_codi = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name="clientes")
+
+    cli_org = models.CharField(
+        max_length=20,
+        choices=(
+            ('ADMIN', 'Admin Django'),
+            ('SCRIPT', 'Script automático'),
+            ('API', 'API'),
+        ),
         default='ADMIN'
     )
 
-    art_fchc = models.DateTimeField( #art_fecha creacion del script admin 
-        auto_now_add=True,
-        help_text="Fecha de creación"
-    )
+    cli_exp = models.BooleanField(default=False, help_text="Exportado a BrixSoft")
+    cli_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
 
-    art_fmod = models.DateTimeField( #ultima_modificacion del articulo del admin scritp o lo que sea
-        auto_now=True,
-        help_text="Última modificación"
-    )
-
-    art_visw = models.BooleanField(
-        default=True,
-        help_text="Marcar para que el artículo sea visible en la web"
-    )  # visible_en_web
-
-#Favoritos--------------------------------------------------------------------------------------------------------------------------
-class Favoritos(models.Model):
-    fav_codi = models.AutoField(primary_key=True)
-    cli_codi = models.ForeignKey(Clientes, on_delete=models.CASCADE, related_name='favoritos')  #cliente
-    art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE)  #articulo
-    fav_fecha = models.DateTimeField(auto_now_add=True)  #fecha_agregado
+    cli_fchc = models.DateTimeField(auto_now_add=True)
+    cli_fmod = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('cli_codi', 'art_codi')  # Un cliente no puede tener el mismo artículo dos veces en favoritos
+        verbose_name = "Cliente"
+        verbose_name_plural = "Clientes"
+        ordering = ["cli_nomb"]
+
+
+    def set_password(self, raw_password):
+        """Establece la contraseña hasheada"""
+        from django.contrib.auth.hashers import make_password
+        if raw_password and raw_password.strip():
+            self.cli_clav = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        """Verifica si la contraseña coincide"""
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.cli_clav)
+
+    def __str__(self):
+        return f"{self.cli_nomb} - {self.cli_ndoc or self.cli_doc or 'S/D'}"
+
+
+
+
+
+# ================================================================
+# FAVORITOS Y CARRITO
+# ================================================================
+
+class Favoritos(models.Model):
+    """Artículos favoritos de clientes"""
+    fav_codi = models.AutoField(primary_key=True)
+    cli_codi = models.ForeignKey(Clientes, on_delete=models.CASCADE, related_name='favoritos')
+    art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='en_favoritos')
+    fav_fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Favorito"
+        verbose_name_plural = "Favoritos"
+        unique_together = ('cli_codi', 'art_codi')
+        ordering = ['-fav_fecha']
 
     def __str__(self):
         return f"{self.cli_codi.cli_nomb} - {self.art_codi.art_nomb}"
 
-#Usuario----------------------------------------------------------------------------------------------------------------------------
-class Usuario(models.Model):
-    ROL_CHOICES = (
-        ('ADMIN' , 'Administrador'),
-        ('CLI', 'Cliente')
-    )
 
-    usu_perf = models.OneToOneField(User, on_delete=models.PROTECT, null= True, blank=True, related_name='perfil_usuario')#usuario
-    usu_nomb = models.CharField(max_length=100) #nombre
-    usu_rol = models.CharField(max_length=10, choices=ROL_CHOICES, default='CLI')   #rol
-    usu_fcre = models.DateTimeField(auto_now_add=True)  #fecha_creacion
+class CarritoItem(models.Model):
+    """Items del carrito de compras"""
+    carr_codi = models.AutoField(primary_key=True)
+    cli_codi = models.ForeignKey(Clientes, on_delete=models.CASCADE, related_name="carrito_items")
+    art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE)
+    carr_cant = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    carr_pnet = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    carr_pfin = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    carr_fech = models.DateTimeField(auto_now_add=True)
+    carr_fmod = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Carrito Item"
+        verbose_name_plural = "Carrito Items"
+        unique_together = ('cli_codi', 'art_codi')
+        ordering = ['-carr_fmod']
+
+    def __str__(self):
+        return f"{self.cli_codi.cli_nomb} - {self.art_codi.art_nomb} x {self.carr_cant}"
 
 
-    def __str__(self): 
-        return f"{self.usu_nomb} [{self.get_rol_display()}]"
+# ================================================================
+# PEDIDOS
+# ================================================================
 
-#Pedidos-------------------------------------------------------------------------------------------------------------------------------
 class Pedidos(models.Model):
+    """Pedidos de compra"""
     ESTADO_CHOICES = (
         ('P', 'Pendiente'),
         ('PA', 'Pagado'),
@@ -271,161 +320,106 @@ class Pedidos(models.Model):
 
     FORMA_PAGO_CHOICES = (
         ('CDO', 'Contado'),
-        ('CTC','Cuenta Corriente'),
-        ('CHQ','Cheque'),
-        ('MP', 'Mercado Pago'),
+        ('CTC', 'Cuenta Corriente'),
+        ('CHQ', 'Cheque'),
+        ('TRF', 'Transferencia'),
     )
 
-    ped_codi = models.AutoField(primary_key=True) #codigo_pedido 
-    cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos')  #cliente
-    ped_esta = models.CharField(max_length=2, choices=ESTADO_CHOICES, default='P') #estado_pedido, esto lo deberia sacar
-    ped_tota = models.DecimalField(max_digits=12,decimal_places=2,default=0,validators=[MinValueValidator(0)]) # total_pedido
-    ped_fech = models.DateTimeField(default=timezone.now)  # fecha_pedido
-    ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES) #forma_pago_pedido 
-    bco_codi = models.ForeignKey('CuentaBancaria', on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos') # banco para transferencia
+    ped_codi = models.AutoField(primary_key=True)
+    cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
+    ped_esta = models.CharField(max_length=2, choices=ESTADO_CHOICES, default='P')
+    ped_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    ped_fech = models.DateTimeField(default=timezone.now)
+    ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES)
+    bco_codi = models.ForeignKey('CuentaBancaria', on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos')
 
+    ped_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
+    ped_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
 
-    ped_exp = models.BooleanField( #muestra si el pedido fue exportado a la bdf o no 
-        default=False,
-        help_text="Indica si el pedido ya fue exportado a Genexus"
-    )
-
-    ped_fech_exp = models.DateTimeField( #fecha en la cual se exporto del back a la bdf 
-        null=True,
-        blank=True,
-        help_text="Fecha en la que el pedido fue exportado"
-    )
-    
+    class Meta:
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+        ordering = ['-ped_codi']
 
     def actualizar_total(self):
         total = self.detalles.aggregate(
             total=models.Sum('dpe_subt')
         )['total'] or 0
-
         self.ped_tota = total
         self.save(update_fields=['ped_tota'])
-
 
     def puede_modificarse(self):
         return self.ped_esta == 'P'
 
     def __str__(self):
-        return f"Pedido {self.ped_codi} - {self.cli_codi.cli_nomb}"
+        cli_nomb = self.cli_codi.cli_nomb if self.cli_codi else "Anónimo"
+        return f"Pedido {self.ped_codi} - {cli_nomb}"
 
 
-        
-#DetallePedido-------------------------------------------------------------------------------------------------------------
 class DetallePedido(models.Model):
-    dpe_codi = models.AutoField(primary_key=True) #detalle_pedido_codigo
-    dpe_deta = models.ForeignKey(Pedidos, on_delete=models.CASCADE, related_name= 'detalles') #apunta directamen en el ped_codi
-    art_codi = models.ForeignKey(Articulo, on_delete=models.PROTECT) #articulo 
-    dpe_cant = models.PositiveIntegerField(validators=[MinValueValidator(1)])# detalle_pedido_cantidad
-    dpe_prec = models.DecimalField(max_digits=12, decimal_places=2) #detalle_pedido_precio
-    dpe_des = models.DecimalField(max_digits=12, decimal_places=2, default=0) #detalle_pedido_descuento /// esto lo deberia de ser: art_desc y asociarlo aca en el detalle de pedido
-    dpe_subt = models.DecimalField(max_digits=12, decimal_places=2, editable=False) #detalle_pedido_subtotal
+    """Detalles de líneas en un pedido"""
+    dpe_codi = models.AutoField(primary_key=True)
+    dpe_ped = models.ForeignKey(Pedidos, on_delete=models.CASCADE, related_name='detalles')
+    art_codi = models.ForeignKey(Articulo, on_delete=models.PROTECT, related_name='en_pedidos')
+    dpe_cant = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    dpe_prec = models.DecimalField(max_digits=12, decimal_places=2)
+    dpe_des = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dpe_subt = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+
+    class Meta:
+        verbose_name = "Detalle Pedido"
+        verbose_name_plural = "Detalles Pedidos"
+        ordering = ['dpe_ped', 'dpe_codi']
 
     def save(self, *args, **kwargs):
-        # No permitir cambios si el pedido no está pendiente
-        if not self.dpe_deta.puede_modificarse():
-            raise ValidationError("No se puede modificar un pedido facturado o cancelado")
+        if not self.dpe_ped.puede_modificarse():
+            raise ValidationError("No se puede modificar un pedido no pendiente")
 
         if not self.pk:
             if self.art_codi.art_stkp < self.dpe_cant:
                 raise ValidationError("Stock insuficiente")
-
-            # Descontar stock
             self.art_codi.art_stkp -= self.dpe_cant
             self.art_codi.save()
 
-        # Calcular subtotal (el precio ya debe estar seteado desde afuera)
         self.dpe_subt = (self.dpe_cant * self.dpe_prec) - self.dpe_des
-
         super().save(*args, **kwargs)
-
-        # Actualizar total del pedido
-        self.dpe_deta.actualizar_total()
+        self.dpe_ped.actualizar_total()
 
     def delete(self, *args, **kwargs):
-        # Reponer stock
         self.art_codi.art_stkp += self.dpe_cant
         self.art_codi.save()
-
-        pedido = self.dpe_deta
+        pedido = self.dpe_ped
         super().delete(*args, **kwargs)
-
         pedido.actualizar_total()
 
     def __str__(self):
         return f"{self.art_codi.art_nomb} x {self.dpe_cant}"
 
 
-class General(models.Model):
-    
-    gen_codi = models.AutoField(primary_key=True)
+# ================================================================
+# CONFIGURACIÓN Y DATOS GENERALES
+# ================================================================
 
-    #Identidad
-    gen_nomb = models.CharField(max_length=100, default='Debandi')
-    gen_raz = models.CharField(max_length=150, blank=True, default='Debandi Distribuciones') #razon_social
-    gen_logo = models.ImageField(upload_to='general/', blank=True, null=True, default='general/logo-debandi.svg') #logo_empresa #200x80 (625x250)
-
-    #Fiscal
-    gen_cuit = models.CharField(max_length=20, default='00-00000000-0')
-
-    #Personalización
-    gen_colo = models.CharField(max_length=7, default='#8cced9', help_text="Color principal de la aplicación (formato HEX)") #color pagina debandi: #8cced9 
-
-    #Ubicacion / contacto
-    gen_loc = models.ForeignKey(Localidad, on_delete=models.PROTECT, null=True, blank=True)
-    gen_dire = models.CharField(max_length=150, blank=True, default='')
-    gen_tele = models.CharField(max_length=20, blank=True, default='')
-    gen_emai = models.EmailField(blank=True, default='contacto@debandi.com')
-
-    def __str__(self):
-        return self.gen_nomb
-
-
-# Carrito de Compras --------------------------------------------------------
-class CarritoItem(models.Model):
-    cli_codi = models.ForeignKey(Clientes, on_delete=models.CASCADE, related_name="carrito_items")
-    art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE)
-    cantidad = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-    # Guardar los precios en el momento en que se agrega
-    art_pnet = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    art_pfin = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    fecha_agregado = models.DateTimeField(auto_now_add=True)
-    fecha_actualizado = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('cli_codi', 'art_codi')
-        ordering = ['-fecha_actualizado']
-
-    def __str__(self):
-        return f"{self.cli_codi.cli_nomb} - {self.art_codi.art_nomb} x {self.cantidad}"
-
-
-# Cuentas Bancarias en teorica esto no va --------------------------------------------------------
 class CuentaBancaria(models.Model):
+    """Cuentas bancarias de la empresa"""
     TIPO_CUENTA_CHOICES = (
         ('CAJA_AHORRO', 'Caja de Ahorro'),
         ('CUENTA_CORRIENTE', 'Cuenta Corriente'),
         ('CUENTA_VISA', 'Cuenta Visa'),
     )
 
-    bco_codi = models.AutoField(primary_key=True)  # codigo_cuenta_bancaria
-    bco_nomb = models.CharField(max_length=100)  # nombre_banco (ej: Banco Nación, Banco Provincia)
-    bco_titu = models.CharField(max_length=100)  # titular_cuenta
-    bco_cuit = models.CharField(max_length=20)  # CUIT_del_titular
-    bco_tip = models.CharField(max_length=20, choices=TIPO_CUENTA_CHOICES, default='CAJA_AHORRO')  # tipo_cuenta
-    bco_num = models.CharField(max_length=50)  # numero_cuenta
-    bco_cbu = models.CharField(max_length=22, unique=True)  # CBU (Código Bancario Único - 22 dígitos)
-    bco_ali = models.CharField(max_length=50, unique=True)  # alias_CBU (ej: DEBANDI.COM.AR)
-
-    # Campos adicionales útiles
-    bco_acti = models.BooleanField(default=True)  # cuenta_activa
-    bco_obs = models.TextField(blank=True, null=True)  # observaciones
-
-    bco_fchc = models.DateTimeField(auto_now_add=True)  # fecha_creacion
-    bco_fmod = models.DateTimeField(auto_now=True)  # fecha_ultima_modificacion
+    bco_codi = models.AutoField(primary_key=True)
+    bco_nomb = models.CharField(max_length=100)
+    bco_titu = models.CharField(max_length=100, help_text="Titular de la cuenta")
+    bco_cuit = models.CharField(max_length=20)
+    bco_tip = models.CharField(max_length=20, choices=TIPO_CUENTA_CHOICES, default='CAJA_AHORRO')
+    bco_num = models.CharField(max_length=50)
+    bco_cbu = models.CharField(max_length=22, unique=True, help_text="Código Bancario Único")
+    bco_ali = models.CharField(max_length=50, unique=True, help_text="Alias CBU")
+    bco_acti = models.BooleanField(default=True)
+    bco_obs = models.TextField(blank=True, null=True, help_text="Observaciones")
+    bco_fchc = models.DateTimeField(auto_now_add=True)
+    bco_fmod = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Cuenta Bancaria"
@@ -433,36 +427,101 @@ class CuentaBancaria(models.Model):
         ordering = ['-bco_acti', 'bco_nomb']
 
     def __str__(self):
-        return f"{self.bco_nomb} - {self.bco_ali} ({self.bco_titu})"
-    
+        return f"{self.bco_nomb} - {self.bco_ali}"
 
 
+class General(models.Model):
+    """Datos generales de la empresa"""
+    gen_codi = models.IntegerField(primary_key=True, editable=True)
+    gen_nomb = models.CharField(max_length=150, blank=True, help_text="Nombre de la empresa")
+    gen_raz = models.CharField(max_length=150, blank=True, default='Debandi Distribuciones', help_text="Razón social")
+    gen_logo = models.ImageField(upload_to='logos/', blank=True, null=True, help_text="Logo de Debandi")
+    gen_loge = models.ImageField(upload_to='logos/', blank=True, null=True, help_text="Logo de BrixSoft")
+    gen_cuit = models.CharField(max_length=20, default='00-00000000-0', help_text="CUIT de la empresa")
+    gen_colo = models.CharField(max_length=7, default='#8cced9', help_text="Color principal (HEX)")
+    gen_loc = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True)
+    gen_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
+    gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
+    gen_emai = models.EmailField(blank=True, default='contacto@debandi.com', help_text="Email")
 
-# Vendedores-----------------------------------------------------------------------
+    class Meta:
+        verbose_name = "General"
+        verbose_name_plural = "General"
+
+    def __str__(self):
+        return self.gen_nomb or "Configuración General"
+
+
+class Usuario(models.Model):
+    """Usuarios administradores"""
+    ROL_CHOICES = (
+        ('ADMIN', 'Administrador'),
+        ('USER', 'Usuario'),
+    )
+
+    usu_perf = models.OneToOneField(User, on_delete=models.CASCADE, related_name='usuario')
+    usu_nomb = models.CharField(max_length=100)
+    usu_rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='USER')
+    usu_fcre = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
+        ordering = ["usu_nomb"]
+
+    def __str__(self):
+        return self.usu_nomb
+
+
 class Vendedor(models.Model):
-    ven_codi = models.AutoField(primary_key=True) 
-    ven_nomb = models.CharField(max_length=100, blank=True, null=True)  # Nombre
-    ven_doc = models.CharField(max_length=20, unique=True, blank=True, null=True)  # Documento
-    ven_fnac = models.DateField(blank=True, null=True)  # Fecha de nacimiento
-    ven_emai = models.EmailField(blank=True, null=True)  # Email
-    ven_tele = models.CharField(max_length=20, blank=True)  # Teléfono
-    ven_dom = models.CharField(max_length=100, blank=True, null=True) # domicilio
-    ven_bar = models.CharField(max_length=100, blank=True, null=True) #barrio
-    ven_cuit = models.CharField(max_length=10, blank=True, null=True) #cuit
-    loc_codi = models.ForeignKey('Localidad', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendedores')  # Localidad
-    
-    # Campos de autenticación
-    ven_usua = models.CharField(max_length=50, unique=True, blank=True, null=True, help_text="Usuario para login")
-    ven_pass = models.CharField(max_length=255, blank=True, null=True, help_text="Contraseña hasheada")
-    ven_actv = models.BooleanField(default=False, help_text="Vendedor activo para login")
-    
-    ven_fchc = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
-    ven_fmod = models.DateTimeField(auto_now=True, help_text="Última modificación")
-    
+    """Vendedores"""
+    ven_codi = models.IntegerField(primary_key=True, editable=True)
+    ven_nomb = models.CharField(max_length=100)
+    ven_doc = models.CharField(max_length=20, blank=True, null=True, help_text="Documento")
+    ven_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
+    ven_emai = models.EmailField(blank=True, null=True)
+    ven_tele = models.CharField(max_length=20, blank=True)
+    ven_dom = models.CharField(max_length=150, blank=True, help_text="Domicilio")
+    ven_bar = models.CharField(max_length=100, blank=True, help_text="Barrio")
+    ven_cuit = models.CharField(max_length=20, blank=True, null=True, help_text="CUIT")
+    ven_usua = models.CharField(max_length=50, blank=True, null=True, unique=True, help_text="Usuario para login")
+    ven_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
+    ven_actv = models.BooleanField(default=False, help_text="Vendedor activo")
+    loc_codi = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendedores')
+    ven_fchc = models.DateTimeField(auto_now_add=True)
+    ven_fmod = models.DateTimeField(auto_now=True)
+
     class Meta:
         verbose_name = "Vendedor"
         verbose_name_plural = "Vendedores"
-        ordering = ['ven_nomb']
-    
+        ordering = ["ven_nomb"]
+
+    def save(self, *args, **kwargs):
+        """Hashear contraseña si es texto plano (no comienza con algoritmo Django)"""
+        from django.contrib.auth.hashers import make_password
+        
+        if self.ven_clav:
+            # Si no está hasheada (no comienza con 'pbkdf2_sha256' o similar), hashearla
+            if not self.ven_clav.startswith('pbkdf2_sha256$') and \
+               not self.ven_clav.startswith('pbkdf2_sha1$') and \
+               not self.ven_clav.startswith('argon2_argon2id$') and \
+               not self.ven_clav.startswith('scrypt$') and \
+               not self.ven_clav.startswith('bcrypt_sha256$') and \
+               len(self.ven_clav) < 100:  # Los hashes son más largos
+                self.ven_clav = make_password(self.ven_clav)
+        
+        super().save(*args, **kwargs)
+
+    def set_password(self, raw_password):
+        """Establece la contraseña hasheada"""
+        from django.contrib.auth.hashers import make_password
+        if raw_password and raw_password.strip():
+            self.ven_clav = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        """Verifica si la contraseña coincide"""
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.ven_clav)
+
     def __str__(self):
-        return self.ven_nomb 
+        return self.ven_nomb
