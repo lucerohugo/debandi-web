@@ -20,21 +20,6 @@ API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
 # Frontend URL (para CORS)
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
-# Google OAuth
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
-GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:8000/api/auth/google/callback/')
-
-# Debug: mostrar si las credenciales se cargaron
-if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-    import warnings
-    warnings.warn(
-        "GOOGLE_CLIENT_ID y/o GOOGLE_CLIENT_SECRET no están configurados. "
-        "La autenticación con Google no funcionará. "
-        "Agrégalos a tu archivo .env"
-    )
-# NO imprimir los valores de secrets
-
 # Configuración de desarrollo/producción
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 

@@ -20,7 +20,8 @@ from .serializers import (
     ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
     MarcaSerializer, RubroSerializer, SubrubroSerializer, ArticuloSerializer, ArticuloFrontendSerializer,
     ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
-    PedidosSerializer, PedidosCompletoSerializer, DetallePedidoSerializer,
+    PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer, 
+    DetallePedidoSerializer, DetallePedidoWriteSerializer,
     CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer
 )
 
@@ -199,6 +200,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 # PERSONAS
 # ================================================================
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Clientes.objects.all()
     serializer_class = ClientesSerializer
@@ -293,6 +295,7 @@ class VendedorViewSet(BulkCreateMixin, BaseViewSet):
 # FAVORITOS Y CARRITO
 # ================================================================
 
+@method_decorator(csrf_exempt, name='dispatch')
 class FavoritosViewSet(BaseViewSet):
     queryset = Favoritos.objects.all()
     serializer_class = FavoritosSerializer
@@ -363,6 +366,7 @@ class FavoritosViewSet(BaseViewSet):
             return Response([], status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class CarritoItemViewSet(BaseViewSet):
     queryset = CarritoItem.objects.all()
     serializer_class = CarritoItemSerializer
@@ -408,10 +412,11 @@ class CarritoItemViewSet(BaseViewSet):
 class DetallePedidoViewSet(BaseViewSet):
     queryset = DetallePedido.objects.all()
     serializer_class = DetallePedidoSerializer
-    filterset_fields = ['dpe_ped']
-    ordering = ['dpe_ped', 'dpe_codi']
+    filterset_fields = ['ped_codi']
+    ordering = ['ped_codi', 'dpe_codi']
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PedidosViewSet(BaseViewSet):
     queryset = Pedidos.objects.all()
     serializer_class = PedidosSerializer
@@ -419,10 +424,53 @@ class PedidosViewSet(BaseViewSet):
     ordering_fields = ['ped_codi', 'ped_fech']
     ordering = ['-ped_codi']
 
+    def get_queryset(self):
+        """
+        Filtrar pedidos por cliente autenticado para evitar que un cliente vea pedidos de otros
+        """
+        queryset = super().get_queryset()
+        cli_codi = self.request.query_params.get('cli_codi')
+        
+        # Si se proporciona cli_codi, filtrar por ese cliente
+        if cli_codi:
+            try:
+                cli_codi = int(cli_codi)
+                queryset = queryset.filter(cli_codi_id=cli_codi)
+            except (ValueError, TypeError):
+                pass
+        
+        return queryset
+
     def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return PedidosCreateUpdateSerializer
         if self.action == 'retrieve':
             return PedidosCompletoSerializer
         return PedidosSerializer
+
+    def update(self, request, *args, **kwargs):
+        """
+        Permitir edición solo si el pedido está en estado 'P' (Pendiente)
+        """
+        pedido = self.get_object()
+        if pedido.ped_esta != 'P':
+            return Response(
+                {'detail': f'No se puede editar un pedido en estado "{pedido.get_ped_esta_display()}". Solo se pueden editar pedidos Pendientes.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Permitir edición parcial solo si el pedido está en estado 'P' (Pendiente)
+        """
+        pedido = self.get_object()
+        if pedido.ped_esta != 'P':
+            return Response(
+                {'detail': f'No se puede editar un pedido en estado "{pedido.get_ped_esta_display()}". Solo se pueden editar pedidos Pendientes.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
     def cliente(self, request):
@@ -477,6 +525,112 @@ class PedidosViewSet(BaseViewSet):
             'updated_count': updated_count,
             'timestamp': timezone.now().isoformat()
         }, status=status.HTTP_200_OK)
+
+    @csrf_exempt
+    @action(detail=False, methods=['post'])
+    def crear_desde_carrito(self, request):
+        """
+        POST /pedidos/crear_desde_carrito/
+        Crea un pedido con los items del carrito del cliente
+        Body: {
+            "cli_codi": 1,
+            "ped_fpag": "CDO",
+            "items": [
+                {"art_codi": 5, "carr_cant": 2, "carr_pnet": 100, "carr_pfin": 121},
+                {"art_codi": 10, "carr_cant": 1, "carr_pnet": 200, "carr_pfin": 242}
+            ]
+        }
+        """
+        from django.utils import timezone
+        from decimal import Decimal
+        
+        try:
+            cli_codi = request.data.get('cli_codi')
+            ped_fpag = request.data.get('ped_fpag', 'CDO')
+            items = request.data.get('items', [])
+            
+            if not cli_codi:
+                return Response(
+                    {'success': False, 'detail': 'cli_codi es requerido'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Verificar que existe el cliente
+            try:
+                cliente = Clientes.objects.get(cli_codi=cli_codi)
+            except Clientes.DoesNotExist:
+                return Response(
+                    {'success': False, 'detail': 'Cliente no encontrado'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Si no hay items explícitos, obtenerlos del carrito
+            if not items:
+                carrito_items = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+                items = [
+                    {
+                        'art_codi': item.art_codi_id,
+                        'dpe_cant': item.carr_cant,
+                        'carr_pnet': float(item.carr_pnet) if item.carr_pnet else float(item.art_codi.art_pnet),
+                        'carr_pfin': float(item.carr_pfin) if item.carr_pfin else float(item.art_codi.art_pfin),
+                    }
+                    for item in carrito_items
+                ]
+            
+            if not items:
+                return Response(
+                    {'success': False, 'detail': 'El carrito está vacío'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Calcular total del pedido
+            ped_tota = Decimal('0')
+            for item in items:
+                cant = item.get('dpe_cant', 1)
+                pfin = Decimal(str(item.get('carr_pfin', 0)))
+                ped_tota += Decimal(str(cant)) * pfin
+            
+            # Crear el pedido
+            pedido = Pedidos.objects.create(
+                cli_codi=cliente,
+                ped_esta='P',
+                ped_tota=ped_tota,
+                ped_fech=timezone.now(),
+                ped_fpag=ped_fpag
+            )
+            
+            # Crear detalles del pedido
+            for item in items:
+                try:
+                    articulo = Articulo.objects.get(art_codi=item['art_codi'])
+                    
+                    DetallePedido.objects.create(
+                        ped_codi=pedido,
+                        art_codi=articulo,
+                        dpe_cant=item.get('dpe_cant', 1)
+                    )
+                except Articulo.DoesNotExist:
+                    # Si el artículo no existe, saltar
+                    continue
+            
+            # Limpiar el carrito
+            CarritoItem.objects.filter(cli_codi_id=cli_codi).delete()
+            
+            # Retornar el pedido creado
+            serializer = self.get_serializer(pedido)
+            return Response({
+                'success': True,
+                'ped_codi': pedido.ped_codi,
+                'pedido': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'success': False, 'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 # ================================================================
@@ -1025,7 +1179,178 @@ def favoritos_manage(request):
 # ================================================================
 
 @csrf_exempt
-@require_http_methods(["POST", "OPTIONS"])
+# ================================================================
+# CARRITO (SIN CSRF)
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(["POST", "PUT", "DELETE", "OPTIONS"])
+def carrito_manage(request):
+    """
+    POST /carrito-manage/  - Agregar item al carrito
+    PUT /carrito-manage/   - Actualizar cantidad
+    DELETE /carrito-manage/ - Eliminar item del carrito
+    
+    Body: {"cli_codi": 1, "art_codi": 5, "carr_cant": 2, "carr_pnet": 100, "carr_pfin": 121}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+    cli_codi = data.get('cli_codi')
+    art_codi = data.get('art_codi')
+    
+    if not cli_codi or not art_codi:
+        return JsonResponse(
+            {'success': False, 'detail': 'cli_codi y art_codi son requeridos'},
+            status=400
+        )
+    
+    try:
+        # Verificar que existen el cliente y el artículo
+        cliente = Clientes.objects.get(cli_codi=cli_codi)
+        articulo = Articulo.objects.get(art_codi=art_codi)
+    except Clientes.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Cliente no encontrado'},
+            status=404
+        )
+    except Articulo.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'Artículo no encontrado'},
+            status=404
+        )
+    
+    if request.method == 'POST':
+        # Agregar item al carrito
+        carr_cant = data.get('carr_cant', 1)
+        carr_pnet = data.get('carr_pnet') or articulo.art_pnet
+        carr_pfin = data.get('carr_pfin') or articulo.art_pfin
+        
+        try:
+            carr_cant = int(carr_cant)
+            if carr_cant < 1:
+                return JsonResponse(
+                    {'success': False, 'detail': 'Cantidad debe ser >= 1'},
+                    status=400
+                )
+        except (ValueError, TypeError):
+            return JsonResponse(
+                {'success': False, 'detail': 'carr_cant debe ser un número'},
+                status=400
+            )
+        
+        # Crear o actualizar item en carrito
+        item, created = CarritoItem.objects.get_or_create(
+            cli_codi=cliente,
+            art_codi=articulo,
+            defaults={
+                'carr_cant': carr_cant,
+                'carr_pnet': carr_pnet,
+                'carr_pfin': carr_pfin
+            }
+        )
+        
+        # Si ya existía, incrementar cantidad
+        if not created:
+            item.carr_cant += carr_cant
+            item.carr_pnet = carr_pnet
+            item.carr_pfin = carr_pfin
+            item.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Item agregado al carrito',
+            'carr_codi': item.carr_codi,
+            'cli_codi': item.cli_codi_id,
+            'art_codi': item.art_codi_id,
+            'carr_cant': item.carr_cant,
+            'carr_pnet': float(item.carr_pnet or 0),
+            'carr_pfin': float(item.carr_pfin or 0),
+        }, status=201 if created else 200)
+    
+    elif request.method == 'PUT':
+        # Actualizar cantidad
+        carr_cant = data.get('carr_cant')
+        
+        if carr_cant is None:
+            return JsonResponse(
+                {'success': False, 'detail': 'carr_cant es requerido para actualizar'},
+                status=400
+            )
+        
+        try:
+            carr_cant = int(carr_cant)
+            if carr_cant < 0:
+                return JsonResponse(
+                    {'success': False, 'detail': 'Cantidad no puede ser negativa'},
+                    status=400
+                )
+        except (ValueError, TypeError):
+            return JsonResponse(
+                {'success': False, 'detail': 'carr_cant debe ser un número'},
+                status=400
+            )
+        
+        # Obtener item del carrito
+        item = CarritoItem.objects.filter(
+            cli_codi=cliente,
+            art_codi=articulo
+        ).first()
+        
+        if not item:
+            return JsonResponse(
+                {'success': False, 'detail': 'Item no está en el carrito'},
+                status=404
+            )
+        
+        if carr_cant == 0:
+            # Si cantidad es 0, eliminar
+            item.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'Item eliminado del carrito'
+            }, status=200)
+        
+        item.carr_cant = carr_cant
+        item.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Cantidad actualizada',
+            'carr_codi': item.carr_codi,
+            'carr_cant': item.carr_cant,
+        }, status=200)
+    
+    elif request.method == 'DELETE':
+        # Eliminar item del carrito
+        item = CarritoItem.objects.filter(
+            cli_codi=cliente,
+            art_codi=articulo
+        ).first()
+        
+        if not item:
+            return JsonResponse(
+                {'success': False, 'detail': 'Item no está en el carrito'},
+                status=404
+            )
+        
+        item.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Item eliminado del carrito'
+        }, status=200)
+
+
+# ================================================================
+# IMPORTAR DATOS (SIN CSRF)
+# ================================================================
+
 def importar_datos(request):
     """
     POST /importar_datos/

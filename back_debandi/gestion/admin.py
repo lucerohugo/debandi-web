@@ -68,7 +68,7 @@ class SubrubroAdmin(admin.ModelAdmin):
 
 @admin.register(Articulo)
 class ArticuloAdmin(admin.ModelAdmin):
-    list_display = ['art_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_stkp', 'mar_codi', 'art_acti']
+    list_display = ['art_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_stk', 'mar_codi', 'art_acti']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw']
     search_fields = ['art_nomb', 'art_codi']
     readonly_fields = ['art_pfin', 'art_fchc', 'art_fmod']
@@ -80,7 +80,7 @@ class ArticuloAdmin(admin.ModelAdmin):
             'fields': ('art_pnet', 'art_pfin', 'art_cost', 'art_tiva', 'art_mext')
         }),
         ('Stock', {
-            'fields': ('art_stkp', 'art_stkmin', 'art_stkmax', 'art_xbul', 'art_ubul')
+            'fields': ('art_stk', 'art_cant', 'art_xbul', 'art_ubul')
         }),
         ('Clasificación', {
             'fields': ('mar_codi', 'sru_codi')
@@ -183,37 +183,71 @@ class CarritoItemAdmin(admin.ModelAdmin):
 # PEDIDOS
 # ================================================================
 
+class DetallePedidoInline(admin.TabularInline):
+    """Inline para editar detalles de pedidos directamente desde el pedido"""
+    model = DetallePedido
+    extra = 1
+    fields = ['art_codi']
+    
+    def get_queryset(self, request):
+        """Optimizar queries con select_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related('art_codi')
+
+
 @admin.register(Pedidos)
 class PedidosAdmin(admin.ModelAdmin):
-    list_display = ['ped_codi', 'ped_fech', 'cli_codi', 'ped_esta', 'ped_tota', 'ped_exp']
-    list_filter = ['ped_fech', 'ped_esta', 'ped_exp']
-    search_fields = ['ped_codi', 'cli_codi__cli_nomb']
-    readonly_fields = ['ped_codi', 'ped_fexp']
+    """Admin para Pedidos con detalles anidados"""
+    inlines = [DetallePedidoInline]
+    list_display = ['ped_codi', 'ped_fech', 'cliente_info', 'ped_esta', 'ped_tota', 'ped_exp']
+    list_filter = ['ped_fech', 'ped_esta', 'ped_exp', 'ped_fpag']
+    search_fields = ['ped_codi', 'cli_codi__cli_nomb', 'cli_codi__cli_ndoc']
+    readonly_fields = ['ped_codi', 'ped_tota', 'ped_fexp']
+    
     fieldsets = (
-        ('Pedido', {
-            'fields': ('ped_codi', 'ped_fech', 'cli_codi')
+        ('Información del Pedido', {
+            'fields': ('ped_codi', 'ped_fech', 'ped_tota')
         }),
-        ('Estado', {
-            'fields': ('ped_esta', 'ped_tota', 'ped_fpag')
+        ('Cliente', {
+            'fields': ('cli_codi',)
         }),
-        ('Forma de Pago', {
-            'fields': ('bco_codi',)
+        ('Estado y Pago', {
+            'fields': ('ped_esta', 'ped_fpag')
         }),
         ('Exportación', {
             'fields': ('ped_exp', 'ped_fexp'),
+            'classes': ('collapse',),
             'description': 'Control de exportación a GeneXus'
         }),
     )
+    
     ordering = ['-ped_codi']
+    actions = ['marcar_como_pagado', 'marcar_como_cancelado']
+    
+    def cliente_info(self, obj):
+        """Mostrar nombre y documento del cliente"""
+        if obj.cli_codi:
+            return f"{obj.cli_codi.cli_nomb} ({obj.cli_codi.cli_ndoc})"
+        return "-"
+    cliente_info.short_description = "Cliente"
+    
+    def marcar_como_pagado(self, request, queryset):
+        """Acción para marcar pedidos como pagados"""
+        updated = queryset.filter(ped_esta='P').update(ped_esta='PA')
+        self.message_user(request, f'{updated} pedidos marcados como pagados')
+    marcar_como_pagado.short_description = "Marcar como Pagado"
+    
+    def marcar_como_cancelado(self, request, queryset):
+        """Acción para marcar pedidos como cancelados"""
+        updated = queryset.filter(ped_esta='P').update(ped_esta='C')
+        self.message_user(request, f'{updated} pedidos marcados como cancelados')
+    marcar_como_cancelado.short_description = "Marcar como Cancelado"
+    
+    def get_queryset(self, request):
+        """Optimizar queries con select_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related('cli_codi').prefetch_related('detalles')
 
-
-@admin.register(DetallePedido)
-class DetallePedidoAdmin(admin.ModelAdmin):
-    list_display = ['dpe_codi', 'dpe_ped', 'art_codi', 'dpe_cant', 'dpe_prec', 'dpe_subt']
-    list_filter = ['dpe_ped']
-    search_fields = ['art_codi__art_nomb', 'dpe_ped__ped_codi']
-    readonly_fields = ['dpe_subt']
-    ordering = ['dpe_ped', 'dpe_codi']
 
 
 # ================================================================

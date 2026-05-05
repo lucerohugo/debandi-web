@@ -106,41 +106,25 @@ class SubRubro(models.Model):
 
 class Articulo(models.Model):
     """Artículos/Productos"""
-    IVA_CHOICES = (
-        ('21', '21%'),
-        ('27', '27%'),
-        ('10.5', '10,5%'),
-        ('0', '0% (Exento)'),
-    )
-
-    DEPOSITO_CHOICES = (
-        ('DEPOSITO_ABAJO', 'Depósito Abajo'),
-        ('DEPOSITO_ARRIBA', 'Depósito Arriba'),
-        ('DEPOSITO_ENFRENTE', 'Depósito Enfrente'),
-        ('PRINCIPAL', 'Principal'),
-        ('SIN_DEFINIR', 'Sin Definir'),
-    )
-
     art_codi = models.IntegerField(primary_key=True, editable=True)
-    art_cint = models.CharField(max_length=50, blank=True, null=True, help_text="Código interno")
     art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
     art_nomb = models.CharField(max_length=100)
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo")
+    art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento")
     art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto")
     art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=False, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
-    art_stkp = models.PositiveIntegerField(default=0, help_text="Stock principal")
-    art_stkmin = models.PositiveIntegerField(default=0, help_text="Stock mínimo")
-    art_stkmax = models.PositiveIntegerField(default=0, help_text="Stock máximo")
+    art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos")
+    art_cant = models.PositiveIntegerField(default=0, help_text="Cantidad disponible")
     art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack")
     art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto")
     art_img = models.ImageField(upload_to='articulos/', blank=True, null=True)
-    art_depo = models.CharField(max_length=30, choices=DEPOSITO_CHOICES, default='SIN_DEFINIR')
+    art_depo = models.IntegerField(default=0, help_text="Depósito")
     art_mext = models.BooleanField(default=False, help_text="Precio en moneda extranjera (USD)")
+    art_tiva = models.DecimalField(max_digits=5, decimal_places=2, default=21, help_text="IVA del artículo (%)")
 
     mar_codi = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="articulos", default=1)
     sru_codi = models.ForeignKey(SubRubro, on_delete=models.PROTECT, blank=True, null=True, related_name="articulos")
-    art_tiva = models.CharField(max_length=5, choices=IVA_CHOICES, default='21', help_text="IVA del artículo")
 
     art_acti = models.BooleanField(default=True, help_text="Artículo activo")
     art_visw = models.BooleanField(default=True, help_text="Visible en web")
@@ -172,7 +156,7 @@ class Articulo(models.Model):
 
     def save(self, *args, **kwargs):
         iva_rate = Decimal(str(self.get_iva_rate()))
-        self.art_pfin = self.art_pnet * (1 + iva_rate / 100)
+        self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
         super().save(*args, **kwargs)
 
     @property
@@ -310,12 +294,10 @@ class CarritoItem(models.Model):
 # ================================================================
 
 class Pedidos(models.Model):
-    """Pedidos de compra"""
+    """Pedidos de compra - Cabecera"""
     ESTADO_CHOICES = (
         ('P', 'Pendiente'),
-        ('PA', 'Pagado'),
-        ('F', 'Facturado'),
-        ('C', 'Cancelado'),
+        ('PR', 'Procesado'),
     )
 
     FORMA_PAGO_CHOICES = (
@@ -326,13 +308,11 @@ class Pedidos(models.Model):
     )
 
     ped_codi = models.AutoField(primary_key=True)
+    ped_fech = models.DateTimeField(default=timezone.now)
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
     ped_esta = models.CharField(max_length=2, choices=ESTADO_CHOICES, default='P')
     ped_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
-    ped_fech = models.DateTimeField(default=timezone.now)
     ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES)
-    bco_codi = models.ForeignKey('CuentaBancaria', on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos')
-
     ped_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
     ped_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
 
@@ -342,58 +322,60 @@ class Pedidos(models.Model):
         ordering = ['-ped_codi']
 
     def actualizar_total(self):
+        """Calcula el total como suma de (dpe_cant * art_pfin) de todos los detalles"""
+        from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+        
         total = self.detalles.aggregate(
-            total=models.Sum('dpe_subt')
-        )['total'] or 0
+            total=Sum(
+                ExpressionWrapper(
+                    F('dpe_cant') * F('art_codi__art_pfin'),
+                    output_field=DecimalField()
+                )
+            )
+        )['total'] or Decimal('0')
         self.ped_tota = total
         self.save(update_fields=['ped_tota'])
 
     def puede_modificarse(self):
+        """Solo se puede modificar si está en estado Pendiente"""
         return self.ped_esta == 'P'
 
     def __str__(self):
-        cli_nomb = self.cli_codi.cli_nomb if self.cli_codi else "Anónimo"
-        return f"Pedido {self.ped_codi} - {cli_nomb}"
+        cliente_nombre = self.cli_codi.cli_nomb if self.cli_codi else "Sin cliente"
+        return f"Pedido {self.ped_codi} - {cliente_nombre} ({self.ped_fech.strftime('%d/%m/%Y')})"
 
 
 class DetallePedido(models.Model):
     """Detalles de líneas en un pedido"""
     dpe_codi = models.AutoField(primary_key=True)
-    dpe_ped = models.ForeignKey(Pedidos, on_delete=models.CASCADE, related_name='detalles')
-    art_codi = models.ForeignKey(Articulo, on_delete=models.PROTECT, related_name='en_pedidos')
-    dpe_cant = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    dpe_prec = models.DecimalField(max_digits=12, decimal_places=2)
-    dpe_des = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    dpe_subt = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    ped_codi = models.ForeignKey(Pedidos, on_delete=models.CASCADE, related_name='detalles')
+    art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='en_pedidos')
+    dpe_cant = models.PositiveIntegerField(default=1, help_text="Cantidad pedida")
 
     class Meta:
         verbose_name = "Detalle Pedido"
         verbose_name_plural = "Detalles Pedidos"
-        ordering = ['dpe_ped', 'dpe_codi']
+        ordering = ['ped_codi', 'dpe_codi']
+        unique_together = ('ped_codi', 'art_codi')  # No repetir artículos en un pedido
 
     def save(self, *args, **kwargs):
-        if not self.dpe_ped.puede_modificarse():
+        # Validar que el pedido esté en estado pendiente
+        if not self.ped_codi.puede_modificarse():
             raise ValidationError("No se puede modificar un pedido no pendiente")
 
-        if not self.pk:
-            if self.art_codi.art_stkp < self.dpe_cant:
-                raise ValidationError("Stock insuficiente")
-            self.art_codi.art_stkp -= self.dpe_cant
-            self.art_codi.save()
-
-        self.dpe_subt = (self.dpe_cant * self.dpe_prec) - self.dpe_des
         super().save(*args, **kwargs)
-        self.dpe_ped.actualizar_total()
+        
+        # Actualizar total del pedido
+        self.ped_codi.actualizar_total()
 
     def delete(self, *args, **kwargs):
-        self.art_codi.art_stkp += self.dpe_cant
-        self.art_codi.save()
-        pedido = self.dpe_ped
+        # Actualizar total del pedido antes de eliminar
+        pedido = self.ped_codi
         super().delete(*args, **kwargs)
         pedido.actualizar_total()
 
     def __str__(self):
-        return f"{self.art_codi.art_nomb} x {self.dpe_cant}"
+        return f"{self.art_codi.art_nomb} (Ped: {self.ped_codi.ped_codi})"
 
 
 # ================================================================
@@ -443,6 +425,7 @@ class General(models.Model):
     gen_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
     gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
     gen_emai = models.EmailField(blank=True, default='contacto@debandi.com', help_text="Email")
+    gen_coti = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cotización")
 
     class Meta:
         verbose_name = "General"
@@ -525,3 +508,9 @@ class Vendedor(models.Model):
 
     def __str__(self):
         return self.ven_nomb
+
+
+#stock
+
+#class Stock(models.Model):
+#stk_codi
