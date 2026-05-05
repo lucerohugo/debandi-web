@@ -32,7 +32,7 @@ interface Cliente {
   cli_codi: number
   cli_nomb: string
   cli_emai?: string
-  cli_doc?: string
+  cli_ndoc?: string
   cli_cuit?: string
   cli_tele?: string
   cli_dire?: string
@@ -97,8 +97,7 @@ export default function VendedorClientesPage() {
     setImpersonating(cli_codi)
     try {
       await impersonate(cli_codi)
-      // La redirección a '/' se hace en el contexto, forzamos navegación
-      window.location.href = '/'
+      // La redirección a '/listado' se hace en el contexto mediante router.push
     } catch (err: any) {
       setError(err.message || "Error al ingresar como cliente")
       setImpersonating(null)
@@ -217,7 +216,7 @@ export default function VendedorClientesPage() {
                             {cliente.cli_nomb || "-"}
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {cliente.cli_doc || cliente.cli_cuit || "-"}
+                            {cliente.cli_ndoc || cliente.cli_cuit || "-"}
                           </TableCell>
                           <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                             {cliente.cli_emai || "-"}

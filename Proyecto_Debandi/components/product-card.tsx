@@ -16,7 +16,7 @@ interface ProductCardProps {
     art_nomb: string
     art_pnet: number
     art_pfin: number
-    art_stkp: number
+    art_stk: number
     art_img?: string
     mar_nomb?: string
     sru_nomb?: string
@@ -51,7 +51,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         art_nomb: product.art_nomb,
         art_pnet: product.art_pnet,
         art_pfin: product.art_pfin,
-        art_stkp: product.art_stkp,
+        art_stk: product.art_stk,
         art_img: product.art_img,
         mar_nomb: product.mar_nomb,
         sru_nomb: product.sru_nomb
@@ -119,7 +119,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         >
           <Heart className={`w-5 h-5 ${favorite ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-500"}`} />
         </button>
-        {product.art_stkp === 0 && (
+        {product.art_stk === 0 && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white font-bold">Agotado</span>
           </div>
@@ -144,7 +144,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <button
           onClick={user ? addToCart : () => setShowAuthModal(true)}
-          disabled={product.art_stkp === 0 || isAdding}
+          disabled={product.art_stk === 0 || isAdding}
           className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
         >
           <ShoppingCart className="w-5 h-5" />

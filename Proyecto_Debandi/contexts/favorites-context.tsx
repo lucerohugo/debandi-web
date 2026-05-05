@@ -7,11 +7,19 @@ import { ApiService } from "@/services/api.service"
 
 interface Favorite {
   fav_codi: number
+  cli_codi: number
   art_codi: number
   art_nomb: string
   art_desc: string
-  art_precio_final: number
-  art_stkp: number
+  art_pnet: number
+  art_pfin: number
+  art_stk: number
+  art_img_url?: string
+  art_acti: boolean
+  mar_nomb?: string
+  sru_nomb?: string
+  rub_nomb?: string
+  fav_fecha: string
 }
 
 interface FavoritesContextType {
@@ -72,8 +80,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const syncFavoritesWithBackend = async () => {
     try {
-      const response = await ApiService.get<any>('/favoritos/')
-      const data = response.favoritos || []
+      // Filtrar favoritos por cliente autenticado
+      const url = user ? `/favoritos/?cli_codi=${user.id}` : '/favoritos/'
+      const response = await ApiService.get<any>(url)
+      // DRF retorna {count, next, previous, results}
+      const data = Array.isArray(response) ? response : (response.results || [])
       
       setFavoritesList(data)
       setFavorites(data.map((fav: Favorite) => fav.art_codi))
@@ -97,7 +108,12 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const addFavorite = async (productId: number) => {
     try {
-      await ApiService.post('/favoritos/add/', { art_codi: productId })
+      // Usar el nuevo endpoint sin CSRF
+      const payload = {
+        art_codi: productId,
+        cli_codi: user?.id // Incluir cli_codi del cliente autenticado
+      }
+      await ApiService.post('/favoritos-manage/', payload)
       
       // Invalidar caché para que se sincronice en próxima carga
       cacheManager.invalidate(FAVORITES_CACHE_KEY)
@@ -111,11 +127,13 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const removeFavorite = async (productId: number) => {
     try {
-      // Encontrar el fav_codi correspondiente al art_codi
-      const favorite = favoritesList.find(fav => fav.art_codi === productId)
-      if (!favorite) return
-
-      await ApiService.delete(`/favoritos/${favorite.fav_codi}/`)
+      // Usar el nuevo endpoint sin CSRF
+      const payload = {
+        art_codi: productId,
+        cli_codi: user?.id
+      }
+      
+      await ApiService.delete('/favoritos-manage/', undefined, payload)
       
       // Invalidar caché
       cacheManager.invalidate(FAVORITES_CACHE_KEY)

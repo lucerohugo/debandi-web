@@ -39,26 +39,32 @@ export default function Home() {
   const itemsPerPage = 15
   const productsRef = useRef<HTMLDivElement>(null)
 
-  // Fetch inicial: obtener TODOS los productos + marcas y rubros
+  // Fetch inicial: obtener TODOS los productos + marcas y rubros EN PARALELO
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true)
       try {
-        // Obtener productos (con límite alto)
-        const productsResponse = await ApiService.get<any>('/articulos/?limit=5000')
-        const allProducts = productsResponse.products || productsResponse || []
+        // ⚡ PARALELO: Hacer los 3 requests a la vez en lugar de secuencialmente
+        const [productsResponse, rubrosResponse, marcasResponse] = await Promise.all([
+          ApiService.get<any>('/articulos/?page_size=5000'),
+          ApiService.get<any>('/rubros/?page_size=5000'),
+          ApiService.get<any>('/marcas/?page_size=5000')
+        ])
+
+        // Procesar productos
+        const allProducts = Array.isArray(productsResponse.results) ? productsResponse.results : (Array.isArray(productsResponse) ? productsResponse : [])
         setProducts(allProducts)
         
-        // Obtener rubros desde el nuevo endpoint
+        // Procesar rubros
         try {
-          const rubrosResponse = await ApiService.get<any>('/rubros/')
-          const rubrosFromAPI = rubrosResponse.rubros || []
+          const rubrosFromAPI = Array.isArray(rubrosResponse.results) ? rubrosResponse.results : (Array.isArray(rubrosResponse) ? rubrosResponse : [])
           const rubrosArray = rubrosFromAPI.map((rub: any) => ({
-            id: String(rub.id),
-            name: rub.name
+            id: String(rub.rub_codi),
+            name: rub.rub_nomb
           }))
           setCategories(rubrosArray)
         } catch (rubrosError) {
+          console.error('Error processing rubros:', rubrosError)
           // Si falla, extraer de los productos
           const uniqueCategories = new Set<string>()
           allProducts.forEach((p: any) => {
@@ -71,16 +77,16 @@ export default function Home() {
           setCategories(categoriesArray)
         }
         
-        // Obtener marcas desde el nuevo endpoint
+        // Procesar marcas
         try {
-          const marcasResponse = await ApiService.get<any>('/marcas/')
-          const marcasFromAPI = marcasResponse.marcas || []
+          const marcasFromAPI = Array.isArray(marcasResponse.results) ? marcasResponse.results : (Array.isArray(marcasResponse) ? marcasResponse : [])
           const marcasArray = marcasFromAPI.map((marca: any) => ({
-            id: String(marca.id),
-            name: marca.name
+            id: String(marca.mar_codi),
+            name: marca.mar_nomb
           }))
           setBrands(marcasArray)
         } catch (marcasError) {
+          console.error('Error processing marcas:', marcasError)
           // Si falla, extraer de los productos
           const uniqueBrands = new Set<string>()
           allProducts.forEach((p: any) => {
@@ -93,7 +99,7 @@ export default function Home() {
           setBrands(brandsArray)
         }
       } catch (error) {
-        // Silent error
+        console.error('Error cargando datos:', error)
       } finally {
         setLoading(false)
       }

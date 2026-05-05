@@ -83,7 +83,7 @@ export default function ListadoProductos() {
   const [notificationMessage, setNotificationMessage] = useState("")
   const [selectedProductForPreview, setSelectedProductForPreview] = useState<Product | null>(null)
   const [itemsPerPage, setItemsPerPage] = useState(12)
-  const [maxLimit, setMaxLimit] = useState(500)
+  const [maxLimit, setMaxLimit] = useState(5000)
   const { user } = useAuth()
 
   const handleExportPDF = async () => {
@@ -118,7 +118,7 @@ export default function ListadoProductos() {
       } catch (error) {
         // Usar valores por defecto
         setItemsPerPage(12)
-        setMaxLimit(500)
+        setMaxLimit(5000)
       }
     }
     
@@ -128,12 +128,13 @@ export default function ListadoProductos() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await ApiService.get<any>(`/articulos/?limit=${maxLimit}`)
-        const productsList = response.products || response || []
+        // DRF devuelve {count, next, previous, results}
+        const response = await ApiService.get<any>(`/articulos/?page_size=${maxLimit}`)
+        const productsList = Array.isArray(response.results) ? response.results : (Array.isArray(response) ? response : [])
         setProducts(productsList)
         setProductsTabla(productsList)
       } catch (error) {
-        // Silent error
+        console.error('Error cargando productos:', error)
       } finally {
         setLoading(false)
       }
@@ -142,7 +143,7 @@ export default function ListadoProductos() {
     if (maxLimit > 0) {
       fetchProducts()
     }
-  }, [])
+  }, [maxLimit])
 
   // Resetear página cuando cambia la búsqueda
   useEffect(() => {
@@ -206,12 +207,26 @@ export default function ListadoProductos() {
       return
     }
 
-    // Agregar cada producto al carrito del backend
+    // Agregar cada producto al carrito
     let totalItems = 0
     try {
       for (const [productId, selectedItem] of selectedProducts) {
-        await CartService.addToCart(productId, selectedItem.quantity)
-        totalItems += selectedItem.quantity
+        // Buscar el producto completo en la lista de productos
+        const fullProduct = products.find(p => p.art_codi === productId)
+        
+        if (fullProduct) {
+          await CartService.addToCart(productId, selectedItem.quantity, {
+            art_nomb: fullProduct.art_nomb,
+            art_pnet: fullProduct.art_pnet,
+            art_pfin: fullProduct.art_pfin,
+            art_stkp: fullProduct.art_stkp,
+            art_img: fullProduct.art_img,
+            mar_nomb: fullProduct.mar_nomb,
+            sru_nomb: fullProduct.sru_nomb,
+            quantity: selectedItem.quantity
+          })
+          totalItems += selectedItem.quantity
+        }
       }
 
       // Limpiar selección

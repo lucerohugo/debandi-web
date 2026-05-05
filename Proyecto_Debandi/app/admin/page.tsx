@@ -44,9 +44,11 @@ export default function AdminPage() {
 
   const loadProducts = async () => {
     try {
-      const data = await ApiService.get<any>('/articulos/?limit=1000')
+      const data = await ApiService.get<any>('/articulos/?page_size=5000')
+      // DRF retorna {count, next, previous, results}
+      const products = Array.isArray(data) ? data : (data?.results || [])
       
-      const mappedProducts = (data.products || []).map((art: any) => ({
+      const mappedProducts = products.map((art: any) => ({
         art_codi: art.art_codi,
         art_nomb: art.art_nomb,
         art_desc: art.art_desc,

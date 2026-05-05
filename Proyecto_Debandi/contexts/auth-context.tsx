@@ -1,18 +1,16 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { ApiService } from "@/services/api.service"
-import { CartService } from "@/services/cart.service"
 import { cacheManager } from "@/lib/cache-manager"
 
+// Importar función para obtener URL del API
 const getApiUrl = (): string => {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
   }
-  return process.env.NEXT_PUBLIC_API_URL ||
-    (window.location.origin.includes('localhost')
-      ? 'http://localhost:8000/api'
-      : `${window.location.origin}/api`)
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  if (envUrl) return envUrl
+  return 'http://localhost:8000/api'
 }
 
 // Función para capitalizar texto
@@ -56,93 +54,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [impersonation, setImpersonation] = useState<ImpersonationInfo>({ isImpersonating: false })
 
   useEffect(() => {
-    checkAuth()
-    
-    // Escuchar eventos de impersonación
-    const handleImpersonationStarted = (e: CustomEvent) => {
-      const data = e.detail
-      if (data.user) {
-        setUser({
-          ...data.user,
-          firstName: capitalize(data.user.firstName),
-          lastName: capitalize(data.user.lastName)
-        })
-      }
-      if (data.impersonation) {
-        setImpersonation(data.impersonation)
+    // Cargar usuario del localStorage si existe
+    const savedUser = localStorage.getItem('auth_user')
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser)
+        setUser(user)
+      } catch (error) {
+        console.error('Error parsing saved user:', error)
+        localStorage.removeItem('auth_user')
       }
     }
-    
+    setLoading(false)
+  }, [])
+
+  // Escuchar eventos de impersonación desde vendedor-context
+  useEffect(() => {
+    const handleImpersonationStarted = (event: CustomEvent) => {
+      const { detail } = event
+      console.log('[Auth Context] Impersonation started:', detail)
+      
+      // Cargar datos del cliente suplantado
+      if (detail.cliente) {
+        const cliente = detail.cliente
+        const impersonatedUser: User = {
+          id: cliente.cli_codi,
+          email: cliente.cli_emai || '',
+          firstName: cliente.cli_nomb || 'Cliente',
+          lastName: cliente.cli_ape || '',
+          isAdmin: false
+        }
+        
+        setUser(impersonatedUser)
+        localStorage.setItem('auth_user', JSON.stringify(impersonatedUser))
+      }
+      
+      // Actualizar estado de impersonación
+      if (detail.impersonation) {
+        setImpersonation(detail.impersonation)
+      }
+    }
+
     const handleImpersonationStopped = () => {
+      console.log('[Auth Context] Impersonation stopped')
       setUser(null)
       setImpersonation({ isImpersonating: false })
+      localStorage.removeItem('auth_user')
       clearAuthData()
     }
-    
+
     window.addEventListener('impersonation-started', handleImpersonationStarted as EventListener)
-    window.addEventListener('impersonation-stopped', handleImpersonationStopped)
-    
+    window.addEventListener('impersonation-stopped', handleImpersonationStopped as EventListener)
+
     return () => {
       window.removeEventListener('impersonation-started', handleImpersonationStarted as EventListener)
-      window.removeEventListener('impersonation-stopped', handleImpersonationStopped)
+      window.removeEventListener('impersonation-stopped', handleImpersonationStopped as EventListener)
     }
   }, [])
 
-  const checkAuth = async () => {
-    try {
-      // Primero verificar si hay impersonación
-      const impRes = await fetch(`${getApiUrl()}/vendedor/check-impersonation/`, {
-        credentials: 'include'
-      })
-      
-      if (impRes.ok) {
-        const impData = await impRes.json()
-        if (impData.isImpersonating) {
-          setImpersonation({
-            isImpersonating: true,
-            vendedor: impData.vendedor
-          })
-        }
-      }
-      
-      // Luego verificar usuario (cliente o impersonado)
-      const response = await fetch(`${getApiUrl()}/auth/me/`, {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setUser({
-          ...data.user,
-          firstName: capitalize(data.user.firstName),
-          lastName: capitalize(data.user.lastName)
-        })
-      } else {
-        // Token inválido o expirado, limpiar todo
-        clearAuthData()
-        setUser(null)
-        setImpersonation({ isImpersonating: false })
-      }
-    } catch (error) {
-      clearAuthData()
-      setUser(null)
-      setImpersonation({ isImpersonating: false })
-    } finally {
-      setLoading(false)
-    }
-  }
-  
   const refreshAuth = useCallback(async () => {
-    await checkAuth()
+    // Sin operación necesaria
   }, [])
 
   const clearAuthData = () => {
-    // Limpiar localStorage (no auth tokens)
     localStorage.removeItem("favorites")
-    
-    // Limpiar caché centralizado
     cacheManager.invalidateAll()
     
-    // Limpiar favoritos antiguos por usuario (compatibilidad)
     const keys = Object.keys(localStorage)
     keys.forEach(key => {
       if (key.startsWith("favorites_user_") || key.startsWith("cache_")) {
@@ -152,36 +129,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const login = async (email: string, password: string) => {
-    const data = await ApiService.post<any>('/auth/login/', { email, password })
-    
-    setUser({
-      ...data.user,
-      firstName: capitalize(data.user.firstName),
-      lastName: capitalize(data.user.lastName)
-    })
-    window.dispatchEvent(new CustomEvent("user-logged-in", {
-      detail: { firstName: capitalize(data.user.firstName) }
-    }))
+    try {
+      const response = await fetch(`${getApiUrl()}/cliente-login/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || 'Error al iniciar sesión')
+      }
+
+      // Usar cli_codi como id del usuario (es único por cliente)
+      const clienteData = data.cliente
+      const user: User = {
+        id: clienteData.cli_codi,  // ← REAL CLI_CODI, no hardcoded 1
+        email: clienteData.cli_emai || email,
+        firstName: clienteData.cli_nomb || 'Cliente',
+        lastName: clienteData.cli_ape || '',
+        isAdmin: false
+      }
+      
+      setUser(user)
+      
+      // Guardar en localStorage para persistencia
+      localStorage.setItem('auth_user', JSON.stringify(user))
+      
+      window.dispatchEvent(new CustomEvent("user-logged-in", {
+        detail: { firstName: user.firstName }
+      }))
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    }
   }
 
   const register = async (email: string, password: string, firstName: string, lastName: string, document: string) => {
-    await ApiService.post('/auth/register/', { email, password, firstName, lastName, document })
-    // Auto-login después del registro
-    await login(email, password)
+    try {
+      // Primero crear el cliente en el backend
+      const registerResponse = await fetch(`${getApiUrl()}/cliente-register/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          name: capitalize(firstName),
+          lastName: capitalize(lastName),
+          document: document
+        })
+      })
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json()
+        throw new Error(errorData.detail || 'Error en el registro')
+      }
+
+      // Luego hacer login automático
+      await login(email, password)
+    } catch (error) {
+      console.error('Register error:', error)
+      throw error
+    }
   }
 
   const logout = async () => {
-    try {
-      await ApiService.post('/auth/logout/', {})
-    } catch (error) {
-      // Silenciosamente fallar en logout
-    }
-    
     setUser(null)
+    localStorage.removeItem('auth_user')
     clearAuthData()
     
     window.dispatchEvent(new CustomEvent("favorites-cleared"))
     window.dispatchEvent(new Event("storage"))
+    
+    // Redirigir al inicio después de cerrar sesión
+    window.location.href = '/'
   }
 
   return (

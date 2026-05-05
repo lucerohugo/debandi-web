@@ -8,7 +8,7 @@ interface Product {
   art_pfin: number
   art_pnet?: number
   art_img?: string
-  art_stkp: number
+  art_stk: number
   sru_nomb?: string
 }
 

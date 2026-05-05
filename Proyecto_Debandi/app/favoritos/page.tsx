@@ -5,12 +5,14 @@ import Link from "next/link"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { useFavorites } from "@/contexts/favorites-context"
+import { useAuth } from "@/contexts/auth-context"
 import { ApiService } from "@/services/api.service"
 import { CartService } from "@/services/cart.service"
 import { Button } from "@/components/ui/button"
 import { Heart, ShoppingCart, ArrowLeft, X } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencySpanish } from "@/lib/format"
+import ProductPreviewModal from "@/components/product-preview-modal"
 
 interface Product {
   art_codi: number
@@ -18,8 +20,8 @@ interface Product {
   art_desc: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
-  art_img?: string
+  art_stk: number
+  art_img_url?: string
   mar_nomb?: string
   sru_nomb?: string
   rub_nomb?: string
@@ -27,40 +29,18 @@ interface Product {
 }
 
 export default function FavoritesPage() {
-  const { favorites, removeFavorite } = useFavorites()
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
+  const { favoritesList, loading: favoritesLoading, removeFavorite } = useFavorites()
+  const { user } = useAuth()
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [notification, setNotification] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
     show: false,
     message: "",
     type: "success",
   })
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await ApiService.get<any>('/articulos/?limit=500')
-        const products = Array.isArray(data.products) ? data.products : Array.isArray(data.results) ? data.results : data
-        setProducts(products)
-      } catch (error) {
-        // Silent error
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchProducts()
-  }, [])
-
-  useEffect(() => {
-    const favoriteProducts = products.filter((p) => favorites.includes(p.art_codi))
-    setFilteredProducts(favoriteProducts)
-  }, [favorites, products])
-
   const handleAddToCart = async (product: Product) => {
     try {
-      await CartService.addToCart(product.art_codi, 1)
+      await CartService.addToCart(product.art_codi, 1, product)
       
       setNotification({
         show: true,
@@ -95,15 +75,15 @@ export default function FavoritesPage() {
             <h1 className="text-3xl font-bold">Mis Favoritos</h1>
           </div>
           <p className="text-muted-foreground">
-            {filteredProducts.length} producto{filteredProducts.length !== 1 ? "s" : ""} guardado{filteredProducts.length !== 1 ? "s" : ""}
+            {favoritesList.length} producto{favoritesList.length !== 1 ? "s" : ""} guardado{favoritesList.length !== 1 ? "s" : ""}
           </p>
         </div>
 
-        {loading ? (
+        {favoritesLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Cargando...</p>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : favoritesList.length === 0 ? (
           <Card>
             <CardContent className="py-12">
               <div className="text-center space-y-4">
@@ -120,11 +100,11 @@ export default function FavoritesPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
+            {favoritesList.map((product: any) => (
               <Card key={product.art_codi} className="overflow-hidden hover:shadow-lg transition">
                 <div className="relative aspect-square bg-gray-100 overflow-hidden group">
                   <img
-                    src={product.art_img || '/placeholder.jpg'}
+                    src={product.art_img_url || '/placeholder.jpg'}
                     alt={product.art_nomb}
                     className="w-full h-full object-cover group-hover:scale-105 transition"
                   />
@@ -148,14 +128,16 @@ export default function FavoritesPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Link href={`/listado#${product.art_codi}`} className="flex-1">
-                      <Button variant="outline" className="w-full">
-                        Ver Detalles
-                      </Button>
-                    </Link>
+                    <Button
+                      onClick={() => setSelectedProduct(product)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Ver Detalles
+                    </Button>
                     <Button
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.art_stkp === 0}
+                      disabled={product.art_stk === 0}
                       className="flex-1"
                     >
                       <ShoppingCart className="w-4 h-4 mr-1" />
@@ -163,7 +145,7 @@ export default function FavoritesPage() {
                     </Button>
                   </div>
 
-                  {product.art_stkp === 0 && <p className="text-xs text-red-500 font-semibold">Sin Stock</p>}
+                  {product.art_stk === 0 && <p className="text-xs text-red-500 font-semibold">Sin Stock</p>}
                 </CardContent>
               </Card>
             ))}
@@ -184,6 +166,15 @@ export default function FavoritesPage() {
             <X className="w-4 h-4" />
           </button>
         </div>
+      )}
+
+      {/* Modal de Detalles del Producto */}
+      {selectedProduct && (
+        <ProductPreviewModal
+          product={selectedProduct}
+          isOpen={!!selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
       )}
     </div>
   )

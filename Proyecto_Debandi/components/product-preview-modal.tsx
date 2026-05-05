@@ -16,7 +16,7 @@ interface Product {
   art_nomb: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   art_img?: string
   art_desc?: string
   mar_nomb?: string
@@ -47,7 +47,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
   const handleQuantityChange = (value: string) => {
     const num = parseInt(value) || 0
-    if (num > 0 && num <= product.art_stkp) {
+    if (num > 0 && num <= product.art_stk) {
       setQuantity(num)
     }
   }
@@ -59,7 +59,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   }
 
   const handleIncrement = () => {
-    if (quantity < product.art_stkp) {
+    if (quantity < product.art_stk) {
       setQuantity(quantity + 1)
     }
   }
@@ -76,7 +76,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         art_nomb: product.art_nomb,
         art_pnet: product.art_pnet,
         art_pfin: product.art_pfin,
-        art_stkp: product.art_stkp,
+        art_stk: product.art_stk,
         art_img: product.art_img,
         mar_nomb: product.mar_nomb,
         sru_nomb: product.sru_nomb
@@ -149,7 +149,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
                 alt={product.art_nomb}
                 className="w-full h-full object-cover"
               />
-              {product.art_stkp === 0 && (
+              {product.art_stk === 0 && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                   <span className="text-white font-bold text-xl">Agotado</span>
                 </div>
@@ -189,7 +189,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
             {/* Cantidad */}
             {user ? (
-              product.art_stkp > 0 && (
+              product.art_stk > 0 && (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-semibold mb-2 block">Cantidad</label>
@@ -204,14 +204,14 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
                       <Input
                         type="number"
                         min="1"
-                        max={product.art_stkp}
+                        max={product.art_stk}
                         value={quantity}
                         onChange={(e) => handleQuantityChange(e.target.value)}
                         className="w-16 text-center"
                       />
                       <button
                         onClick={handleIncrement}
-                        disabled={quantity >= product.art_stkp}
+                        disabled={quantity >= product.art_stk}
                         className="p-2 border border-border rounded-lg hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus className="w-4 h-4" />
@@ -230,7 +230,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
                   {/* Botón agregar */}
                   <Button
                     onClick={handleAddToCart}
-                    disabled={product.art_stkp === 0}
+                    disabled={product.art_stk === 0}
                     className="w-full bg-primary text-primary-foreground py-3 text-lg font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="w-5 h-5" />

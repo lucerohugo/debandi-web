@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, UserCog } from "lucide-react"
-import GoogleLoginButton from "./google-login-button"
 import ForgotPasswordModal from "./forgot-password-modal"
 
 interface AuthModalProps {
@@ -151,19 +150,6 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                     </Button>
                   </div>
                 </form>
-
-                {/* Divisor */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-background text-muted-foreground">O continúa con</span>
-                  </div>
-                </div>
-
-                {/* Google OAuth */}
-                <GoogleLoginButton />
               </TabsContent>
 
               <TabsContent value="register">

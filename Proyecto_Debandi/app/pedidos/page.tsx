@@ -28,8 +28,10 @@ interface Order {
   orderNumber: string
   date: string
   total: number
-  status: "completada" | "pendiente" | "cancelada"
+  status: "pendiente" | "procesado"
+  ped_esta: string
   ped_exp: boolean
+  detalles: any[]
   items: OrderItem[]
 }
 
@@ -52,15 +54,17 @@ export default function OrdersPage() {
         orderNumber: `ORD-${ped.ped_codi}`,
         date: ped.ped_fech,
         total: ped.ped_tota,
-        status: ped.ped_esta === 'P' ? 'pendiente' : ped.ped_esta === 'F' ? 'completada' : 'cancelada',
+        ped_esta: ped.ped_esta,  // Guardar el estado original
+        status: ped.ped_esta === 'P' ? 'pendiente' : 'procesado',  // Solo dos estados
         ped_exp: ped.ped_exp,  // Si fue exportado a Genexus
+        detalles: ped.detalles,
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,
           art_nomb: det.art_nomb,
-          art_pnet: det.art_pnet,
+          art_pnet: det.art_pfin,  // Usar art_pfin como pnet para cálculos
           art_pfin: det.art_pfin,
-          quantity: det.dpe_cant,
-          price: det.dpe_prec
+          quantity: det.dpe_cant,  // Usar dpe_cant (cantidad pedida)
+          price: det.art_pfin  // Usar art_pfin como precio
         }))
       }))
       
@@ -85,12 +89,10 @@ export default function OrdersPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completada":
+      case "procesado":
         return "bg-green-100 text-green-800"
       case "pendiente":
         return "bg-yellow-100 text-yellow-800"
-      case "cancelada":
-        return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -98,12 +100,10 @@ export default function OrdersPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "completada":
-        return "Completada"
+      case "procesado":
+        return "Procesado"
       case "pendiente":
         return "Pendiente"
-      case "cancelada":
-        return "Cancelada"
       default:
         return status
     }
@@ -143,14 +143,24 @@ export default function OrdersPage() {
 
   const handleRepeatOrder = async (order: Order) => {
     try {
-      // Agregar los items del pedido anterior al carrito del backend
+      // Agregar los items del pedido anterior al carrito
       const { CartService } = await import('@/services/cart.service')
       let totalUnitsAdded = 0
       let failedItems: string[] = []
       
       for (const item of order.items) {
         try {
-          await CartService.addToCart(item.art_codi, item.quantity)
+          // Pasar el objeto completo del producto al carrito
+          await CartService.addToCart(item.art_codi, item.quantity, {
+            art_nomb: item.art_nomb,
+            art_pnet: item.art_pnet,
+            art_pfin: item.art_pfin,
+            art_stkp: 0, // No tenemos stock info, pero pasamos el objeto
+            art_img: undefined,
+            mar_nomb: undefined,
+            sru_nomb: undefined,
+            quantity: item.quantity
+          })
           totalUnitsAdded += item.quantity
         } catch (itemError: any) {
           // Si falla un item, guardamos el nombre y continuamos con los demás
@@ -329,7 +339,7 @@ export default function OrdersPage() {
                               {item.image ? (
                                 <img
                                   src={item.image}
-                                  alt={item.productName}
+                                  alt={item.art_nomb}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
@@ -342,29 +352,22 @@ export default function OrdersPage() {
                             </div>
                             <div className="flex-1">
                               <h5 className="font-medium text-foreground line-clamp-2">
-                                {item.productName}
+                                {item.art_nomb}
                               </h5>
                               <p className="text-sm text-muted-foreground mt-1">
-                                Cantidad: {item.quantity}
+                                Cantidad: {item.quantity} × {formatCurrencySpanish(item.art_pfin)} c/u
                               </p>
                               <p className="text-sm font-semibold text-foreground mt-2">
-                                {formatCurrencySpanish(item.price * item.quantity)}
+                                {formatCurrencySpanish(item.art_pfin * item.quantity)}
                               </p>
                             </div>
                           </div>
                         ))}
 
                         <div className="border-t pt-4 mt-4">
-                          <div className="flex justify-between items-center text-sm mb-2">
-                            <span className="text-muted-foreground">Subtotal</span>
-                            <span>
-                              {formatCurrencySpanish(order.items
-                                .reduce((sum, item) => sum + item.art_pnet * item.quantity, 0))}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center font-bold">
+                          <div className="flex justify-between items-center font-bold text-lg">
                             <span>Total</span>
-                            <span className="text-lg text-primary">
+                            <span className="text-primary">
                               {formatCurrencySpanish(order.total)}
                             </span>
                           </div>
@@ -395,7 +398,7 @@ export default function OrdersPage() {
                             <RotateCw className="w-4 h-4" />
                             Repetir Pedido
                           </Button>
-                          {!order.ped_exp && (
+                          {order.status === 'pendiente' && (
                             <Button
                               onClick={() => router.push(`/pedidos/editar/${order.ped_codi}`)}
                               variant="outline"
@@ -405,6 +408,12 @@ export default function OrdersPage() {
                               <Pencil className="w-4 h-4" />
                               Editar Pedido
                             </Button>
+                          )}
+                          {order.status === 'procesado' && (
+                            <div className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                              <AlertCircle className="w-4 h-4" />
+                              No editable
+                            </div>
                           )}
                         </div>
                       </div>

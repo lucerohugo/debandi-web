@@ -7,15 +7,13 @@ import { ApiService } from "@/services/api.service"
 
 interface OrderDetail {
   dpe_codi: number
+  ped_codi: number
   art_codi: number
   art_nomb: string
-  art_pnet: number
+  art_cant: number
   art_pfin: number
-  art_stkp?: number
-  art_stkp?: string
-  dpe_cant: number
-  dpe_prec: number
-  dpe_subt: number
+  art_descu: number
+  art_stk?: number
 }
 
 interface Order {
@@ -24,6 +22,7 @@ interface Order {
   ped_tota: number
   ped_esta: string
   ped_fpag: string
+  cli_codi: number
   ped_exp: boolean  // Si ya fue exportado a Genexus no se puede editar
   detalles: OrderDetail[]
 }
@@ -81,8 +80,11 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
   const syncOrdersWithBackend = async () => {
     try {
-      const response = await ApiService.get<any>('/pedidos/')
-      const data = response.pedidos || []
+      // Usar endpoint específico para obtener solo los pedidos del cliente autenticado
+      const url = user ? `/pedidos/cliente/?cli_codi=${user.id}` : '/pedidos/cliente/'
+      const response = await ApiService.get<any>(url)
+      // DRF retorna array directo o {count, next, previous, results}
+      const data = Array.isArray(response) ? response : (response.results || [])
       
       setOrders(data)
       
@@ -105,10 +107,16 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrder = async (pedCodi: number, items: any[], formaPago?: string): Promise<boolean> => {
     try {
-      await ApiService.put(`/pedidos/${pedCodi}/editar/`, {
-        items,
-        forma_pago: formaPago
-      })
+      const payload = {
+        cli_codi: items[0]?.cli_codi || 1, // Obtener cli_codi del contexto o usar el que viene
+        ped_fpag: formaPago || 'CDO',
+        detalles: items.map(item => ({
+          art_codi: item.art_codi,
+          dpe_cant: item.quantity || item.dpe_cant
+        }))
+      }
+      
+      await ApiService.put(`/pedidos/${pedCodi}/`, payload)
       
       // Invalidar caché y recargar pedidos
       cacheManager.invalidate(ORDERS_CACHE_KEY)
@@ -123,7 +131,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
   const deleteOrder = async (pedCodi: number): Promise<boolean> => {
     try {
-      await ApiService.delete(`/pedidos/${pedCodi}/eliminar/`)
+      await ApiService.delete(`/pedidos/${pedCodi}/`)
       
       // Invalidar caché y recargar pedidos
       cacheManager.invalidate(ORDERS_CACHE_KEY)

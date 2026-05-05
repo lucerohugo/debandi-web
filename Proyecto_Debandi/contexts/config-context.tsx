@@ -1,7 +1,6 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { ApiService } from '@/services/api.service'
 
 interface Config {
   gen_codi: number
@@ -24,38 +23,31 @@ interface ConfigContextType {
   refetch: () => Promise<void>
 }
 
+const DEFAULT_CONFIG: Config = {
+  gen_codi: 0,
+  gen_nomb: 'Debandi',
+  gen_raz: 'Debandi Distribuciones',
+  gen_logo: null,
+  gen_cuit: '',
+  gen_ingb: '',
+  gen_razon: '',
+  gen_dire: '',
+  gen_tele: '',
+  gen_emai: 'info@debandi.com',
+  gen_colo: '#8cced9',
+}
+
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined)
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<Config | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchConfig = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await ApiService.get<Config>('/general/')
-      setConfig(data)
-    } catch (err) {
-      setError('Error al cargar la configuración')
-      // Configuración por defecto en caso de error
-      setConfig({
-        gen_codi: 0,
-        gen_nomb: 'Tienda Online',
-        gen_raz: '',
-        gen_logo: null,
-        gen_cuit: '',
-        gen_ingb: '',
-        gen_razon: '',
-        gen_dire: '',
-        gen_tele: '',
-        gen_emai: '',
-        gen_colo: '#8cced9',
-      })
-    } finally {
-      setLoading(false)
-    }
+    // Usar configuración por defecto sin hacer llamadas al backend
+    setLoading(false)
+    setConfig(DEFAULT_CONFIG)
   }
 
   useEffect(() => {

@@ -51,7 +51,7 @@ export default function EditOrderPage() {
   
   const [items, setItems] = useState<EditableItem[]>([])
   const [originalItems, setOriginalItems] = useState<EditableItem[]>([])
-  const [orderInfo, setOrderInfo] = useState<{ ped_codi: number; ped_fech: string; ped_fpag: string } | null>(null)
+  const [orderInfo, setOrderInfo] = useState<{ ped_codi: number; ped_fech: string; ped_fpag: string; cli_codi: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -79,8 +79,9 @@ export default function EditOrderPage() {
   const loadAllProducts = async () => {
     try {
       setLoadingProducts(true)
-      const response = await ApiService.get<any>('/articulos/?limit=5000')
-      const products = response.products || response || []
+      const response = await ApiService.get<any>('/articulos/?page_size=5000')
+      // DRF retorna {count, next, previous, results}
+      const products = Array.isArray(response) ? response : (response?.results || [])
       setAllProducts(products)
     } catch (err) {
       console.error('Error loading products:', err)
@@ -126,10 +127,16 @@ export default function EditOrderPage() {
         return
       }
       
+      if (order.ped_esta !== 'P') {
+        setError("Solo se pueden editar pedidos en estado Pendiente. Este pedido está en estado Procesado.")
+        return
+      }
+      
       setOrderInfo({
         ped_codi: order.ped_codi,
         ped_fech: order.ped_fech,
-        ped_fpag: order.ped_fpag
+        ped_fpag: order.ped_fpag,
+        cli_codi: order.cli_codi
       })
       
       const editableItems: EditableItem[] = order.detalles.map((det: any) => ({
@@ -137,11 +144,11 @@ export default function EditOrderPage() {
         art_nomb: det.art_nomb,
         art_pnet: det.art_pnet,
         art_pfin: det.art_pfin,
-        art_stkp: det.art_stkp,
+        art_stkp: det.art_stk,
         art_cint: det.art_cint || '',
         dpe_cant: det.dpe_cant,
-        dpe_prec: det.dpe_prec,
-        dpe_subt: det.dpe_subt,
+        dpe_prec: det.art_pfin,  // Usar art_pfin directamente
+        dpe_subt: det.dpe_cant * det.art_pfin,  // Calcular el subtotal
         quantity: det.dpe_cant,
         removed: false
       }))
@@ -261,8 +268,8 @@ export default function EditOrderPage() {
       
       const itemsToSave = activeItems.map(item => ({
         art_codi: item.art_codi,
-        cantidad: item.quantity,
-        precio: item.dpe_prec
+        quantity: item.quantity,
+        cli_codi: orderInfo?.cli_codi
       }))
       
       const success = await updateOrder(pedCodi, itemsToSave, orderInfo?.ped_fpag)
@@ -389,7 +396,7 @@ export default function EditOrderPage() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              Guardar Cambios
+              Confirmar Cambios
             </Button>
           </div>
           

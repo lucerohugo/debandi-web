@@ -77,7 +77,7 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 - Catálogo de productos con filtros
 - Carrito de compras
 - Sistema de pedidos
-- Autenticación JWT + Google OAuth
+- Autenticación con Email/Contraseña
 - Panel de vendedores con impersonación
 - Exportación PDF/Excel
 - Integración Mercado Pago

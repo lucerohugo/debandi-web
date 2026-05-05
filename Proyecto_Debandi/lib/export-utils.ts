@@ -7,7 +7,7 @@ export interface Product {
   art_desc?: string
   art_pnet: number
   art_pfin: number
-  art_stkp?: number  // Campo opcional - usado para cantidad en pedidos
+  art_stk?: number  // Campo opcional - usado para cantidad en pedidos
   art_tiva?: string | number  // Porcentaje de IVA
   art_img?: string
   mar_nomb?: string
