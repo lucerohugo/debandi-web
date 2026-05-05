@@ -16,6 +16,7 @@ interface Product {
   art_pnet: number
   art_pfin: number
   art_stkp: number
+  art_carru: boolean
   art_img?: string
   mar_nomb?: string
   sru_nomb?: string
@@ -35,8 +36,8 @@ export default function FeaturedCarousel({ products, loading }: FeaturedCarousel
   const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
-    // Filtrar solo productos del subrubro "OFERTAS"
-    const featured = products.filter(p => p.sru_nomb === 'OFERTAS').slice(0, 3)
+    // Filtrar productos marcados para el carrusel (art_carru = true)
+    const featured = products.filter(p => p.art_carru === true).slice(0, 3)
     setFeaturedProducts(featured)
   }, [products])
 

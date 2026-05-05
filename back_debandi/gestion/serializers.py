@@ -83,7 +83,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
             'art_xbul', 'art_ubul',
             'mar_codi', 'mar_nomb', 'sru_codi', 'sru_nomb', 'rub_nomb',
             'art_tiva', 'art_depo', 'art_mext',
-            'art_acti', 'art_visw', 'art_img', 'art_img_url',
+            'art_acti', 'art_visw', 'art_carru', 'art_img', 'art_img_url',
             'art_fchc', 'art_fmod'
         ]
         read_only_fields = ['art_codi', 'art_fchc', 'art_fmod', 'art_pfin']

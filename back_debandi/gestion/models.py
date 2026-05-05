@@ -128,6 +128,7 @@ class Articulo(models.Model):
 
     art_acti = models.BooleanField(default=True, help_text="Artículo activo")
     art_visw = models.BooleanField(default=True, help_text="Visible en web")
+    art_carru = models.BooleanField(default=False, help_text="Mostrar en carrusel de inicio")
 
     art_org = models.CharField(
         max_length=20,
