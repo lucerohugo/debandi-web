@@ -52,20 +52,6 @@ def safe(v):
     return "" if v is None else str(v)
 
 
-def limpiar_texto(txt):
-    """Limpiar texto para archivo TMP"""
-    if not txt:
-        return ""
-
-    return (
-        str(txt)
-        .replace('"', '')
-        .replace('\n', ' ')
-        .replace('\r', ' ')
-        .strip()
-    )
-
-
 def main():
 
     try:
@@ -125,15 +111,11 @@ def main():
 
                         safe(d.get("art_codi")),
 
-                        limpiar_texto(d.get("art_nomb")), #sacar
-
                         safe(d.get("dpe_cant")),
 
                         safe(d.get("art_pfin")),
 
                         safe(d.get("art_descu")),
-
-                        safe(d.get("art_stk")), #sacar
                     ]
 
                     f.write(",".join(f'"{x}"' for x in linea) + "\n")

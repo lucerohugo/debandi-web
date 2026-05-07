@@ -289,7 +289,7 @@ export default function ListadoProductos() {
             art_stkp: fullProduct.art_stkp,
             art_img: fullProduct.art_img,
             mar_nomb: fullProduct.mar_nomb,
-            sru_nomb: fullProduct.sru_nomb,
+            rub_nomb: fullProduct.rub_nomb,
             quantity: selectedItem.quantity
           })
           totalItems += selectedItem.quantity
@@ -438,7 +438,7 @@ export default function ListadoProductos() {
                                   art_stkp: product.art_stk || 0,
                                   art_img: product.art_img,
                                   mar_nomb: product.mar_nomb,
-                                  sru_nomb: product.sru_nomb,
+                                  rub_nomb: product.rub_nomb,
                                   quantity: 1
                                 })
                                 // Disparar evento para actualizar carrito

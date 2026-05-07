@@ -144,29 +144,19 @@ DO WHILE !FEOF(ARCHI)
             REPLACE art_codi WITH VAL(aCampos[9])
         ENDIF
 
-        * Nombre artículo
-        IF nCampo >= 10
-            REPLACE art_nomb WITH aCampos[10]
-        ENDIF
-
         * Cantidad
-        IF nCampo >= 11
-            REPLACE dpe_cant WITH VAL(aCampos[11])
+        IF nCampo >= 10
+            REPLACE dpe_cant WITH VAL(aCampos[10])
         ENDIF
 
         * Precio final
-        IF nCampo >= 12
-            REPLACE art_pfin WITH VAL(aCampos[12])
+        IF nCampo >= 11
+            REPLACE art_pfin WITH VAL(aCampos[11])
         ENDIF
 
         * Descuento
-        IF nCampo >= 13
-            REPLACE art_descu WITH VAL(aCampos[13])
-        ENDIF
-
-        * Stock
-        IF nCampo >= 14
-            REPLACE art_stk WITH VAL(aCampos[14])
+        IF nCampo >= 12
+            REPLACE art_descu WITH VAL(aCampos[12])
         ENDIF
 
     ENDIF
