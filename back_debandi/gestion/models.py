@@ -28,7 +28,7 @@ class Provincia(models.Model):
 class Zona(models.Model):
     """Zonas geográficas"""
     zon_codi = models.IntegerField(primary_key=True, editable=True)
-    zon_nomb = models.CharField(max_length=100)
+    zon_nomb = models.CharField(max_length=100, null=True)
 
     class Meta:
         verbose_name = "Zona"
@@ -109,26 +109,26 @@ class Articulo(models.Model):
     art_codi = models.IntegerField(primary_key=True, editable=True)
     art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
     art_nomb = models.CharField(max_length=100)
-    art_desc = models.TextField(blank=True, help_text="Descripción del artículo")
-    art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento")
-    art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto")
+    art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
+    art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True)
+    art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto", null=True)
     art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=False, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
-    art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos")
+    art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos", null=True)
     art_cant = models.PositiveIntegerField(default=0, help_text="Cantidad disponible")
-    art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack")
-    art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto")
+    art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack", null=True)
+    art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto", null=True)
     art_img = models.ImageField(upload_to='articulos/', blank=True, null=True)
-    art_depo = models.IntegerField(default=0, help_text="Depósito")
-    art_mext = models.BooleanField(default=False, help_text="Precio en moneda extranjera (USD)")
-    art_tiva = models.DecimalField(max_digits=5, decimal_places=2, default=21, help_text="IVA del artículo (%)")
+    art_depo = models.IntegerField(default=0, help_text="Depósito", null=True)
+    art_mext = models.BooleanField(default=False, help_text="Precio en moneda extranjera (USD)", null=True)
+    art_tiva = models.DecimalField(max_digits=5, decimal_places=2, default=21, help_text="IVA del artículo (%)", null=True)
 
     mar_codi = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="articulos", default=1)
     sru_codi = models.ForeignKey(SubRubro, on_delete=models.PROTECT, blank=True, null=True, related_name="articulos")
 
-    art_acti = models.BooleanField(default=True, help_text="Artículo activo")
-    art_visw = models.BooleanField(default=True, help_text="Visible en web")
-    art_carru = models.BooleanField(default=False, help_text="Mostrar en carrusel de inicio")
+    art_acti = models.BooleanField(default=True, help_text="Artículo activo",null=True)
+    art_visw = models.BooleanField(default=True, help_text="Visible en web", null=True)
+    art_carru = models.BooleanField(default=False, help_text="Mostrar en carrusel de inicio", null=True)
 
     art_org = models.CharField(
         max_length=20,
@@ -189,23 +189,23 @@ class Clientes(models.Model):
     cli_codi = models.IntegerField(primary_key=True, editable=True)
     cli_nomb = models.CharField(max_length=150, help_text="Nombre del cliente")
     cli_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
-    cli_tdoc = models.CharField(max_length=20, default="DNI", help_text="Tipo de documento")
+    cli_tdoc = models.CharField(max_length=20, default="DNI", help_text="Tipo de documento", null=True)
     cli_ndoc = models.CharField(max_length=20, blank=True, null=True, help_text="Número de documento")
     cli_doc = models.CharField(max_length=8, blank=True, null=True, help_text="Documento (legado)")
     cli_cuit = models.CharField(max_length=20, blank=True, null=True, unique=True, help_text="CUIT")
     cli_emai = models.EmailField(blank=True, null=True, unique=True, help_text="Email")
     cli_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")
-    cli_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
-    cli_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
-    cli_bar = models.CharField(max_length=100, blank=True, help_text="Barrio")
+    cli_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono", null=True)
+    cli_dire = models.CharField(max_length=150, blank=True, help_text="Dirección", null=True)
+    cli_bar = models.CharField(max_length=100, blank=True, help_text="Barrio", null=True)
     cli_estc = models.CharField(max_length=50, blank=True, null=True, help_text="Estado civil")
     cli_ocup = models.CharField(max_length=100, blank=True, null=True, help_text="Ocupación")
 
-    cli_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
+    cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)")
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
     cli_rexp = models.DateTimeField(blank=True, null=True, help_text="Expiración del token")
 
-    loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="clientes")
+    loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="clientes", null=True)
     ven_codi = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name="clientes")
 
     cli_org = models.CharField(
@@ -296,11 +296,6 @@ class CarritoItem(models.Model):
 
 class Pedidos(models.Model):
     """Pedidos de compra - Cabecera"""
-    ESTADO_CHOICES = (
-        ('P', 'Pendiente'),
-        ('PR', 'Procesado'),
-    )
-
     FORMA_PAGO_CHOICES = (
         ('CDO', 'Contado'),
         ('CTC', 'Cuenta Corriente'),
@@ -309,9 +304,8 @@ class Pedidos(models.Model):
     )
 
     ped_codi = models.AutoField(primary_key=True)
-    ped_fech = models.DateTimeField(default=timezone.now)
+    ped_fech = models.DateField(blank=True, null=True, help_text="Fecha del pedido")
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
-    ped_esta = models.CharField(max_length=2, choices=ESTADO_CHOICES, default='P')
     ped_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES)
     ped_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
@@ -338,12 +332,21 @@ class Pedidos(models.Model):
         self.save(update_fields=['ped_tota'])
 
     def puede_modificarse(self):
-        """Solo se puede modificar si está en estado Pendiente"""
-        return self.ped_esta == 'P'
+        """Retorna True si el pedido puede editarse (ped_exp = False = Pendiente)"""
+        return not self.ped_exp
+    
+    def marcar_como_procesado(self):
+        """Marca el pedido como procesado (ped_exp = True)"""
+        from django.utils import timezone
+        self.ped_exp = True
+        self.ped_fexp = timezone.now()
+        self.save(update_fields=['ped_exp', 'ped_fexp'])
 
     def __str__(self):
         cliente_nombre = self.cli_codi.cli_nomb if self.cli_codi else "Sin cliente"
-        return f"Pedido {self.ped_codi} - {cliente_nombre} ({self.ped_fech.strftime('%d/%m/%Y')})"
+        # ✅ Validar que ped_fech no sea None
+        fecha_str = self.ped_fech.strftime('%d/%m/%Y') if self.ped_fech else 'S/F'
+        return f"Pedido {self.ped_codi} - {cliente_nombre} ({fecha_str})"
 
 
 class DetallePedido(models.Model):
@@ -360,10 +363,6 @@ class DetallePedido(models.Model):
         unique_together = ('ped_codi', 'art_codi')  # No repetir artículos en un pedido
 
     def save(self, *args, **kwargs):
-        # Validar que el pedido esté en estado pendiente
-        if not self.ped_codi.puede_modificarse():
-            raise ValidationError("No se puede modificar un pedido no pendiente")
-
         super().save(*args, **kwargs)
         
         # Actualizar total del pedido
@@ -463,17 +462,17 @@ class Vendedor(models.Model):
     ven_nomb = models.CharField(max_length=100)
     ven_doc = models.CharField(max_length=20, blank=True, null=True, help_text="Documento")
     ven_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
-    ven_emai = models.EmailField(blank=True, null=True)
-    ven_tele = models.CharField(max_length=20, blank=True)
-    ven_dom = models.CharField(max_length=150, blank=True, help_text="Domicilio")
-    ven_bar = models.CharField(max_length=100, blank=True, help_text="Barrio")
+    ven_emai = models.EmailField(blank=True)
+    ven_tele = models.CharField(max_length=20, blank=True, null=True)
+    ven_dom = models.CharField(max_length=150, blank=True, help_text="Domicilio", null=True)
+    ven_bar = models.CharField(max_length=100, blank=True, help_text="Barrio", null=True)
     ven_cuit = models.CharField(max_length=20, blank=True, null=True, help_text="CUIT")
     ven_usua = models.CharField(max_length=50, blank=True, null=True, unique=True, help_text="Usuario para login")
     ven_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
-    ven_actv = models.BooleanField(default=False, help_text="Vendedor activo")
+    ven_actv = models.BooleanField(default=False, help_text="Vendedor activo", null=True)
     loc_codi = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendedores')
-    ven_fchc = models.DateTimeField(auto_now_add=True)
-    ven_fmod = models.DateTimeField(auto_now=True)
+    ven_fchc = models.DateTimeField(auto_now_add=True,null=True)
+    ven_fmod = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         verbose_name = "Vendedor"

@@ -34,26 +34,34 @@ export default function Home() {
     onlyStock: false,
   })
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
   const itemsPerPage = 15
   const productsRef = useRef<HTMLDivElement>(null)
+  const prevFiltersRef = useRef(filters)
 
-  // Fetch inicial: obtener TODOS los productos + marcas y rubros EN PARALELO
+  // Comparar filtros ignorando cambios de referencia de arrays
+  const filtersAreEqual = (f1: any, f2: any): boolean => {
+    if (!f1 || !f2) return false
+    return (
+      JSON.stringify(f1.brands) === JSON.stringify(f2.brands) &&
+      JSON.stringify(f1.categories) === JSON.stringify(f2.categories) &&
+      f1.onlyStock === f2.onlyStock
+      // ⚠️ NO comparamos priceRange porque cambia automáticamente
+      // según los productos actuales, no por acción del usuario
+    )
+  }
+
+  // Fetch inicial: obtener carrusel + marcas y rubros
   useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true)
+    const fetchInitialData = async () => {
       try {
-        // ⚡ PARALELO: Hacer los 3 requests a la vez en lugar de secuencialmente
-        const [productsResponse, rubrosResponse, marcasResponse] = await Promise.all([
-          ApiService.get<any>('/articulos/?page_size=5000'),
-          ApiService.get<any>('/rubros/?page_size=5000'),
-          ApiService.get<any>('/marcas/?page_size=5000')
+        const [carruselResponse, rubrosResponse, marcasResponse] = await Promise.all([
+          ApiService.get<any>('/articulos/carrusel/'),
+          ApiService.get<any>('/rubros/?page_size=100'),
+          ApiService.get<any>('/marcas/?page_size=100')
         ])
-
-        // Procesar productos
-        const allProducts = Array.isArray(productsResponse.results) ? productsResponse.results : (Array.isArray(productsResponse) ? productsResponse : [])
-        setProducts(allProducts)
         
         // Procesar rubros
         try {
@@ -65,16 +73,6 @@ export default function Home() {
           setCategories(rubrosArray)
         } catch (rubrosError) {
           console.error('Error processing rubros:', rubrosError)
-          // Si falla, extraer de los productos
-          const uniqueCategories = new Set<string>()
-          allProducts.forEach((p: any) => {
-            if (p.rub_nomb) uniqueCategories.add(p.rub_nomb)
-          })
-          const categoriesArray = Array.from(uniqueCategories).map((cat: string) => ({
-            id: cat.toLowerCase().replace(/\s+/g, '-'),
-            name: cat
-          }))
-          setCategories(categoriesArray)
         }
         
         // Procesar marcas
@@ -87,34 +85,51 @@ export default function Home() {
           setBrands(marcasArray)
         } catch (marcasError) {
           console.error('Error processing marcas:', marcasError)
-          // Si falla, extraer de los productos
-          const uniqueBrands = new Set<string>()
-          allProducts.forEach((p: any) => {
-            if (p.mar_nomb) uniqueBrands.add(p.mar_nomb)
-          })
-          const brandsArray = Array.from(uniqueBrands).sort().map((brand: string) => ({
-            id: brand.toLowerCase().replace(/\s+/g, '-'),
-            name: brand
-          }))
-          setBrands(brandsArray)
         }
       } catch (error) {
-        console.error('Error cargando datos:', error)
+        console.error('Error cargando datos iniciales:', error)
+      }
+    }
+
+    fetchInitialData()
+  }, [])
+
+  // Fetch de productos paginados: se ejecuta cuando cambia currentPage
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true)
+      try {
+        const response = await ApiService.get<any>(`/articulos/?page=${currentPage}&page_size=${itemsPerPage}`)
+        const allProducts = Array.isArray(response.results) ? response.results : (Array.isArray(response) ? response : [])
+        const total = response.count || 0
+        
+        setProducts(allProducts)
+        setTotalCount(total)
+        
+        console.log(`📄 Página ${currentPage}: ${allProducts.length} productos de ${total} total`)
+      } catch (error) {
+        console.error('Error cargando productos:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchAllData()
-  }, [])
+    if (itemsPerPage > 0) {
+      fetchProducts()
+    }
+  }, [currentPage])  // IMPORTANTE: Solo currentPage, NO itemsPerPage
 
-  // Resetear página cuando cambian los filtros o búsqueda
+  // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, filters])
+    // Solo resetear si el usuario busca algo real (no strings vacíos)
+    if (searchQuery.trim() !== "") {
+      setCurrentPage(1)
+    }
+  }, [searchQuery])
 
   const handleSearchClick = () => {
-    // Scroll suave hacia la sección de productos
+    // Solo hacer scroll suave, NO resetear página
+    // El reset ocurre automáticamente cuando searchQuery cambia (via useEffect)
     if (productsRef.current) {
       setTimeout(() => {
         productsRef.current?.scrollIntoView({ 
@@ -167,11 +182,20 @@ export default function Home() {
     return true
   })
 
-  // Paginación en frontend
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const displayedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage)
+  // Paginación en frontend - CON PAGINACIÓN REAL DEL BACKEND
+  // Calcular total de páginas basado en el count del backend
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+  // Los productos a mostrar son los filtrados localmente (sobre la página actual)
+  const displayedProducts = filteredProducts
+  // El total a mostrar es: filtrado localmente de los 15 actuales
   const totalProducts = filteredProducts.length
+
+  // Callback memoizado para setSearchQuery
+  // NOTA: El Header ahora controla cuáles búsquedas se disparan (via useRef)
+  // entonces este callback puede ser simple
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+  }, [])
 
   // Callback memoizado para actualizar filtros
   const handleFiltersChange = useCallback((newFilters: {
@@ -180,13 +204,17 @@ export default function Home() {
     priceRange: number[]
     onlyStock: boolean
   }) => {
-    setFilters(newFilters)
-    setCurrentPage(1) // Reset a primera página
+    // Comparar con los filtros anteriores comparando VALORES, no referencias
+    if (!filtersAreEqual(newFilters, prevFiltersRef.current)) {
+      prevFiltersRef.current = newFilters
+      setFilters(newFilters)
+      setCurrentPage(1) // Reset a primera página
+    }
   }, [])
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={setSearchQuery} onSearchClick={handleSearchClick} />
+      <Header onSearch={handleSearch} onSearchClick={handleSearchClick} />
 
       <FeaturedCarousel products={products} loading={loading} />
 
@@ -208,7 +236,10 @@ export default function Home() {
                   ? filters.categories[0]
                   : `${filters.categories.length} Categorías Seleccionadas`}
               </h1>
-              <p className="text-muted-foreground mt-2">Mostrando {displayedProducts.length} de {totalProducts} productos</p>
+              <p className="text-muted-foreground mt-2">
+                Mostrando {displayedProducts.length} de {totalCount} productos
+                {totalPages > 1 && ` (página ${currentPage} de ${totalPages})`}
+              </p>
             </div>
 
             <ProductGrid products={displayedProducts} loading={loading} />
@@ -218,7 +249,10 @@ export default function Home() {
               <div className="flex items-center justify-center gap-2 mt-8 mb-8">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => {
+                    setCurrentPage((p) => Math.max(1, p - 1))
+                    productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
                   disabled={currentPage === 1}
                 >
                   Anterior
@@ -249,7 +283,10 @@ export default function Home() {
                         key={pageNum}
                         variant={isActive ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
+                        onClick={() => {
+                          setCurrentPage(pageNum)
+                          productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }}
                         className={isActive ? "bg-primary text-primary-foreground" : ""}
                       >
                         {pageNum}
@@ -260,7 +297,10 @@ export default function Home() {
 
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => {
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
                   disabled={currentPage === totalPages}
                 >
                   Siguiente

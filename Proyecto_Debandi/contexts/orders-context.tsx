@@ -20,10 +20,10 @@ interface Order {
   ped_codi: number
   ped_fech: string
   ped_tota: number
-  ped_esta: string
   ped_fpag: string
   cli_codi: number
-  ped_exp: boolean  // Si ya fue exportado a Genexus no se puede editar
+  ped_exp: boolean  // false = Pendiente (editable), true = Procesado (no editable)
+  ped_fexp?: string  // Fecha de exportación
   detalles: OrderDetail[]
 }
 

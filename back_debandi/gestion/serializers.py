@@ -194,6 +194,7 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     art_desc = serializers.CharField(source='art_codi.art_desc', read_only=True)
     art_pnet = serializers.DecimalField(source='art_codi.art_pnet', max_digits=12, decimal_places=2, read_only=True)
     art_pfin = serializers.DecimalField(source='art_codi.art_pfin', max_digits=12, decimal_places=2, read_only=True)
+    art_tiva = serializers.DecimalField(source='art_codi.art_tiva', max_digits=5, decimal_places=2, read_only=True)
     art_stk = serializers.IntegerField(source='art_codi.art_stk', read_only=True)
     art_img = serializers.SerializerMethodField()
     mar_nomb = serializers.CharField(source='art_codi.mar_codi.mar_nomb', read_only=True)
@@ -205,7 +206,7 @@ class CarritoItemSerializer(serializers.ModelSerializer):
         model = CarritoItem
         fields = [
             'carr_codi', 'cli_codi', 'art_codi', 'art_nomb', 'art_desc',
-            'art_pnet', 'art_pfin', 'art_stk', 'art_img',
+            'art_pnet', 'art_pfin', 'art_tiva', 'art_stk', 'art_img',
             'mar_nomb', 'rub_nomb', 'sru_nomb',
             'carr_cant', 'carr_pnet', 'carr_pfin',
             'subtotal', 'carr_fech', 'carr_fmod'
@@ -287,7 +288,7 @@ class PedidosSerializer(serializers.ModelSerializer):
         model = Pedidos
         fields = [
             'ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
-            'ped_esta', 'ped_tota', 'ped_fpag',
+            'ped_tota', 'ped_fpag',
             'ped_exp', 'ped_fexp',
             'detalles'
         ]
@@ -314,8 +315,8 @@ class PedidosCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Pedidos
-        fields = ['ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_esta', 'ped_tota', 'ped_fpag', 'ped_exp', 'ped_fexp', 'detalles']
-        read_only_fields = ['ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb', 'ped_esta']
+        fields = ['ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_tota', 'ped_fpag', 'ped_exp', 'ped_fexp', 'detalles']
+        read_only_fields = ['ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb']
 
     def validate_detalles(self, value):
         """Validar que haya al menos un detalle"""
@@ -351,9 +352,9 @@ class PedidosCreateUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Actualizar pedido: cabecera + eliminar detalles viejos + crear nuevos"""
-        # Validar que el pedido esté en estado pendiente
+        # Validar que el pedido pueda modificarse (ped_exp = False)
         if not instance.puede_modificarse():
-            raise serializers.ValidationError("No se puede modificar un pedido que no está en estado Pendiente")
+            raise serializers.ValidationError("No se puede modificar un pedido que ya ha sido procesado")
         
         detalles_data = validated_data.pop('detalles', None)
         

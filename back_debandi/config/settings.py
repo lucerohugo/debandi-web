@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
@@ -54,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'rest_framework_simplejwt',
     'django_filters',
     'gestion',
 
@@ -65,8 +67,6 @@ MIDDLEWARE = [
     
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',  # ← DESHABILITADO EN DESARROLLO
-    # En producción, descomentar para activar CSRF
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -168,24 +168,14 @@ CORS_ALLOW_HEADERS = [
     'dnt',
     'origin',
     'user-agent',
-    'x-csrftoken',
     'x-requested-with',
 ]
 
-# CSRF Configuration - Confiar en los mismos orígenes que CORS
-CSRF_TRUSTED_ORIGINS = get_cors_origins()
-
-# Session Configuration (para cookies)
+# Session Configuration (no se usa con JWT, pero dejamos por si acaso)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
 SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
 SESSION_COOKIE_AGE = int(os.getenv('SESSION_COOKIE_AGE', '1209600'))  # 14 días
-
-# Auth cookie configuration
-AUTH_COOKIE_NAME = os.getenv('AUTH_COOKIE_NAME', 'auth-token')
-AUTH_COOKIE_SECURE = os.getenv('AUTH_COOKIE_SECURE', 'True').lower() == 'true'
-AUTH_COOKIE_SAMESITE = os.getenv('AUTH_COOKIE_SAMESITE', 'Lax')
-AUTH_COOKIE_MAX_AGE = int(os.getenv('AUTH_COOKIE_MAX_AGE', '1209600'))
 
 # Email Configuration para recuperación de contraseña
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
@@ -197,21 +187,46 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
 # ============================================================================
-# REST FRAMEWORK CONFIGURATION
+# REST FRAMEWORK CONFIGURATION - JWT Authentication
 # ============================================================================
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [
+        #'gestion.permissions.HasAPIKey',  # para produccion habilitar esta y sacar la de abajo
+        'rest_framework.permissions.AllowAny',
+    ],
     'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',  # JSON por defecto para APIs
-        'rest_framework.renderers.BrowsableAPIRenderer',  # Interfaz HTML cuando se visita en navegador
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
+
+# JWT Configuration - usando variables de entorno para buena práctica
+ACCESS_TOKEN_LIFETIME_SECONDS = int(os.getenv('ACCESS_TOKEN_LIFETIME_SECONDS', '3600'))  # Default: 1 hora
+REFRESH_TOKEN_LIFETIME_SECONDS = int(os.getenv('REFRESH_TOKEN_LIFETIME_SECONDS', '2592000'))  # Default: 30 días
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=ACCESS_TOKEN_LIFETIME_SECONDS),
+    'REFRESH_TOKEN_LIFETIME': timedelta(seconds=REFRESH_TOKEN_LIFETIME_SECONDS),
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFY_SIGNATURE': True,
+    'VERIFY_EXP': True,
 }
 
 # ============================================================================
 # DJANGO FILTERS CONFIGURATION
 # ============================================================================
 FILTERS_VERBOSITY = 'quiet'  # No mostrar formularios de filtros HTML
+
+# ============================================================================
+# API KEY - Para autenticación de scripts/integraciones
+# ============================================================================
+API_KEY = os.getenv('API_KEY', '5657c8d2427d7577e343ddbef4225ff3')

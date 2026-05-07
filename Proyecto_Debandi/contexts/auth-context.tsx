@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { cacheManager } from "@/lib/cache-manager"
+import { ApiService } from "@/services/api.service"
 
 // Importar función para obtener URL del API
 const getApiUrl = (): string => {
@@ -65,6 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('auth_user')
       }
     }
+    
+    // Cargar JWT token del localStorage si existe
+    const savedToken = localStorage.getItem('jwtToken')
+    if (savedToken) {
+      ApiService.setToken(savedToken)
+    }
+    
     setLoading(false)
   }, [])
 
@@ -130,6 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('[Auth] Iniciando login con:', email)
+      
       const response = await fetch(`${getApiUrl()}/cliente-login/`, {
         method: 'POST',
         headers: {
@@ -140,11 +150,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       const data = await response.json()
+      console.log('[Auth] Respuesta del login:', { status: response.status, data })
 
       if (!response.ok || !data.success) {
+        console.error('[Auth] Login fallido:', data.detail)
         throw new Error(data.detail || 'Error al iniciar sesión')
       }
 
+      // Verificar que tenemos JWT token
+      if (!data.access) {
+        console.error('[Auth] ❌ Backend no devolvió JWT token (data.access)')
+        throw new Error('Backend no devolvió JWT token')
+      }
+
+      console.log('[Auth] JWT recibido, guardando en localStorage...')
+      
       // Usar cli_codi como id del usuario (es único por cliente)
       const clienteData = data.cliente
       const user: User = {
@@ -155,22 +175,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin: false
       }
       
+      // Guardar JWT token
+      ApiService.setToken(data.access)
+      
+      // Verificar que se guardó
+      const savedToken = localStorage.getItem('jwtToken')
+      console.log('[Auth] Token guardado en localStorage:', !!savedToken, savedToken ? savedToken.substring(0, 20) + '...' : 'NO GUARDADO')
+      
       setUser(user)
       
       // Guardar en localStorage para persistencia
       localStorage.setItem('auth_user', JSON.stringify(user))
+      console.log('[Auth] ✅ Login exitoso para:', user.email)
+      
+      // ⏳ Esperar microtask para que React actualice el estado
+      await new Promise(resolve => setTimeout(resolve, 100))
       
       window.dispatchEvent(new CustomEvent("user-logged-in", {
         detail: { firstName: user.firstName }
       }))
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('[Auth] ❌ Login error:', error)
       throw error
     }
   }
 
   const register = async (email: string, password: string, firstName: string, lastName: string, document: string) => {
     try {
+      console.log('[Auth] Iniciando registro para:', email)
+      
       // Primero crear el cliente en el backend
       const registerResponse = await fetch(`${getApiUrl()}/cliente-register/`, {
         method: 'POST',
@@ -187,15 +220,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
       })
 
+      const registerData = await registerResponse.json()
+      console.log('[Auth] Respuesta del registro:', { status: registerResponse.status, registerData })
+
       if (!registerResponse.ok) {
-        const errorData = await registerResponse.json()
-        throw new Error(errorData.detail || 'Error en el registro')
+        console.error('[Auth] Registro fallido:', registerData.detail)
+        throw new Error(registerData.detail || 'Error en el registro')
       }
 
+      console.log('[Auth] ✅ Cliente registrado, iniciando login automático...')
+      
       // Luego hacer login automático
       await login(email, password)
+      
+      console.log('[Auth] ✅ Login automático completado después del registro')
     } catch (error) {
-      console.error('Register error:', error)
+      console.error('[Auth] ❌ Register error:', error)
       throw error
     }
   }
@@ -203,6 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setUser(null)
     localStorage.removeItem('auth_user')
+    ApiService.clearToken()  // Limpiar JWT token
     clearAuthData()
     
     window.dispatchEvent(new CustomEvent("favorites-cleared"))

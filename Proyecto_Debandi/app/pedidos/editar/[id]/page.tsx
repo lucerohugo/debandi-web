@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { formatCurrencySpanish } from "@/lib/format"
 import { ApiService } from "@/services/api.service"
+import { SearchService } from "@/services/search.service"
 
 interface Product {
   art_codi: number
@@ -77,38 +78,43 @@ export default function EditOrderPage() {
   }, [user, authLoading, pedCodi])
 
   const loadAllProducts = async () => {
-    try {
-      setLoadingProducts(true)
-      const response = await ApiService.get<any>('/articulos/?page_size=5000')
-      // DRF retorna {count, next, previous, results}
-      const products = Array.isArray(response) ? response : (response?.results || [])
-      setAllProducts(products)
-    } catch (err) {
-      console.error('Error loading products:', err)
-    } finally {
-      setLoadingProducts(false)
-    }
+    // Ya no necesitamos cargar todos los productos
+    // La búsqueda se hace en tiempo real en el backend
+    setLoadingProducts(false)
   }
 
-  // Filtrar productos por búsqueda
+  // Filtrar productos por búsqueda - ahora usa el backend
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSearchResults([])
       return
     }
-    
-    const query = searchQuery.toLowerCase()
-    const filtered = allProducts
-      .filter(p => 
-        p.art_nomb.toLowerCase().includes(query) ||
-        (p.mar_nomb && p.mar_nomb.toLowerCase().includes(query)) ||
-        p.art_codi.toString().includes(query)
-      )
-      .filter(p => !items.some(item => item.art_codi === p.art_codi && !item.removed))
-      .slice(0, 10) // Limitar a 10 resultados
-    
-    setSearchResults(filtered)
-  }, [searchQuery, allProducts, items])
+
+    const searchProducts = async () => {
+      try {
+        setLoadingProducts(true)
+        // Usar SearchService para buscar en TODOS los productos del backend
+        const results = await SearchService.searchArticulos(searchQuery, 20)
+        
+        // Filtrar productos ya agregados al pedido
+        const filtered = results
+          .filter((p: any) => !items.some(item => item.art_codi === p.art_codi && !item.removed))
+        
+        setSearchResults(filtered)
+      } catch (err) {
+        console.error('Error searching products:', err)
+        setSearchResults([])
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+
+    const timeout = setTimeout(() => {
+      searchProducts()
+    }, 300) // Debounce de 300ms
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery, items])
 
   const loadOrder = async () => {
     try {
@@ -123,12 +129,7 @@ export default function EditOrderPage() {
       }
       
       if (order.ped_exp) {
-        setError("Este pedido ya fue exportado a Genexus y no puede editarse")
-        return
-      }
-      
-      if (order.ped_esta !== 'P') {
-        setError("Solo se pueden editar pedidos en estado Pendiente. Este pedido está en estado Procesado.")
+        setError("Este pedido ya ha sido procesado y no puede editarse")
         return
       }
       
@@ -464,13 +465,18 @@ export default function EditOrderPage() {
                       <button
                         key={product.art_codi}
                         onClick={() => addProductToOrder(product)}
-                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors"
+                        disabled={product.art_stk <= 0}
+                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
                       >
                         <div>
                           <p className="font-medium text-foreground">{product.art_nomb}</p>
                           <p className="text-sm text-muted-foreground">
                             Cód: {product.art_codi} {product.mar_nomb && `• ${product.mar_nomb}`}
                           </p>
+                          {/* Mostrar badge si no hay stock */}
+                          {product.art_stk <= 0 && (
+                            <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-primary">{formatCurrencySpanish(product.art_pfin)}</p>

@@ -1,7 +1,7 @@
 ﻿"use client"
 
-import { useState, useEffect } from "react"
-import { ShoppingCart, Eye } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { ShoppingCart, Eye, Search, X } from "lucide-react"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ import { exportToPDF, exportToExcel } from "@/lib/export-utils"
 import { ApiService } from "@/services/api.service"
 import { ConfigService } from "@/services/config.service"
 import { CartService } from "@/services/cart.service"
+import { SearchService } from "@/services/search.service"
 
 interface Product {
   art_codi: number
@@ -75,6 +76,10 @@ export default function ListadoProductos() {
   const [productsTabla, setProductsTabla] = useState<ProductTabla[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [globalSearchValue, setGlobalSearchValue] = useState("")
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [searchingGlobal, setSearchingGlobal] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedProducts, setSelectedProducts] = useState<Map<number, SelectedProduct>>(new Map())
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -82,9 +87,13 @@ export default function ListadoProductos() {
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState("")
   const [selectedProductForPreview, setSelectedProductForPreview] = useState<Product | null>(null)
-  const [itemsPerPage, setItemsPerPage] = useState(12)
-  const [maxLimit, setMaxLimit] = useState(5000)
+  const [itemsPerPage, setItemsPerPage] = useState(15)  // Valor inicial 15 en lugar de cargar de config
+  const [maxLimit, setMaxLimit] = useState(100)
+  const [totalCount, setTotalCount] = useState(0)  // Total de artículos del backend
   const { user } = useAuth()
+
+  // Ref para rastrear si el valor de búsqueda global realmente cambió
+  const prevGlobalRef = useRef("")
 
   const handleExportPDF = async () => {
     setIsExporting(true)
@@ -109,6 +118,7 @@ export default function ListadoProductos() {
     }
   }
 
+  // Cargar configuración de paginación (opcional, puede omitirse si siempre quieres 15 items)
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -116,39 +126,82 @@ export default function ListadoProductos() {
         setItemsPerPage(paginationConfig.items_per_page)
         setMaxLimit(paginationConfig.max_limit)
       } catch (error) {
-        // Usar valores por defecto
-        setItemsPerPage(12)
-        setMaxLimit(5000)
+        // Mantener valores por defecto: 15 items por página
+        setItemsPerPage(15)
+        setMaxLimit(100)
       }
     }
     
     fetchConfig()
   }, [])
 
+  // Fetch de productos - UN SOLO useEffect bien hecho
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        setLoading(true)
+        // Usar paginación real: solo traer los items de esa página
+        const response = await ApiService.get<any>(`/articulos/?page=${currentPage}&page_size=${itemsPerPage}`)
+        
         // DRF devuelve {count, next, previous, results}
-        const response = await ApiService.get<any>(`/articulos/?page_size=${maxLimit}`)
-        const productsList = Array.isArray(response.results) ? response.results : (Array.isArray(response) ? response : [])
+        const productsList = response.results || response.data || []
+        const totalFromBackend = response.count || 0
+        
         setProducts(productsList)
         setProductsTabla(productsList)
+        setTotalCount(totalFromBackend)
+        
+        console.log(`✅ Página ${currentPage} cargada:`, {
+          itemsEnPagina: productsList.length,
+          totalDelBackend: totalFromBackend
+        })
       } catch (error) {
-        console.error('Error cargando productos:', error)
+        console.error('❌ Error cargando productos:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    if (maxLimit > 0) {
+    // Solo ejecutar si itemsPerPage > 0 (es decir, si ya se cargó la configuración)
+    if (itemsPerPage > 0) {
       fetchProducts()
     }
-  }, [maxLimit])
+  }, [currentPage, itemsPerPage])  // Ambas dependencias para fetch correcto
 
-  // Resetear página cuando cambia la búsqueda
+  // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {
-    setCurrentPage(1)
+    // Solo resetear si el usuario busca algo real (no strings vacíos)
+    if (searchQuery.trim() !== "") {
+      setCurrentPage(1)
+    }
   }, [searchQuery])
+
+  // Búsqueda GLOBAL en el buscador superior (trae todos los productos)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (globalSearchValue !== prevGlobalRef.current) {
+        prevGlobalRef.current = globalSearchValue
+        if (globalSearchValue.trim().length > 1) {
+          const search = async () => {
+            try {
+              setSearchingGlobal(true)
+              const results = await SearchService.searchArticulos(globalSearchValue, 20)
+              setGlobalSearchResults(results)
+            } catch (error) {
+              console.error('Error en búsqueda global:', error)
+              setGlobalSearchResults([])
+            } finally {
+              setSearchingGlobal(false)
+            }
+          }
+          search()
+        } else {
+          setGlobalSearchResults([])
+        }
+      }
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [globalSearchValue])
 
   // Filtrar productos por búsqueda
   const filteredProducts = products.filter((product) =>
@@ -165,11 +218,25 @@ export default function ListadoProductos() {
   )
 
   // Calcular paginación
-  const totalPages = Math.ceil(filteredProductsTabla.length / itemsPerPage)
-  const paginatedProducts = filteredProductsTabla.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
+  // Nota: Cuando hay búsqueda, solo filtramos los 15 items de la página actual
+  // Para búsqueda en TODOS los productos, usar SearchService.searchArticulos()
+  const hasSearchQuery = searchQuery.trim().length > 0
+  
+  let totalPages = 0
+  let paginatedProducts: ProductTabla[] = []
+  
+  if (hasSearchQuery) {
+    // Búsqueda activa: paginar localmente sobre los 15 items de esta página
+    // (no es búsqueda global, solo en los items actuales)
+    totalPages = Math.ceil(filteredProductsTabla.length / itemsPerPage)
+    paginatedProducts = filteredProductsTabla
+    console.log("🔍 Búsqueda activa:", { searchQuery, filteredLength: filteredProductsTabla.length, totalPages })
+  } else {
+    // Sin búsqueda: usar count del backend
+    totalPages = Math.ceil(totalCount / itemsPerPage)
+    paginatedProducts = productsTabla
+    console.log("📄 Sin búsqueda:", { totalCount, itemsPerPage, totalPages, productsTablaLength: productsTabla.length })
+  }
 
   const handleSelectProduct = (product: Product) => {
     const newSelected = new Map(selectedProducts)
@@ -252,13 +319,24 @@ export default function ListadoProductos() {
     <div className="flex flex-col min-h-screen">
       <Header onSearch={setSearchQuery} />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 w-full px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Listado De Productos</h1>
             <p className="text-muted-foreground">
               Selecciona los productos que deseas y agrega al carrito
             </p>
+            {/* Información de productos */}
+            {hasSearchQuery ? (
+              <p className="text-sm text-muted-foreground mt-2">
+                 Mostrando {filteredProductsTabla.length} de {productsTabla.length} productos encontrados
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">
+                 Mostrando {paginatedProducts.length} de {totalCount} productos
+                {totalPages > 0 && ` (página ${currentPage} de ${totalPages})`}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
@@ -283,14 +361,114 @@ export default function ListadoProductos() {
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
           {/* Tabla de productos */}
           <div className="lg:col-span-1">
-            <div className="mb-6">
-              <Input
-                type="text"
-                placeholder="Buscar por nombre, marca o categoría..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
-              />
+            <div className="mb-6 relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre, marca o categoría..."
+                  value={globalSearchValue}
+                  onChange={(e) => {
+                    setGlobalSearchValue(e.target.value)
+                    setShowSearchDropdown(true)
+                  }}
+                  onFocus={() => globalSearchValue.trim().length > 1 && setShowSearchDropdown(true)}
+                  className="w-full pl-10 pr-4"
+                />
+                {globalSearchValue && (
+                  <button
+                    onClick={() => {
+                      setGlobalSearchValue("")
+                      setGlobalSearchResults([])
+                      setShowSearchDropdown(false)
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown de resultados globales */}
+              {showSearchDropdown && globalSearchValue.trim().length > 1 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                  {searchingGlobal ? (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      Buscando...
+                    </div>
+                  ) : globalSearchResults.length > 0 ? (
+                    <>
+                      {globalSearchResults.map(product => (
+                        <div
+                          key={product.art_codi}
+                          className="px-4 py-3 hover:bg-primary/10 border-b last:border-b-0 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                          onClick={() => {
+                            // Abrir modal de detalles del producto
+                            setSelectedProductForPreview(product)
+                            setGlobalSearchValue("")
+                            setShowSearchDropdown(false)
+                          }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{product.art_nomb}</p>
+                            <p className="text-xs text-muted-foreground">{product.mar_nomb || 'Sin marca'}</p>
+                            {user && (
+                              <p className="text-sm font-semibold text-primary mt-1">${product.art_pfin?.toLocaleString('es-AR') || '0'}</p>
+                            )}
+                            {/* Mostrar estado si no hay stock */}
+                            {product.art_stk <= 0 && (
+                              <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (product.art_stk <= 0) {
+                                return
+                              }
+                              if (!user) {
+                                setShowAuthModal(true)
+                                return
+                              }
+                              try {
+                                await CartService.addToCart(product.art_codi, 1, {
+                                  art_nomb: product.art_nomb,
+                                  art_pnet: product.art_pnet,
+                                  art_pfin: product.art_pfin,
+                                  art_stkp: product.art_stk || 0,
+                                  art_img: product.art_img,
+                                  mar_nomb: product.mar_nomb,
+                                  sru_nomb: product.sru_nomb,
+                                  quantity: 1
+                                })
+                                // Disparar evento para actualizar carrito
+                                window.dispatchEvent(new Event("cart-updated"))
+                                setNotificationMessage("Producto agregado al carrito")
+                                setShowNotification(true)
+                                setTimeout(() => setShowNotification(false), 3000)
+                              } catch (err) {
+                                console.error('Error agregando al carrito:', err)
+                                setNotificationMessage("Error al agregar el producto")
+                                setShowNotification(true)
+                                setTimeout(() => setShowNotification(false), 3000)
+                              }
+                            }}
+                            disabled={product.art_stk <= 0}
+                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={product.art_stk <= 0 ? "Producto agotado" : "Agregar al carrito"}
+                          >
+                            <ShoppingCart className="w-5 h-5 text-primary" />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      No se encontraron productos
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {loading ? (
@@ -313,9 +491,7 @@ export default function ListadoProductos() {
                         <th className="text-left py-3 px-4">Producto</th>
                         <th className="text-left py-3 px-4">Marca</th>
                         <th className="text-left py-3 px-4">Rubro</th>
-                        <th className="text-right py-3 px-4">Precio Neto</th>
-                        <th className="text-center py-3 px-4">IVA</th>
-                        <th className="text-right py-3 px-4">Precio Final</th>
+                        <th className="text-right py-3 px-4">Precio</th>
                         <th className="text-center py-3 px-4">Cantidad</th>
                       </tr>
                     </thead>
@@ -362,8 +538,6 @@ export default function ListadoProductos() {
                           </td>
                           <td className="py-3 px-4">{product.mar_nomb}</td>
                           <td className="py-3 px-4">{product.rub_nomb}</td>
-                          <td className="py-3 px-4 text-right">{formatCurrencySpanish(product.art_pnet)}</td>
-                          <td className="py-3 px-4 text-center">{product.art_tiva}%</td>
                           <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(product.art_pfin)}</td>
                           <td className="py-3 px-4">
                             {isSelected ? (

@@ -21,6 +21,7 @@ interface Product {
   art_desc?: string
   mar_nomb?: string
   sru_nomb?: string
+  rub_nomb?: string
   art_acti?: boolean
 }
 
@@ -169,7 +170,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
             {/* Marca y Categoría */}
             <div>
               <p className="text-sm text-muted-foreground uppercase tracking-wide mb-1">{product.mar_nomb}</p>
-              <p className="text-xs text-muted-foreground">{product.sru_nomb}</p>
+              <p className="text-xs text-muted-foreground">{product.rub_nomb || 'Sin Definir'}</p>
             </div>
 
             {/* Nombre */}

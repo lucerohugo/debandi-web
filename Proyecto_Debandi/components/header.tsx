@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Search, ShoppingCart, Menu, X, User, LogOut, Shield, Heart, Package, Key, Download, UserCog } from "lucide-react"
@@ -12,8 +12,10 @@ import { useVendedor } from "@/contexts/vendedor-context"
 import { useConfig } from "@/contexts/config-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { CartService } from "@/services/cart.service"
+import { SearchService } from "@/services/search.service"
 import AuthModal from "./auth-modal"
 import ChangePasswordModal from "./change-password-modal"
+import ProductPreviewModal from "./product-preview-modal"
 import { Button } from "./ui/button"
 
 interface HeaderProps {
@@ -24,17 +26,65 @@ interface HeaderProps {
 export default function Header({ onSearch, onSearchClick }: HeaderProps) {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [searchValue, setSearchValue] = useState("")
+  const [searchValue, setSearchValue] = useState("") // Para Inicio (búsqueda local)
+  const [globalSearchValue, setGlobalSearchValue] = useState("") // Para búsqueda global (dropdown)
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [searchingGlobal, setSearchingGlobal] = useState(false)
   const [cartCount, setCartCount] = useState(0)
   const [favoritesCount, setFavoritesCount] = useState(0)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const { user, logout, impersonation } = useAuth()
   const { stopImpersonation, logout: logoutVendedor } = useVendedor()
   const { config, loading } = useConfig()
   const { favorites } = useFavorites()
+
+  // Ref para rastrear si el valor realmente cambió (para búsqueda local)
+  const prevRef = useRef("")
+
+  // Búsqueda LOCAL para Inicio (debounce de 300ms)
+  // Solo dispara si el valor REALMENTE cambió
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchValue !== prevRef.current) {
+        prevRef.current = searchValue
+        onSearch(searchValue)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [searchValue, onSearch])
+
+  // Búsqueda GLOBAL (dropdown) - independiente de Inicio
+  // No afecta a la paginación de Inicio
+  useEffect(() => {
+    if (globalSearchValue.length < 2) {
+      setGlobalSearchResults([])
+      setShowSearchDropdown(false)
+      return
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setSearchingGlobal(true)
+        const results = await SearchService.searchArticulos(globalSearchValue, 10)
+        setGlobalSearchResults(results)
+        setShowSearchDropdown(true)
+      } catch (err) {
+        console.error('Error en búsqueda global:', err)
+        setGlobalSearchResults([])
+      } finally {
+        setSearchingGlobal(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [globalSearchValue])
 
   const handleStopImpersonation = async () => {
     setStoppingImpersonation(true)
@@ -83,11 +133,6 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
   useEffect(() => {
     setFavoritesCount(favorites.length)
   }, [favorites])
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value)
-    onSearch(e.target.value)
-  }
 
   return (
     <>
@@ -162,16 +207,95 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
           </nav>
 
           <div className="hidden md:flex items-center gap-4 flex-shrink-0 ml-auto">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" />
+            <div className="relative w-72">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Buscar productos..."
-                value={searchValue}
-                onChange={handleSearch}
-                onClick={onSearchClick}
+                value={globalSearchValue}
+                onChange={(e) => setGlobalSearchValue(e.target.value)}
+                onFocus={() => globalSearchValue.length >= 2 && setShowSearchDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                 className="bg-gradient-to-r from-white to-gray-50 text-foreground pl-12 pr-5 py-2.5 rounded-full w-72 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 border border-gray-200 hover:border-gray-300 transition-all placeholder:text-gray-400 shadow-sm hover:shadow-md"
               />
+              
+              {/* Dropdown de resultados de búsqueda global */}
+              {showSearchDropdown && globalSearchValue.length >= 2 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                  {searchingGlobal ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      Buscando...
+                    </div>
+                  ) : globalSearchResults.length > 0 ? (
+                    <>
+                      {globalSearchResults.map((product: any) => (
+                        <div
+                          key={product.art_codi}
+                          className="px-4 py-3 hover:bg-primary/10 border-b last:border-b-0 transition-colors flex items-center justify-between gap-3"
+                        >
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              setSelectedProduct(product)
+                              setShowPreviewModal(true)
+                              setGlobalSearchValue("")
+                              setShowSearchDropdown(false)
+                            }}
+                          >
+                            <p className="font-medium text-sm">{product.art_nomb}</p>
+                            <p className="text-xs text-muted-foreground">{product.mar_nomb || 'Sin marca'}</p>
+                            {/* Mostrar precio solo si está autenticado */}
+                            {user && (
+                              <p className="text-sm font-semibold text-primary mt-1">${product.art_pfin?.toLocaleString('es-AR') || '0'}</p>
+                            )}
+                            {/* Mostrar estado si no hay stock */}
+                            {product.art_stk <= 0 && (
+                              <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (product.art_stk <= 0) {
+                                return
+                              }
+                              if (!user) {
+                                setShowAuthModal(true)
+                                return
+                              }
+                              try {
+                                await CartService.addToCart(product.art_codi, 1, {
+                                  art_nomb: product.art_nomb,
+                                  art_pnet: product.art_pnet,
+                                  art_pfin: product.art_pfin,
+                                  art_stkp: product.art_stkp || 0,
+                                  art_img: product.art_img,
+                                  mar_nomb: product.mar_nomb,
+                                  sru_nomb: product.sru_nomb,
+                                  quantity: 1
+                                })
+                                // Disparar evento para actualizar carrito
+                                window.dispatchEvent(new Event("cart-updated"))
+                              } catch (err) {
+                                console.error('Error agregando al carrito:', err)
+                              }
+                            }}
+                            disabled={product.art_stk <= 0}
+                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={product.art_stk <= 0 ? "Producto agotado" : "Agregar al carrito"}
+                          >
+                            <ShoppingCart className="w-5 h-5 text-primary" />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      No se encontraron productos
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <button 
               onClick={() => {
@@ -341,9 +465,10 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
               <input
                 type="text"
                 placeholder="Buscar productos..."
-                value={searchValue}
-                onChange={handleSearch}
-                onClick={onSearchClick}
+                value={globalSearchValue}
+                onChange={(e) => setGlobalSearchValue(e.target.value)}
+                onFocus={() => globalSearchValue.length >= 2 && setShowSearchDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                 className="bg-gradient-to-r from-white to-gray-50 text-foreground pl-12 pr-5 py-2.5 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 border border-gray-200 hover:border-gray-300 transition-all placeholder:text-gray-400 shadow-sm hover:shadow-md"
               />
             </div>
@@ -478,6 +603,13 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
       
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      {showPreviewModal && selectedProduct && (
+        <ProductPreviewModal 
+          product={selectedProduct} 
+          isOpen={showPreviewModal} 
+          onClose={() => setShowPreviewModal(false)} 
+        />
+      )}
     </header>
     </>
   )

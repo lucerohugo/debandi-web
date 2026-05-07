@@ -1,14 +1,15 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Q
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 import json
 
 from .models import (
@@ -33,7 +34,7 @@ from .serializers import (
 class StandardPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
-    max_page_size = 5000
+    max_page_size = 100  # Reducido de 5000 para evitar cargas masivas accidentales
 
 
 # ================================================================
@@ -41,7 +42,6 @@ class StandardPagination(PageNumberPagination):
 # ================================================================
 
 class BaseViewSet(viewsets.ModelViewSet):
-    permission_classes = []
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     pagination_class = StandardPagination
 
@@ -138,6 +138,7 @@ class MarcaViewSet(BulkCreateMixin, BaseViewSet):
     lookup_field_name = "mar_codi"
     search_fields = ['mar_nomb']
     ordering = ['mar_nomb']
+    permission_classes = [AllowAny]  # ✅ Público: marcas visibles sin API Key
 
 
 class RubroViewSet(BulkCreateMixin, BaseViewSet):
@@ -146,6 +147,7 @@ class RubroViewSet(BulkCreateMixin, BaseViewSet):
     lookup_field_name = "rub_codi"
     search_fields = ['rub_nomb']
     ordering = ['rub_nomb']
+    permission_classes = [AllowAny]  # ✅ Público: rubros visibles sin API Key
 
 
 class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
@@ -175,11 +177,19 @@ class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
 class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Articulo.objects.all()
     serializer_class = ArticuloSerializer
+    permission_classes = [AllowAny]  # ✅ Público: productos visibles sin API Key
     lookup_field_name = "art_codi"
     filterset_fields = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw']
     search_fields = ['art_nomb', 'art_codi', 'mar_codi__mar_nomb']
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']
+
+    @action(detail=False, methods=['get'])
+    def carrusel(self, request):
+        """GET /articulos/carrusel/ - Solo artículos marcados para carrusel (art_carru=True)"""
+        queryset = self.get_queryset().filter(art_carru=True)
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def frontend(self, request):
@@ -200,7 +210,6 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 # PERSONAS
 # ================================================================
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Clientes.objects.all()
     serializer_class = ClientesSerializer
@@ -209,7 +218,6 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
 
-    @method_decorator(csrf_exempt)
     @action(detail=False, methods=['post'])
     def login(self, request):
         """POST /clientes/login/ - Login de cliente"""
@@ -254,7 +262,6 @@ class VendedorViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['ven_nomb', 'ven_doc', 'ven_emai']
     ordering = ['ven_nomb']
 
-    @method_decorator(csrf_exempt)
     @action(detail=False, methods=['post'])
     def login(self, request):
         """POST /vendedores/login/ - Login de vendedor"""
@@ -295,12 +302,12 @@ class VendedorViewSet(BulkCreateMixin, BaseViewSet):
 # FAVORITOS Y CARRITO
 # ================================================================
 
-@method_decorator(csrf_exempt, name='dispatch')
 class FavoritosViewSet(BaseViewSet):
     queryset = Favoritos.objects.all()
     serializer_class = FavoritosSerializer
     filterset_fields = ['cli_codi']
     ordering = ['-fav_fecha']
+    permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
 
     def get_queryset(self):
         """
@@ -366,12 +373,12 @@ class FavoritosViewSet(BaseViewSet):
             return Response([], status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class CarritoItemViewSet(BaseViewSet):
     queryset = CarritoItem.objects.all()
     serializer_class = CarritoItemSerializer
     filterset_fields = ['cli_codi']
     ordering = ['-carr_fmod']
+    permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
 
     @action(detail=False, methods=['get'])
     def cliente(self, request):
@@ -389,18 +396,27 @@ class CarritoItemViewSet(BaseViewSet):
         serializer = self.get_serializer(carrito, many=True, context={'request': request})
         return Response(serializer.data)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['get'])
     def total(self, request):
-        """POST /carrito/total/ - Calcular total del carrito"""
-        cli_codi = request.data.get('cli_codi')
+        """GET /carrito/total/?cli_codi=1 - Calcular total exacto del carrito"""
+        from decimal import Decimal
+        
+        cli_codi = request.query_params.get('cli_codi')
         if not cli_codi:
-            return Response({'total': 0}, status=status.HTTP_200_OK)
+            return Response({'total': '0.00'}, status=status.HTTP_200_OK)
         
         try:
             cli_codi = int(cli_codi)
             carrito = CarritoItem.objects.filter(cli_codi_id=cli_codi)
-            total = sum(item.carr_cant * (item.carr_pfin or 0) for item in carrito)
-            return Response({'total': total})
+            
+            # ✅ Usar Decimal para precisión (como en el backend)
+            total = Decimal('0.00')
+            for item in carrito:
+                cantidad = Decimal(str(item.carr_cant))
+                precio = Decimal(str(item.carr_pfin)) if item.carr_pfin else Decimal('0.00')
+                total += cantidad * precio
+            
+            return Response({'total': str(total)}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
 
@@ -416,19 +432,23 @@ class DetallePedidoViewSet(BaseViewSet):
     ordering = ['ped_codi', 'dpe_codi']
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class PedidosViewSet(BaseViewSet):
     queryset = Pedidos.objects.all()
     serializer_class = PedidosSerializer
-    filterset_fields = ['ped_esta', 'ped_exp']
+    filterset_fields = ['ped_exp', 'ped_fpag']
     ordering_fields = ['ped_codi', 'ped_fech']
     ordering = ['-ped_codi']
+    permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
 
     def get_queryset(self):
         """
-        Filtrar pedidos por cliente autenticado para evitar que un cliente vea pedidos de otros
+        Filtrar pedidos por cliente y optimizar queries con select_related y prefetch_related
         """
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().select_related(
+            'cli_codi'
+        ).prefetch_related(
+            'detalles__art_codi'
+        )
         cli_codi = self.request.query_params.get('cli_codi')
         
         # Si se proporciona cli_codi, filtrar por ese cliente
@@ -444,30 +464,31 @@ class PedidosViewSet(BaseViewSet):
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return PedidosCreateUpdateSerializer
-        if self.action == 'retrieve':
+        # list y retrieve retornan serializer con detalles
+        if self.action in ['list', 'retrieve']:
             return PedidosCompletoSerializer
         return PedidosSerializer
 
     def update(self, request, *args, **kwargs):
         """
-        Permitir edición solo si el pedido está en estado 'P' (Pendiente)
+        Permitir edición solo si el pedido está pendiente (ped_exp = False)
         """
         pedido = self.get_object()
-        if pedido.ped_esta != 'P':
+        if not pedido.puede_modificarse():
             return Response(
-                {'detail': f'No se puede editar un pedido en estado "{pedido.get_ped_esta_display()}". Solo se pueden editar pedidos Pendientes.'},
+                {'detail': 'No se puede editar un pedido que ya ha sido procesado.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         """
-        Permitir edición parcial solo si el pedido está en estado 'P' (Pendiente)
+        Permitir edición parcial solo si el pedido está pendiente (ped_exp = False)
         """
         pedido = self.get_object()
-        if pedido.ped_esta != 'P':
+        if not pedido.puede_modificarse():
             return Response(
-                {'detail': f'No se puede editar un pedido en estado "{pedido.get_ped_esta_display()}". Solo se pueden editar pedidos Pendientes.'},
+                {'detail': 'No se puede editar un pedido que ya ha sido procesado.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().partial_update(request, *args, **kwargs)
@@ -526,111 +547,96 @@ class PedidosViewSet(BaseViewSet):
             'timestamp': timezone.now().isoformat()
         }, status=status.HTTP_200_OK)
 
-    @csrf_exempt
-    @action(detail=False, methods=['post'])
-    def crear_desde_carrito(self, request):
-        """
-        POST /pedidos/crear_desde_carrito/
-        Crea un pedido con los items del carrito del cliente
-        Body: {
-            "cli_codi": 1,
-            "ped_fpag": "CDO",
-            "items": [
-                {"art_codi": 5, "carr_cant": 2, "carr_pnet": 100, "carr_pfin": 121},
-                {"art_codi": 10, "carr_cant": 1, "carr_pnet": 200, "carr_pfin": 242}
-            ]
-        }
-        """
-        from django.utils import timezone
-        from decimal import Decimal
+
+# ================================================================
+# PEDIDOS - VISTA SEPARADA PARA CREAR DESDE CARRITO
+# ================================================================
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])  # ✅ Permite cualquier autenticación (JWT, sin auth, etc)
+def crear_pedido_desde_carrito(request):
+    """
+    POST /api/pedidos-crear-desde-carrito/
+    Crea un pedido con los items del carrito del cliente
+    Body: {
+        "cli_codi": 1,
+        "ped_fpag": "CDO"  (opcional, default es "CDO")
+    }
+    """
+    from django.utils import timezone
+    from decimal import Decimal
+    
+    try:
+        cli_codi = request.data.get('cli_codi')
+        ped_fpag = request.data.get('ped_fpag', 'CDO')
         
-        try:
-            cli_codi = request.data.get('cli_codi')
-            ped_fpag = request.data.get('ped_fpag', 'CDO')
-            items = request.data.get('items', [])
-            
-            if not cli_codi:
-                return Response(
-                    {'success': False, 'detail': 'cli_codi es requerido'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Verificar que existe el cliente
-            try:
-                cliente = Clientes.objects.get(cli_codi=cli_codi)
-            except Clientes.DoesNotExist:
-                return Response(
-                    {'success': False, 'detail': 'Cliente no encontrado'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Si no hay items explícitos, obtenerlos del carrito
-            if not items:
-                carrito_items = CarritoItem.objects.filter(cli_codi_id=cli_codi)
-                items = [
-                    {
-                        'art_codi': item.art_codi_id,
-                        'dpe_cant': item.carr_cant,
-                        'carr_pnet': float(item.carr_pnet) if item.carr_pnet else float(item.art_codi.art_pnet),
-                        'carr_pfin': float(item.carr_pfin) if item.carr_pfin else float(item.art_codi.art_pfin),
-                    }
-                    for item in carrito_items
-                ]
-            
-            if not items:
-                return Response(
-                    {'success': False, 'detail': 'El carrito está vacío'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Calcular total del pedido
-            ped_tota = Decimal('0')
-            for item in items:
-                cant = item.get('dpe_cant', 1)
-                pfin = Decimal(str(item.get('carr_pfin', 0)))
-                ped_tota += Decimal(str(cant)) * pfin
-            
-            # Crear el pedido
-            pedido = Pedidos.objects.create(
-                cli_codi=cliente,
-                ped_esta='P',
-                ped_tota=ped_tota,
-                ped_fech=timezone.now(),
-                ped_fpag=ped_fpag
-            )
-            
-            # Crear detalles del pedido
-            for item in items:
-                try:
-                    articulo = Articulo.objects.get(art_codi=item['art_codi'])
-                    
-                    DetallePedido.objects.create(
-                        ped_codi=pedido,
-                        art_codi=articulo,
-                        dpe_cant=item.get('dpe_cant', 1)
-                    )
-                except Articulo.DoesNotExist:
-                    # Si el artículo no existe, saltar
-                    continue
-            
-            # Limpiar el carrito
-            CarritoItem.objects.filter(cli_codi_id=cli_codi).delete()
-            
-            # Retornar el pedido creado
-            serializer = self.get_serializer(pedido)
-            return Response({
-                'success': True,
-                'ped_codi': pedido.ped_codi,
-                'pedido': serializer.data
-            }, status=status.HTTP_201_CREATED)
-        
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        if not cli_codi:
             return Response(
-                {'success': False, 'detail': str(e)},
+                {'success': False, 'detail': 'cli_codi es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Verificar que existe el cliente
+        try:
+            cliente = Clientes.objects.get(cli_codi=cli_codi)
+        except Clientes.DoesNotExist:
+            return Response(
+                {'success': False, 'detail': 'Cliente no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # ✅ IMPORTANTE: Obtener items DIRECTAMENTE del carrito del cliente
+        # Así aseguramos que usamos las cantidades correctas de la BD
+        carrito_items = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+        
+        if not carrito_items.exists():
+            return Response(
+                {'success': False, 'detail': 'El carrito está vacío'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calcular total del pedido usando los datos del carrito
+        ped_tota = Decimal('0')
+        for carrito_item in carrito_items:
+            cant = carrito_item.carr_cant  # ← Cantidad del carrito
+            pfin = Decimal(str(carrito_item.carr_pfin)) if carrito_item.carr_pfin else Decimal(str(carrito_item.art_codi.art_pfin))
+            ped_tota += Decimal(str(cant)) * pfin
+        
+        # Crear el pedido
+        pedido = Pedidos.objects.create(
+            cli_codi=cliente,
+            ped_tota=ped_tota,
+            ped_fech=timezone.now().date(),  # ✅ .date() para DateField (no datetime)
+            ped_fpag=ped_fpag
+        )
+        
+        # Crear detalles del pedido desde los items del carrito
+        for carrito_item in carrito_items:
+            DetallePedido.objects.create(
+                ped_codi=pedido,
+                art_codi=carrito_item.art_codi,
+                dpe_cant=carrito_item.carr_cant  # ← Cantidad correcta del carrito
+            )
+        
+        # Limpiar el carrito
+        CarritoItem.objects.filter(cli_codi_id=cli_codi).delete()
+        
+        # Retornar el pedido creado
+        serializer = PedidosSerializer(pedido, context={'request': request})
+        return Response({
+            'success': True,
+            'ped_codi': pedido.ped_codi,
+            'pedido': serializer.data
+        }, status=status.HTTP_201_CREATED)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {'success': False, 'detail': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 # ================================================================
@@ -674,7 +680,7 @@ class UsuarioViewSet(BaseViewSet):
 def vendedor_login(request):
     """
     POST /vendedores-login/
-    Login de vendedores
+    Login de vendedores - Devuelve JWT tokens
     """
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
@@ -716,9 +722,16 @@ def vendedor_login(request):
                 status=401
             )
 
-        # Retornar datos del vendedor
+        # Generar JWT tokens
+        refresh = RefreshToken()
+        refresh['user_id'] = vendedor.ven_codi
+        refresh['user_type'] = 'vendedor'
+        
+        # Retornar datos del vendedor + JWT tokens
         return JsonResponse({
             "success": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
             "vendedor": {
                 "ven_codi": vendedor.ven_codi,
                 "ven_nomb": vendedor.ven_nomb,
@@ -729,7 +742,6 @@ def vendedor_login(request):
                 "ven_cuit": vendedor.ven_cuit,
                 "ven_actv": vendedor.ven_actv,
                 "loc_codi": vendedor.loc_codi_id,
-                "ven_clav": vendedor.ven_clav,
             }
         }, status=200)
     
@@ -746,7 +758,6 @@ def vendedor_login(request):
 # VENDEDOR IMPERSONATION (Suplantación de clientes)
 # ================================================================
 
-@csrf_exempt
 @require_http_methods(['POST', 'OPTIONS'])
 def vendedor_impersonate(request):
     """
@@ -807,7 +818,6 @@ def vendedor_impersonate(request):
         }, status=500)
 
 
-@csrf_exempt
 @require_http_methods(['POST', 'OPTIONS'])
 def vendedor_stop_impersonation(request):
     """
@@ -836,7 +846,6 @@ def vendedor_stop_impersonation(request):
         }, status=500)
 
 
-@csrf_exempt
 @require_http_methods(['GET', 'OPTIONS'])
 def vendedor_check_impersonation(request):
     """
@@ -909,7 +918,7 @@ def get_csrf_token(request):
 def cliente_login(request):
     """
     POST /cliente-login/
-    Login de clientes
+    Login de clientes - Devuelve JWT tokens
     """
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
@@ -943,9 +952,16 @@ def cliente_login(request):
             status=401
         )
 
-    # Retornar datos del cliente
+    # Generar JWT tokens
+    refresh = RefreshToken()
+    refresh['user_id'] = cliente.cli_codi
+    refresh['user_type'] = 'cliente'
+    
+    # Retornar datos del cliente + JWT tokens
     return JsonResponse({
         "success": True,
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
         "cliente": {
             "cli_codi": cliente.cli_codi,
             "cli_nomb": cliente.cli_nomb,
@@ -1095,7 +1111,6 @@ def cliente_update_password(request):
 # FAVORITOS (SIN CSRF)
 # ================================================================
 
-@csrf_exempt
 @require_http_methods(["POST", "DELETE", "OPTIONS"])
 def favoritos_manage(request):
     """
@@ -1178,12 +1193,10 @@ def favoritos_manage(request):
 # BULK IMPORT ENDPOINT (CON PASSWORD HASHING)
 # ================================================================
 
-@csrf_exempt
 # ================================================================
 # CARRITO (SIN CSRF)
 # ================================================================
 
-@csrf_exempt
 @require_http_methods(["POST", "PUT", "DELETE", "OPTIONS"])
 def carrito_manage(request):
     """

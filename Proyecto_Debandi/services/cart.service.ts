@@ -8,6 +8,7 @@ export interface CartItem {
   art_nomb: string
   art_pnet: number
   art_pfin: number
+  art_tiva: number // IVA porcentaje del artículo
   art_stkp: number
   art_img?: string
   mar_nomb?: string
@@ -66,6 +67,7 @@ class CartServiceClass {
         art_nomb: item.art_nomb,
         art_pnet: item.art_pnet,
         art_pfin: item.art_pfin,
+        art_tiva: item.art_tiva,
         art_stk: item.art_stk,
         art_img: item.art_img,
         mar_nomb: item.mar_nomb,
@@ -172,18 +174,19 @@ class CartServiceClass {
         throw new Error('No hay cliente logueado')
       }
 
-      const cart = await this.getCart()
-      const item = cart.find(item => item.art_codi === art_codi)
-      
-      if (item && item.carr_codi) {
-        await ApiService.delete(`/carrito/${item.carr_codi}/`)
-        
-        // Invalidar caché
-        cacheManager.invalidate(`cart_${clientId}`)
-        
-        // Disparar evento para actualizar UI (navbar)
-        window.dispatchEvent(new Event('cart-updated'))
+      const payload = {
+        cli_codi: clientId,
+        art_codi: art_codi
       }
+
+      // Usar endpoint /carrito-manage/ que funciona con DELETE
+      await ApiService.delete('/carrito-manage/', undefined, payload)
+      
+      // Invalidar caché
+      cacheManager.invalidate(`cart_${clientId}`)
+      
+      // Disparar evento para actualizar UI (navbar)
+      window.dispatchEvent(new Event('cart-updated'))
     } catch (error) {
       console.error('Error eliminando del carrito:', error)
       throw error
@@ -202,10 +205,14 @@ class CartServiceClass {
 
       const cart = await this.getCart()
       
-      // Eliminar todos los items
+      // Eliminar todos los items usando /carrito-manage/
       for (const item of cart) {
-        if (item.carr_codi) {
-          await ApiService.delete(`/carrito/${item.carr_codi}/`)
+        if (item.art_codi) {
+          const payload = {
+            cli_codi: clientId,
+            art_codi: item.art_codi
+          }
+          await ApiService.delete('/carrito-manage/', undefined, payload)
         }
       }
       

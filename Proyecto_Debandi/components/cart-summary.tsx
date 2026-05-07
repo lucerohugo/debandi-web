@@ -22,12 +22,9 @@ export default function CartSummary({ items }: CartSummaryProps) {
     window.location.href = "/checkout"
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.art_pnet * item.quantity, 0)
-  const ivaAmount = items.reduce((sum, item) => {
-    return sum + ((item.art_pfin - item.art_pnet) * item.quantity)
-  }, 0)
+  const subtotal = items.reduce((sum, item) => sum + item.art_pfin * item.quantity, 0)
   const shipping = subtotal > 100 ? 0 : 10
-  const total = subtotal + ivaAmount + shipping
+  const total = subtotal + shipping
 
   return (
     <div className="bg-card border border-border rounded-lg p-6 sticky top-24 h-fit">
@@ -37,10 +34,6 @@ export default function CartSummary({ items }: CartSummaryProps) {
         <div className="flex justify-between text-muted-foreground">
           <span>Subtotal</span>
           <span>{formatCurrencySpanish(subtotal)}</span>
-        </div>
-        <div className="flex justify-between text-muted-foreground">
-          <span>IVA 21%</span>
-          <span>{formatCurrencySpanish(ivaAmount)}</span>
         </div>
         <div className="flex justify-between text-muted-foreground">
           <span>Envío</span>

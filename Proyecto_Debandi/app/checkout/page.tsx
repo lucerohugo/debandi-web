@@ -18,6 +18,7 @@ export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [finalOrderItems, setFinalOrderItems] = useState<CartItem[]>([])
   const [total, setTotal] = useState(0)
+  const [finalTotal, setFinalTotal] = useState<number | null>(null)  // ← Total exacto del backend
   const [orderNumber, setOrderNumber] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -47,8 +48,15 @@ export default function CheckoutPage() {
         const items = await CartService.getCart()
         if (items && items.length > 0) {
           setCartItems(items as any)
-          const totalAmount = items.reduce((sum: number, item: any) => sum + (item.art_pfin * item.quantity), 0)
-          setTotal(totalAmount)
+          
+          // ✅ Obtener total exacto del backend en lugar de calcular
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+          const totalResponse = await fetch(`${apiUrl}/carrito/total/?cli_codi=${user.id}`)
+          const totalData = await totalResponse.json()
+          
+          if (totalData.total) {
+            setTotal(parseFloat(totalData.total))
+          }
         }
       } catch (error) {
         // Silent error
@@ -91,7 +99,7 @@ export default function CheckoutPage() {
               items: items
             }
             
-            const response = await fetch(`${apiUrl}/pedidos/crear_desde_carrito/`, {
+            const response = await fetch(`${apiUrl}/pedidos-crear-desde-carrito/`, {
               method: "POST",
               credentials: 'include',
               headers: {
@@ -106,6 +114,7 @@ export default function CheckoutPage() {
               hasCreatedOrder.current = true
               setOrderNumber(`ORD-${data.ped_codi}`)
               setFinalOrderItems(cartItems)
+              setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
               
               // Vaciar carrito local (ya está limpio en BD)
               localStorage.removeItem("cart")
@@ -155,7 +164,7 @@ export default function CheckoutPage() {
         items: items
       }
       
-      const response = await fetch(`${apiUrl}/pedidos/crear_desde_carrito/`, {
+      const response = await fetch(`${apiUrl}/pedidos-crear-desde-carrito/`, {
         method: "POST",
         credentials: 'include',
         headers: {
@@ -175,6 +184,7 @@ export default function CheckoutPage() {
         localStorage.removeItem("cart")
         window.dispatchEvent(new Event("storage"))
         setFinalOrderItems(cartItems)
+        setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
         setShowSuccess(true)
       } else {
         setError(data.detail || data.error || "Error al crear el pedido")
@@ -325,11 +335,19 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Desglose de totales */}
+              <div className="space-y-3 mb-6 pb-6 border-t border-b border-border py-4">
+              </div>
+
               {/* Total */}
-              <div className="text-right">
-                <p className="text-muted-foreground mb-2">Total a pagar:</p>
+              <div className="text-right mb-6">
+                <p className="text-muted-foreground mb-2">Total</p>
                 <p className="text-4xl font-bold text-primary">
-                  {formatCurrencySpanish(getDisplayItems().reduce((sum: number, item: any) => sum + (item.art_pfin * item.quantity), 0))}
+                  {/* Usar total del estado (calculado por el backend con IVA incluido) */}
+                  {showSuccess && finalTotal !== null 
+                    ? formatCurrencySpanish(finalTotal)
+                    : formatCurrencySpanish(total)
+                  }
                 </p>
               </div>
 

@@ -93,13 +93,13 @@ export const exportToPDF = async (products: Product[], fileName: string = "lista
       // Código (14), Producto (55), Marca (18), Rubro (25), P.Neto (22), IVA (12), Total (22), Cant (8)
       columnWidths = [14, 55, 18, 25, 22, 12, 22, 8]
     } else {
-      columnLabels = ["Código", "Producto", "Marca", "Rubro", "P. Neto", "IVA%", "Total"]
-      columnWidths = [14, 65, 20, 30, 25, 15, 25]
+      columnLabels = ["Código", "Producto", "Marca", "Rubro", "Precio Venta"]
+      columnWidths = [14, 65, 20, 30, 25]
     }
 
     const columnFields = configType === "carrito" || configType.includes("pedido") 
-      ? ["art_codi", "art_nomb", "mar_nomb", "rub_nomb", "art_pnet", "art_tiva", "art_pfin", "quantity"]
-      : ["art_codi", "art_nomb", "mar_nomb", "rub_nomb", "art_pnet", "art_tiva", "art_pfin"]
+      ? ["art_codi", "art_nomb", "mar_nomb", "rub_nomb", "art_pfin", "quantity"]
+      : ["art_codi", "art_nomb", "mar_nomb", "rub_nomb", "art_pfin"]
 
     // Dibujar encabezados
     doc.setFont("helvetica", "bold")
@@ -158,10 +158,8 @@ export const exportToPDF = async (products: Product[], fileName: string = "lista
         } else if (field === "quantity") {
           // La cantidad siempre es un número entero del carrito
           display = value ? String(Math.floor(Number(value))) : "1"
-        } else if (field === "art_pnet" || field === "art_pfin") {
+        } else if (field === "art_pfin") {
           display = value ? `$${Number(value).toFixed(2)}` : ""
-        } else if (field === "art_tiva") {
-          display = value ? String(value).trim() : "21"
         } else {
           display = value ? String(value).trim() : ""
         }
@@ -211,9 +209,8 @@ export const exportToExcel = async (products: Product[]) => {
       Descripción: product.art_desc || "",
       Marca: product.mar_nomb,
       Categoría: product.rub_nomb,
-      Stock: product.art_stkp,
-      "Precio Neto": product.art_pnet ? `$${product.art_pnet.toFixed(2)}` : "N/A",
-      "Precio Final": `$${(product.art_pfin || 0).toFixed(2)}`,
+      Stock: product.art_stk,
+      "Precio Venta": `$${(product.art_pfin || 0).toFixed(2)}`,
     }))
 
     const workbook = XLSX.utils.book_new()

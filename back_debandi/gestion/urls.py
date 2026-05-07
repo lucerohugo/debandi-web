@@ -1,4 +1,5 @@
 from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from .views import (
     ProvinciaViewSet, LocalidadViewSet, ZonaViewSet,
@@ -7,7 +8,8 @@ from .views import (
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
     GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login, 
     importar_datos, cliente_login, cliente_register, cliente_update_password, favoritos_manage,
-    carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation
+    carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
+    crear_pedido_desde_carrito
 )
 
 # 👇 CLAVE: agregar trailing_slash opcional
@@ -43,12 +45,17 @@ router.register(r'usuarios', UsuarioViewSet, basename='usuario')
 
 urlpatterns = [
     path('', include(router.urls)),
+    # JWT Token endpoints
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Custom authentication endpoints
     path('vendedores-login/', vendedor_login, name='vendedor-login'),
     path('cliente-login/', cliente_login, name='cliente-login'),
     path('cliente-register/', cliente_register, name='cliente-register'),
     path('cliente-update-password/', cliente_update_password, name='cliente-update-password'),
     path('favoritos-manage/', favoritos_manage, name='favoritos-manage'),
     path('carrito-manage/', carrito_manage, name='carrito-manage'),
+    path('pedidos-crear-desde-carrito/', crear_pedido_desde_carrito, name='crear-pedido-desde-carrito'),
     path('vendedor/impersonate/', vendedor_impersonate, name='vendedor-impersonate'),
     path('vendedor/stop-impersonation/', vendedor_stop_impersonation, name='vendedor-stop-impersonation'),
     path('vendedor/check-impersonation/', vendedor_check_impersonation, name='vendedor-check-impersonation'),

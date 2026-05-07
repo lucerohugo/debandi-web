@@ -187,20 +187,32 @@ class DetallePedidoInline(admin.TabularInline):
     """Inline para editar detalles de pedidos directamente desde el pedido"""
     model = DetallePedido
     extra = 1
-    fields = ['art_codi']
+    fields = ['dpe_codi', 'art_codi', 'dpe_cant']
     
     def get_queryset(self, request):
         """Optimizar queries con select_related"""
         qs = super().get_queryset(request)
         return qs.select_related('art_codi')
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        """Retorna el formset personalizado"""
+        formset_class = super().get_formset(request, obj, **kwargs)
+        
+        # Sobrescribir clean para evitar validación de unique_together
+        original_clean = formset_class.clean
+        def custom_clean(self):
+            pass
+        formset_class.clean = custom_clean
+        
+        return formset_class
 
 
 @admin.register(Pedidos)
 class PedidosAdmin(admin.ModelAdmin):
     """Admin para Pedidos con detalles anidados"""
     inlines = [DetallePedidoInline]
-    list_display = ['ped_codi', 'ped_fech', 'cliente_info', 'ped_esta', 'ped_tota', 'ped_exp']
-    list_filter = ['ped_fech', 'ped_esta', 'ped_exp', 'ped_fpag']
+    list_display = ['ped_codi', 'ped_fech', 'cliente_info', 'ped_tota', 'ped_exp']
+    list_filter = ['ped_fech', 'ped_exp', 'ped_fpag']
     search_fields = ['ped_codi', 'cli_codi__cli_nomb', 'cli_codi__cli_ndoc']
     readonly_fields = ['ped_codi', 'ped_tota', 'ped_fexp']
     
@@ -211,8 +223,8 @@ class PedidosAdmin(admin.ModelAdmin):
         ('Cliente', {
             'fields': ('cli_codi',)
         }),
-        ('Estado y Pago', {
-            'fields': ('ped_esta', 'ped_fpag')
+        ('Forma de Pago', {
+            'fields': ('ped_fpag',)
         }),
         ('Exportación', {
             'fields': ('ped_exp', 'ped_fexp'),
@@ -222,7 +234,6 @@ class PedidosAdmin(admin.ModelAdmin):
     )
     
     ordering = ['-ped_codi']
-    actions = ['marcar_como_pagado', 'marcar_como_cancelado']
     
     def cliente_info(self, obj):
         """Mostrar nombre y documento del cliente"""
@@ -230,18 +241,6 @@ class PedidosAdmin(admin.ModelAdmin):
             return f"{obj.cli_codi.cli_nomb} ({obj.cli_codi.cli_ndoc})"
         return "-"
     cliente_info.short_description = "Cliente"
-    
-    def marcar_como_pagado(self, request, queryset):
-        """Acción para marcar pedidos como pagados"""
-        updated = queryset.filter(ped_esta='P').update(ped_esta='PA')
-        self.message_user(request, f'{updated} pedidos marcados como pagados')
-    marcar_como_pagado.short_description = "Marcar como Pagado"
-    
-    def marcar_como_cancelado(self, request, queryset):
-        """Acción para marcar pedidos como cancelados"""
-        updated = queryset.filter(ped_esta='P').update(ped_esta='C')
-        self.message_user(request, f'{updated} pedidos marcados como cancelados')
-    marcar_como_cancelado.short_description = "Marcar como Cancelado"
     
     def get_queryset(self, request):
         """Optimizar queries con select_related"""

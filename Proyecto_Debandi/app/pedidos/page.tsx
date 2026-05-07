@@ -29,7 +29,6 @@ interface Order {
   date: string
   total: number
   status: "pendiente" | "procesado"
-  ped_esta: string
   ped_exp: boolean
   detalles: any[]
   items: OrderItem[]
@@ -54,9 +53,8 @@ export default function OrdersPage() {
         orderNumber: `ORD-${ped.ped_codi}`,
         date: ped.ped_fech,
         total: ped.ped_tota,
-        ped_esta: ped.ped_esta,  // Guardar el estado original
-        status: ped.ped_esta === 'P' ? 'pendiente' : 'procesado',  // Solo dos estados
-        ped_exp: ped.ped_exp,  // Si fue exportado a Genexus
+        status: !ped.ped_exp ? 'pendiente' : 'procesado',  // ped_exp = false = Pendiente, true = Procesado
+        ped_exp: ped.ped_exp,  // Si fue procesado/exportado a Genexus
         detalles: ped.detalles,
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,

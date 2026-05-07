@@ -29,8 +29,12 @@ export default function CartItems({ items, onUpdate }: CartItemsProps) {
 
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground mb-1">{item.art_nomb}</h3>
-            <p className="text-sm text-muted-foreground">Precio neto: {formatCurrencySpanish(item.art_pnet)}</p>
-            <p className="text-sm text-cyan-500 font-semibold">Precio final: {formatCurrencySpanish(item.art_pfin)}</p>
+            <p className="text-sm text-muted-foreground">
+              {item.quantity} x {formatCurrencySpanish(item.art_pfin)}
+            </p>
+            <p className="text-sm text-cyan-500 font-semibold">
+              Subtotal: {formatCurrencySpanish(item.art_pfin * item.quantity)}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

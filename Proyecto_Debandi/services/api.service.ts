@@ -1,6 +1,7 @@
 /**
  * Servicio API minimalista
  * Solo fetch + return, sin transformaciones
+ * Con soporte para JWT Authentication
  */
 
 const getApiUrl = (): string => {
@@ -21,7 +22,65 @@ const getApiUrl = (): string => {
   return url
 }
 
+/**
+ * Obtener JWT token del localStorage
+ */
+const getJWTToken = (): string | null => {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('jwtToken')
+}
+
+/**
+ * Guardar JWT token en localStorage
+ */
+const setJWTToken = (token: string): void => {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('jwtToken', token)
+}
+
+/**
+ * Limpiar JWT token de localStorage
+ */
+const clearJWTToken = (): void => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('jwtToken')
+}
+
+/**
+ * Construir headers con JWT si disponible
+ */
+const getHeaders = (additionalHeaders: Record<string, string> = {}): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...additionalHeaders,
+  }
+  
+  const token = getJWTToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+    console.log('[ApiService] ✅ JWT agregado al header:', token.substring(0, 20) + '...')
+  } else {
+    console.warn('[ApiService] ⚠️ NO HAY JWT EN LOCALSTORAGE - Solicitud sin autenticación')
+  }
+  
+  return headers
+}
+
 export class ApiService {
+  /**
+   * Guardar JWT token (usado después de login)
+   */
+  static setToken(token: string): void {
+    setJWTToken(token)
+  }
+
+  /**
+   * Limpiar JWT token (usado en logout)
+   */
+  static clearToken(): void {
+    clearJWTToken()
+  }
+
   /**
    * GET request genérico
    */
@@ -32,6 +91,7 @@ export class ApiService {
     try {
       const response = await fetch(url, {
         credentials: 'include',
+        headers: getHeaders(),
       })
       
       console.log(`Response status: ${response.status}`)
@@ -65,9 +125,7 @@ export class ApiService {
       const response = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify(data),
       })
       
@@ -105,9 +163,7 @@ export class ApiService {
       const response = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'PUT',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify(data),
       })
       if (!response.ok) throw new Error(`Error: ${response.status}`)
@@ -125,9 +181,7 @@ export class ApiService {
       const response = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify(data),
       })
       if (!response.ok) throw new Error(`Error: ${response.status}`)
@@ -145,13 +199,11 @@ export class ApiService {
       const options: RequestInit = {
         method: 'DELETE',
         credentials: 'include',
+        headers: getHeaders(),
       }
       
       // Si hay datos, agregarlos al body (para casos como favoritos-manage)
       if (data) {
-        options.headers = {
-          'Content-Type': 'application/json',
-        }
         options.body = JSON.stringify(data)
       }
       
