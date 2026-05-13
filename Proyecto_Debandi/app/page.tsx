@@ -15,7 +15,7 @@ interface Product {
   art_desc: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   art_img?: string
   mar_nomb?: string
   sru_nomb?: string
@@ -30,16 +30,28 @@ export default function Home() {
   const [filters, setFilters] = useState({
     brands: [],
     categories: [],
-    priceRange: [0, 10000000], // Rango muy amplio por defecto
+    priceRange: [0, 10000000],
+    originalPriceRange: [0, 10000000],
     onlyStock: false,
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
+  const [globalMinPrice, setGlobalMinPrice] = useState(0)
+  const [globalMaxPrice, setGlobalMaxPrice] = useState(10000000)
   const itemsPerPage = 15
   const productsRef = useRef<HTMLDivElement>(null)
   const prevFiltersRef = useRef(filters)
+
+  // Verificar si hay filtros activos (comparando contra los precios globales)
+  const hasActiveFilters = 
+    (filters.brands && filters.brands.length > 0) ||
+    (filters.categories && filters.categories.length > 0) ||
+    (filters.priceRange && 
+      (filters.priceRange[0] !== filters.originalPriceRange[0] || 
+       filters.priceRange[1] !== filters.originalPriceRange[1])) ||
+    filters.onlyStock
 
   // Comparar filtros ignorando cambios de referencia de arrays
   const filtersAreEqual = (f1: any, f2: any): boolean => {
@@ -47,21 +59,38 @@ export default function Home() {
     return (
       JSON.stringify(f1.brands) === JSON.stringify(f2.brands) &&
       JSON.stringify(f1.categories) === JSON.stringify(f2.categories) &&
+      JSON.stringify(f1.priceRange) === JSON.stringify(f2.priceRange) &&
+      JSON.stringify(f1.originalPriceRange) === JSON.stringify(f2.originalPriceRange) &&
       f1.onlyStock === f2.onlyStock
-      // ⚠️ NO comparamos priceRange porque cambia automáticamente
-      // según los productos actuales, no por acción del usuario
     )
   }
 
-  // Fetch inicial: obtener carrusel + marcas y rubros
+  // Fetch inicial: obtener precios globales + carrusel + marcas y rubros
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [carruselResponse, rubrosResponse, marcasResponse] = await Promise.all([
+        const [preciosResponse, carruselResponse, rubrosResponse, marcasResponse] = await Promise.all([
+          ApiService.get<any>('/articulos/precios/'),
           ApiService.get<any>('/articulos/carrusel/'),
           ApiService.get<any>('/rubros/?page_size=100'),
           ApiService.get<any>('/marcas/?page_size=100')
         ])
+        
+        // Obtener precios globales
+        try {
+          const minPrice = preciosResponse.min_price || 0
+          const maxPrice = preciosResponse.max_price || 10000000
+          setGlobalMinPrice(minPrice)
+          setGlobalMaxPrice(maxPrice)
+          // Actualizar el estado de filtros con los precios reales
+          setFilters(prev => ({
+            ...prev,
+            priceRange: [minPrice, maxPrice],
+            originalPriceRange: [minPrice, maxPrice]
+          }))
+        } catch (preciosError) {
+          console.error('Error processing precios:', preciosError)
+        }
         
         // Procesar rubros
         try {
@@ -94,19 +123,58 @@ export default function Home() {
     fetchInitialData()
   }, [])
 
-  // Fetch de productos paginados: se ejecuta cuando cambia currentPage
+  // Fetch de productos paginados con filtros
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true)
       try {
-        const response = await ApiService.get<any>(`/articulos/?page=${currentPage}&page_size=${itemsPerPage}`)
+        // Construir query params con filtros
+        let queryParams = `?page=${currentPage}&page_size=${itemsPerPage}`
+        
+        // Agregar filtros de marcas (mar_codi)
+        if (filters.brands && filters.brands.length > 0) {
+          filters.brands.forEach(brandId => {
+            queryParams += `&mar_codi=${brandId}`
+          })
+        }
+        
+        // Agregar filtros de rubros (sru_codi__rub_codi para filtrar por rubro)  #cambiar a futuro por sru_Codi y no rub_codi 
+        if (filters.categories && filters.categories.length > 0) {
+          filters.categories.forEach(rubroId => {
+            queryParams += `&sru_codi__rub_codi=${rubroId}`
+          })
+        }
+        
+        // Agregar filtro de rango de precio SOLO SI EL SLIDER FUE TOCADO
+        // (es decir, si es diferente al rango original)
+        if (filters.priceRange) {
+          const priceChanged = 
+            filters.priceRange[0] !== filters.originalPriceRange[0] ||
+            filters.priceRange[1] !== filters.originalPriceRange[1]
+          
+          if (priceChanged) {
+            if (filters.priceRange[0] > filters.originalPriceRange[0]) {
+              queryParams += `&art_pfin__gte=${filters.priceRange[0]}`
+            }
+            if (filters.priceRange[1] < filters.originalPriceRange[1]) {
+              queryParams += `&art_pfin__lte=${filters.priceRange[1]}`
+            }
+          }
+        }
+        
+        // Agregar filtro de stock (art_stk__gt)
+        if (filters.onlyStock) {
+          queryParams += `&art_stk__gt=0`
+        }
+        
+        const response = await ApiService.get<any>(`/articulos/${queryParams}`)
         const allProducts = Array.isArray(response.results) ? response.results : (Array.isArray(response) ? response : [])
         const total = response.count || 0
         
         setProducts(allProducts)
         setTotalCount(total)
         
-        console.log(`📄 Página ${currentPage}: ${allProducts.length} productos de ${total} total`)
+        console.log(`📄 Página ${currentPage}: ${allProducts.length} productos de ${total} total (con filtros)`)
       } catch (error) {
         console.error('Error cargando productos:', error)
       } finally {
@@ -117,7 +185,7 @@ export default function Home() {
     if (itemsPerPage > 0) {
       fetchProducts()
     }
-  }, [currentPage])  // IMPORTANTE: Solo currentPage, NO itemsPerPage
+  }, [currentPage, filters, itemsPerPage])
 
   // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {
@@ -140,55 +208,22 @@ export default function Home() {
     }
   }
 
-  // Filtrar productos en frontend
+  // Filtrar productos SOLO por búsqueda (los filtros ya se aplican en backend)
   const filteredProducts = products.filter((product) => {
-    // Filtro de búsqueda
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      const matchesSearch =
-        (product.art_nomb || "").toLowerCase().includes(query) ||
-        (product.art_desc || "").toLowerCase().includes(query) ||
-        (product.mar_nomb || "").toLowerCase().includes(query)
-      if (!matchesSearch) return false
-    }
-
-    // Filtro de marcas
-    if (filters.brands && filters.brands.length > 0) {
-      if (!product.mar_nomb || !filters.brands.includes(product.mar_nomb)) {
-        return false
-      }
-    }
-
-    // Filtro de rubros/categorías
-    if (filters.categories && filters.categories.length > 0) {
-      if (!product.rub_nomb || !filters.categories.includes(product.rub_nomb)) {
-        return false
-      }
-    }
-
-    // Filtro de precio
-    if (filters.priceRange) {
-      const price = product.art_pfin
-      if (price < filters.priceRange[0] || price > filters.priceRange[1]) {
-        return false
-      }
-    }
-
-    // Filtro de stock
-    if (filters.onlyStock && product.art_stkp <= 0) {
-      return false
-    }
-
-    return true
+    if (!searchQuery) return true
+    
+    const query = searchQuery.toLowerCase()
+    return (
+      (product.art_nomb || "").toLowerCase().includes(query) ||
+      (product.art_desc || "").toLowerCase().includes(query) ||
+      (product.mar_nomb || "").toLowerCase().includes(query)
+    )
   })
 
-  // Paginación en frontend - CON PAGINACIÓN REAL DEL BACKEND
-  // Calcular total de páginas basado en el count del backend
-  const totalPages = Math.ceil(totalCount / itemsPerPage)
-  // Los productos a mostrar son los filtrados localmente (sobre la página actual)
+  // Usar directamente los productos filtrados por búsqueda
   const displayedProducts = filteredProducts
-  // El total a mostrar es: filtrado localmente de los 15 actuales
-  const totalProducts = filteredProducts.length
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+  const totalProducts = totalCount  // El count ya viene filtrado del backend
 
   // Callback memoizado para setSearchQuery
   // NOTA: El Header ahora controla cuáles búsquedas se disparan (via useRef)
@@ -202,6 +237,7 @@ export default function Home() {
     brands: string[]
     categories: string[]
     priceRange: number[]
+    originalPriceRange: number[]
     onlyStock: boolean
   }) => {
     // Comparar con los filtros anteriores comparando VALORES, no referencias
@@ -230,14 +266,14 @@ export default function Home() {
           <div className="flex-1">
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-foreground">
-                {!filters?.categories || filters.categories.length === 0
-                  ? "Todos los Productos"
-                  : filters.categories.length === 1
-                  ? filters.categories[0]
-                  : `${filters.categories.length} Categorías Seleccionadas`}
+                Todos los Productos
               </h1>
               <p className="text-muted-foreground mt-2">
-                Mostrando {displayedProducts.length} de {totalCount} productos
+                {hasActiveFilters ? (
+                  <>Mostrando {displayedProducts.length} de {totalProducts} productos filtrados</>
+                ) : (
+                  <>Mostrando {displayedProducts.length} de {totalCount} productos</>
+                )}
                 {totalPages > 1 && ` (página ${currentPage} de ${totalPages})`}
               </p>
             </div>

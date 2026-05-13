@@ -63,7 +63,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="#" className="hover:opacity-75 transition">
-                  Devoluciones
+                  Otro
                 </Link>
               </li>
             </ul>
@@ -89,7 +89,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-secondary-foreground/20 pt-8 flex flex-col md:flex-row items-center justify-between text-sm">
-          <p>&copy; {currentYear}. Todos los derechos reservados.</p>
+          <p>&copy; {currentYear}. Todos los derechos reservados.</p> 
           <div className="flex gap-6 mt-4 md:mt-0">
             {config?.gen_tele && <p>Tel: {config.gen_tele}</p>}
             {config?.gen_emai && <p>{config.gen_emai}</p>}

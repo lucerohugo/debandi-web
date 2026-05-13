@@ -20,7 +20,7 @@ interface Product {
   art_nomb: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   art_cint?: string
   mar_nomb?: string
 }
@@ -30,7 +30,7 @@ interface OrderItem {
   art_nomb: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   art_cint?: string  // Código interno del artículo
   dpe_cant: number
   dpe_prec: number
@@ -96,9 +96,17 @@ export default function EditOrderPage() {
         // Usar SearchService para buscar en TODOS los productos del backend
         const results = await SearchService.searchArticulos(searchQuery, 20)
         
-        // Filtrar productos ya agregados al pedido
+        // Filtrar productos ya agregados al pedido y mapear al tipo Product
         const filtered = results
           .filter((p: any) => !items.some(item => item.art_codi === p.art_codi && !item.removed))
+          .map((p: any) => ({
+            art_codi: p.art_codi,
+            art_nomb: p.art_nomb,
+            art_pnet: p.art_pnet,
+            art_pfin: p.art_pfin,
+            art_stk: p.art_stk,  // Stock del artículo
+            mar_nomb: p.mar_nomb
+          } as Product))
         
         setSearchResults(filtered)
       } catch (err) {
@@ -145,7 +153,7 @@ export default function EditOrderPage() {
         art_nomb: det.art_nomb,
         art_pnet: det.art_pnet,
         art_pfin: det.art_pfin,
-        art_stkp: det.art_stk,
+        art_stk: det.art_stk,
         art_cint: det.art_cint || '',
         dpe_cant: det.dpe_cant,
         dpe_prec: det.art_pfin,  // Usar art_pfin directamente
@@ -208,7 +216,7 @@ export default function EditOrderPage() {
         art_nomb: product.art_nomb,
         art_pnet: product.art_pnet,
         art_pfin: product.art_pfin,
-        art_stkp: product.art_stkp,
+        art_stk: product.art_stk,
         art_cint: product.art_cint || '',
         dpe_cant: 1,
         dpe_prec: product.art_pfin,

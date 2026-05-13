@@ -27,6 +27,7 @@ interface Order {
   ped_codi: number
   orderNumber: string
   date: string
+  time?: string  // Nueva hora del pedido (ped_hora)
   total: number
   status: "pendiente" | "procesado"
   ped_exp: boolean
@@ -52,6 +53,7 @@ export default function OrdersPage() {
         ped_codi: ped.ped_codi,  // ID numérico para edición
         orderNumber: `ORD-${ped.ped_codi}`,
         date: ped.ped_fech,
+        time: ped.ped_hora,  // Nueva hora del pedido
         total: ped.ped_tota,
         status: !ped.ped_exp ? 'pendiente' : 'procesado',  // ped_exp = false = Pendiente, true = Procesado
         ped_exp: ped.ped_exp,  // Si fue procesado/exportado a Genexus
@@ -70,18 +72,25 @@ export default function OrdersPage() {
     }
   }, [user, loading, router, backendOrders])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+  const formatDate = (dateString: string, timeString?: string) => {
+    // Parsear como fecha local (no como UTC)
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    
+    // Si hay hora, usarla; sino mostrar 00:00
+    let timeDisplay = "00:00"
+    if (timeString) {
+      const [hours, minutes] = timeString.split(':')
+      timeDisplay = `${hours}:${minutes}`
+    }
+    
     return {
       date: date.toLocaleDateString("es-ES", {
         year: "numeric",
         month: "long",
         day: "numeric",
       }),
-      time: date.toLocaleTimeString("es-ES", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: timeDisplay,
     }
   }
 
@@ -153,10 +162,10 @@ export default function OrdersPage() {
             art_nomb: item.art_nomb,
             art_pnet: item.art_pnet,
             art_pfin: item.art_pfin,
-            art_stkp: 0, // No tenemos stock info, pero pasamos el objeto
+            art_stk: 0, // No tenemos stock info, pero pasamos el objeto
             art_img: undefined,
             mar_nomb: undefined,
-            sru_nomb: undefined,
+            rub_nomb: undefined,
             quantity: item.quantity
           })
           totalUnitsAdded += item.quantity
@@ -273,7 +282,7 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => {
-              const { date, time } = formatDate(order.date)
+              const { date, time } = formatDate(order.date, order.time)
               const isExpanded = expandedOrder === order.id
 
               return (

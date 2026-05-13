@@ -27,7 +27,7 @@ interface Product {
   art_pnet: number
   art_pfin: number
   art_cost: number | null
-  art_stkp: number
+  art_stk: number
   art_stkm: number
   art_xbul: boolean
   art_ubul: number
@@ -53,7 +53,7 @@ interface ProductTabla {
   art_pnet: number | string
   art_pfin: number | string
   art_cost?: number | string
-  art_stkp: number
+  art_stk: number
   art_stkm?: number
   art_xbul?: boolean
   art_ubul?: number
@@ -98,10 +98,14 @@ export default function ListadoProductos() {
   const handleExportPDF = async () => {
     setIsExporting(true)
     try {
-      // Exportar listado - backend determina las columnas
-      await exportToPDF(products, "listado-productos-debandi", "listado")
+      // Traer TODOS los productos sin paginación
+      const response = await ApiService.get<any>(`/articulos/?page=1&page_size=5000`)
+      const allProducts = response.results || response.data || []
+      
+      // Exportar listado completo
+      await exportToPDF(allProducts, "listado-productos-debandi", "listado")
     } catch (error) {
-      // Silent error
+      console.error("Error al exportar PDF:", error)
     } finally {
       setIsExporting(false)
     }
@@ -110,9 +114,14 @@ export default function ListadoProductos() {
   const handleExportExcel = async () => {
     setIsExporting(true)
     try {
-      await exportToExcel(products)
+      // Traer TODOS los productos sin paginación
+      const response = await ApiService.get<any>(`/articulos/?page=1&page_size=5000`)
+      const allProducts = response.results || response.data || []
+      
+      // Exportar listado completo
+      await exportToExcel(allProducts)
     } catch (error) {
-      // Silent error
+      console.error("Error al exportar Excel:", error)
     } finally {
       setIsExporting(false)
     }
@@ -286,7 +295,7 @@ export default function ListadoProductos() {
             art_nomb: fullProduct.art_nomb,
             art_pnet: fullProduct.art_pnet,
             art_pfin: fullProduct.art_pfin,
-            art_stkp: fullProduct.art_stkp,
+            art_stk: fullProduct.art_stk,
             art_img: fullProduct.art_img,
             mar_nomb: fullProduct.mar_nomb,
             rub_nomb: fullProduct.rub_nomb,
@@ -435,7 +444,7 @@ export default function ListadoProductos() {
                                   art_nomb: product.art_nomb,
                                   art_pnet: product.art_pnet,
                                   art_pfin: product.art_pfin,
-                                  art_stkp: product.art_stk || 0,
+                                  art_stk: product.art_stk || 0,
                                   art_img: product.art_img,
                                   mar_nomb: product.mar_nomb,
                                   rub_nomb: product.rub_nomb,

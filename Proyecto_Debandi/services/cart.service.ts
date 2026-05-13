@@ -9,7 +9,7 @@ export interface CartItem {
   art_pnet: number
   art_pfin: number
   art_tiva: number // IVA porcentaje del artículo
-  art_stkp: number
+  art_stk: number
   art_img?: string
   mar_nomb?: string
   rub_nomb?: string

@@ -7,7 +7,7 @@ interface CartItem {
   art_nomb: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   quantity: number
   [key: string]: any
 }
@@ -23,8 +23,7 @@ export default function CartSummary({ items }: CartSummaryProps) {
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.art_pfin * item.quantity, 0)
-  const shipping = subtotal > 100 ? 0 : 10
-  const total = subtotal + shipping
+  const total = subtotal
 
   return (
     <div className="bg-card border border-border rounded-lg p-6 sticky top-24 h-fit">
@@ -34,10 +33,6 @@ export default function CartSummary({ items }: CartSummaryProps) {
         <div className="flex justify-between text-muted-foreground">
           <span>Subtotal</span>
           <span>{formatCurrencySpanish(subtotal)}</span>
-        </div>
-        <div className="flex justify-between text-muted-foreground">
-          <span>Envío</span>
-          <span>{shipping === 0 ? "Gratis" : formatCurrencySpanish(shipping)}</span>
         </div>
       </div>
 
@@ -52,12 +47,6 @@ export default function CartSummary({ items }: CartSummaryProps) {
       >
         Realizar Pedido
       </button>
-
-      {subtotal > 0 && subtotal <= 100 && (
-        <p className="text-xs text-muted-foreground text-center mt-4 bg-muted p-2 rounded">
-          Envío gratis al gastar más de $100
-        </p>
-      )}
     </div>
   )
 }

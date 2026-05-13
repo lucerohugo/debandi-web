@@ -56,7 +56,7 @@ const getExportConfig = async (type: string = "listado"): Promise<ExportConfig> 
 export const exportToPDF = async (products: Product[], fileName: string = "listado-productos-debandi", configType: string = "listado") => {
   try {
     const doc = new jsPDF({
-      orientation: "landscape",
+      orientation: "portrait",
       unit: "mm",
       format: "a4",
     })
@@ -71,18 +71,18 @@ export const exportToPDF = async (products: Product[], fileName: string = "lista
     if (configType.includes("pedido")) title = `DEBANDI - Pedido ${configType.replace("pedido-", "")}`
 
     // Encabezado
-    doc.setFontSize(16)
+    doc.setFontSize(14)
     doc.setFont("helvetica", "bold")
     doc.text(title, pageWidth / 2, margin + 3, { align: "center" })
 
     // Fecha
     doc.setFontSize(8)
     doc.setFont("helvetica", "normal")
-    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, margin, margin + 8)
+    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, margin, margin + 7)
 
     // Tabla simple
-    let startY = margin + 12
-    const colHeight = 6
+    let startY = margin + 11
+    const colHeight = 5
 
     // Definir columnas según tipo
     let columnLabels: string[] = []
@@ -90,11 +90,10 @@ export const exportToPDF = async (products: Product[], fileName: string = "lista
 
     if (configType === "carrito" || configType.includes("pedido")) {
       columnLabels = ["Código", "Producto", "Marca", "Rubro", "P. Neto", "IVA%", "Total", "Cant."]
-      // Código (14), Producto (55), Marca (18), Rubro (25), P.Neto (22), IVA (12), Total (22), Cant (8)
-      columnWidths = [14, 55, 18, 25, 22, 12, 22, 8]
+      columnWidths = [12, 50, 18, 22, 18, 10, 18, 8]
     } else {
       columnLabels = ["Código", "Producto", "Marca", "Rubro", "Precio Venta"]
-      columnWidths = [14, 65, 20, 30, 25]
+      columnWidths = [12, 85, 20, 30, 23]
     }
 
     const columnFields = configType === "carrito" || configType.includes("pedido") 

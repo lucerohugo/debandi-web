@@ -268,10 +268,10 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                                   art_nomb: product.art_nomb,
                                   art_pnet: product.art_pnet,
                                   art_pfin: product.art_pfin,
-                                  art_stkp: product.art_stkp || 0,
+                                  art_stk: product.art_stk || 0,
                                   art_img: product.art_img,
                                   mar_nomb: product.mar_nomb,
-                                  sru_nomb: product.sru_nomb,
+                                  rub_nomb: product.rub_nomb,
                                   quantity: 1
                                 })
                                 // Disparar evento para actualizar carrito

@@ -68,3 +68,8 @@ back_base/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+
+#carpetas
+bajadaPed/
+api/

@@ -260,7 +260,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Cantidad de productos:</span>
-                  <span className="font-semibold">{cartItems.length}</span>
+                  <span className="font-semibold">{cartItems.reduce((sum, item) => sum + (item.carr_cant || item.quantity || 0), 0)}</span>
                 </div>
 
                 <div className="border-t border-border pt-4">

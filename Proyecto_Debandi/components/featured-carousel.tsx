@@ -15,7 +15,7 @@ interface Product {
   art_desc: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   art_carru: boolean
   art_img?: string
   mar_nomb?: string
@@ -39,6 +39,8 @@ export default function FeaturedCarousel({ products, loading }: FeaturedCarousel
     // Filtrar productos marcados para el carrusel (art_carru = true)
     const featured = products.filter(p => p.art_carru === true).slice(0, 3)
     setFeaturedProducts(featured)
+    // Resetear slide cuando los productos cambian
+    setCurrentSlide(0)
   }, [products])
 
   useEffect(() => {
@@ -70,6 +72,10 @@ export default function FeaturedCarousel({ products, loading }: FeaturedCarousel
   }
 
   const currentProduct = featuredProducts[currentSlide]
+
+  if (!currentProduct) {
+    return null
+  }
 
   return (
     <div className="w-full bg-gradient-to-b from-background to-muted/30 py-6 md:py-12 mb-6 md:mb-8">

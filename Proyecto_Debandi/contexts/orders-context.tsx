@@ -10,7 +10,6 @@ interface OrderDetail {
   ped_codi: number
   art_codi: number
   art_nomb: string
-  art_cant: number
   art_pfin: number
   art_descu: number
   art_stk?: number

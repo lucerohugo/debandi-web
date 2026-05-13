@@ -18,7 +18,7 @@ interface Product {
   art_desc: string
   art_pnet: number
   art_pfin: number
-  art_stkp: number
+  art_stk: number
   mar_nomb: string
   rub_nomb: string
 }
@@ -54,7 +54,7 @@ export default function AdminPage() {
         art_desc: art.art_desc,
         art_pnet: parseFloat(art.art_pnet),
         art_pfin: parseFloat(art.art_pfin),
-        art_stkp: art.art_stkp,
+        art_stk: art.art_stk,
         mar_nomb: art.mar_nomb,
         rub_nomb: art.rub_nomb,
       }))
@@ -177,7 +177,7 @@ export default function AdminPage() {
                           <td className="px-4 py-2 text-sm text-right font-semibold text-cyan-500">
                             {formatCurrencySpanish(product.art_pfin)}
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{product.art_stkp}</td>
+                          <td className="px-4 py-2 text-sm text-right">{product.art_stk}</td>
                         </tr>
                       ))
                     ) : (

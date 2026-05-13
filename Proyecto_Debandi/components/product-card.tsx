@@ -19,7 +19,7 @@ interface ProductCardProps {
     art_stk: number
     art_img?: string
     mar_nomb?: string
-    sru_nomb?: string
+    rub_nomb?: string
     art_acti?: boolean
   }
 }
@@ -54,7 +54,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         art_stk: product.art_stk,
         art_img: product.art_img,
         mar_nomb: product.mar_nomb,
-        sru_nomb: product.sru_nomb
+        rub_nomb: product.rub_nomb,
       })
 
       // Mostrar notificación
@@ -109,6 +109,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           alt={product.art_nomb}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
+        
         <button
           onClick={(e) => {
             e.stopPropagation()

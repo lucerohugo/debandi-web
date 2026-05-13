@@ -47,7 +47,7 @@ export default function CartItems({ items, onUpdate }: CartItemsProps) {
             <span className="w-8 text-center font-semibold">{item.quantity}</span>
             <button
               onClick={() => updateQuantity(index, item.quantity + 1)}
-              disabled={item.quantity >= item.art_stkp}
+              disabled={item.quantity >= item.art_stk}
               className="p-2 hover:bg-muted rounded transition disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />

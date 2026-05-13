@@ -18,6 +18,7 @@ interface Product {
   art_pfin: number
   art_stk: number
   art_img?: string
+  art_img_url?: string
   art_desc?: string
   mar_nomb?: string
   sru_nomb?: string
@@ -78,9 +79,9 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         art_pnet: product.art_pnet,
         art_pfin: product.art_pfin,
         art_stk: product.art_stk,
-        art_img: product.art_img,
+        art_img: product.art_img_url || product.art_img,
         mar_nomb: product.mar_nomb,
-        sru_nomb: product.sru_nomb
+        rub_nomb: product.rub_nomb
       })
 
       setNotificationMessage(`✅ ${quantity} producto(s) agregado(s) al carrito`)
@@ -146,7 +147,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
           <div className="flex flex-col gap-4">
             <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
               <img
-                src={product.art_img || "/placeholder.svg"}
+                src={product.art_img_url || product.art_img || "/placeholder.svg"}
                 alt={product.art_nomb}
                 className="w-full h-full object-cover"
               />

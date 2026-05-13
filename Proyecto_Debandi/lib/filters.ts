@@ -20,8 +20,8 @@ export function extractFilterData(products: any[]): FilterData {
       brands.add(brandName)
     }
     
-    // Usar propiedades de Django (art_pfin para precio final)
-    const price = product.art_pfin || product.price || product.priceWithIVA || 0
+    // Usar propiedades de Django (art_pnet para precio neto)
+    const price = product.art_pnet || product.price || 0
     const priceValue = parseFloat(price)
     
     if (priceValue > 0) {
