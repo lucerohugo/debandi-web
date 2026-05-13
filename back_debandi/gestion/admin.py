@@ -70,17 +70,17 @@ class SubrubroAdmin(admin.ModelAdmin):
 class ArticuloAdmin(admin.ModelAdmin):
     list_display = ['art_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_stk', 'mar_codi', 'art_acti']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw', 'art_carru']
-    search_fields = ['art_nomb', 'art_codi']
-    readonly_fields = ['art_pfin', 'art_fchc', 'art_fmod']
+    search_fields = ['art_nomb', 'art_codi', 'art_palac']
+    readonly_fields = ['art_fchc', 'art_fmod']
     fieldsets = (
         ('Identificación', {
-            'fields': ('art_codi', 'art_nomb', 'art_desc')
+            'fields': ('art_codi', 'art_nomb', 'art_desc', 'art_palac')
         }),
         ('Precios', {
             'fields': ('art_pnet', 'art_pfin', 'art_cost', 'art_tiva', 'art_mext')
         }),
         ('Stock', {
-            'fields': ('art_stk', 'art_cant', 'art_xbul', 'art_ubul')
+            'fields': ('art_stk', 'art_xbul', 'art_ubul')
         }),
         ('Clasificación', {
             'fields': ('mar_codi', 'sru_codi')
@@ -211,14 +211,14 @@ class DetallePedidoInline(admin.TabularInline):
 class PedidosAdmin(admin.ModelAdmin):
     """Admin para Pedidos con detalles anidados"""
     inlines = [DetallePedidoInline]
-    list_display = ['ped_codi', 'ped_fech', 'cliente_info', 'ped_tota', 'ped_exp']
+    list_display = ['ped_codi', 'ped_fech', 'ped_hora', 'cliente_info', 'ped_tota', 'ped_exp']
     list_filter = ['ped_fech', 'ped_exp', 'ped_fpag']
     search_fields = ['ped_codi', 'cli_codi__cli_nomb', 'cli_codi__cli_ndoc']
     readonly_fields = ['ped_codi', 'ped_tota', 'ped_fexp']
     
     fieldsets = (
         ('Información del Pedido', {
-            'fields': ('ped_codi', 'ped_fech', 'ped_tota')
+            'fields': ('ped_codi', 'ped_fech', 'ped_hora', 'ped_tota')
         }),
         ('Cliente', {
             'fields': ('cli_codi',)

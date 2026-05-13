@@ -2,6 +2,8 @@ import sys
 import requests
 import json
 
+
+
 BASE_URL = "http://localhost:8000/api"
 API_KEY = "5657c8d2427d7577e343ddbef4225ff3"
 
@@ -74,77 +76,76 @@ MAPEO = {
     # VENDEDORES
     # ========================================================
     "vend": [
-        ("ven_codi", int),
-        ("ven_nomb", str),
-        ("ven_doc", str),
-        ("ven_emai", str),
-        ("ven_tele", str),
-        ("ven_dom", str),
-        ("ven_bar", str),
-        ("ven_cuit", str),
-        ("ven_usua", str),
-        ("ven_clav", str),
-        ("ven_actv", bool),
-        ("loc_codi", int),
+        ("ven_codi", int), #si
+        ("ven_nomb", str), #si
+        ("ven_doc", str), #no hace falta
+        ("ven_emai", str),  #no hace falta
+        ("ven_tele", str), #no hace falta
+        ("ven_dom", str), #no hace falta
+        ("ven_bar", str), #no hace falta
+        ("ven_cuit", str), #no hace falta
+        ("ven_usua", str), #si
+        ("ven_clav", str), #si
+        ("ven_actv", bool), #si 
+        ("loc_codi", int), #si
     ],
 
     # ========================================================
     # CLIENTES
     # ========================================================
     "clie": [
-        ("cli_codi", int),
-        ("cli_nomb", str),
-        ("cli_ndoc", str),
-        ("cli_doc", str),
-        ("cli_cuit", str),
-        ("cli_emai", str),
-        ("cli_celu", str),
-        ("cli_tele", str),
-        ("cli_dire", str),
-        ("cli_bar", str),
-        ("cli_clav",str)
-        ("loc_codi", int),
-        ("ven_codi", int),
+        ("cli_codi", int), #si
+        ("cli_nomb", str), #si
+        ("cli_ndoc", str), #no hace falta
+        ("cli_doc", str), #no hace falta
+        ("cli_cuit", str), #no hace falta
+        ("cli_emai", str), #si
+        ("cli_celu", str), #no hace falta
+        ("cli_tele", str), #no hace falta
+        ("cli_dire", str), #no hace falta
+        ("cli_bar", str), #no hace falta
+        ("cli_clav", str), #si
+        ("loc_codi", int), #si
+        ("ven_codi", int), #si
     ],
 
     # ========================================================
     # ARTICULOS
     # ========================================================
     "arti": [
-        ("art_codi", int),
-        ("art_nomb", str),
-        ("art_desc", str),
-        ("art_pnet", float),
-        ("art_cost", float),
-        ("art_stk", int),
-        ("art_cant", int),
-        ("art_tiva", float),
-        ("mar_codi", int),
-        ("sru_codi", int),
-        ("art_acti", bool),
-        ("art_visw", bool),
+        ("art_codi", int), #si
+        ("art_nomb", str), #si
+        ("art_desc", str),  #no hace falta (podria usarlo para las palabras clave)
+        ("art_pnet", float), #no hace falta
+        ("art_cost", float),  #no hace falta (por ahora)
+        ("art_stk", int), #si
+        ("art_tiva", float), #si
+        ("mar_codi", int), #si
+        ("sru_codi", int), #si
+        ("art_acti", bool), #si 
+        ("art_visw", bool), #si
     ],
 
     # ========================================================
     # PEDIDOS
     # ========================================================
     "pedi": [
-        ("ped_codi", int),
-        ("ped_fech", str),
-        ("cli_codi", int),
-        ("ped_tota", float),
-        ("ped_fpag", str),
-        ("ped_exp", bool),
+        ("ped_codi", int), #si
+        ("ped_fech", str), #si
+        ("cli_codi", int), #si
+        ("ped_tota", float), #si
+        ("ped_fpag", str), #si
+        ("ped_exp", bool), #si
     ],
 
     # ========================================================
     # DETALLE PEDIDOS
     # ========================================================
     "dped": [
-        ("dpe_codi", int),
-        ("ped_codi", int),
-        ("art_codi", int),
-        ("dpe_cant", int),
+        ("dpe_codi", int), #si 
+        ("ped_codi", int), #si 
+        ("art_codi", int), #si
+        ("dpe_cant", int), #si
     ],
 }
 

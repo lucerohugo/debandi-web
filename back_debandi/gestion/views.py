@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Min, Max
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -179,8 +179,16 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = ArticuloSerializer
     permission_classes = [AllowAny]  # ✅ Público: productos visibles sin API Key
     lookup_field_name = "art_codi"
-    filterset_fields = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw']
-    search_fields = ['art_nomb', 'art_codi', 'mar_codi__mar_nomb']
+    filterset_fields = {
+        'mar_codi': ['exact', 'in'],
+        'sru_codi': ['exact', 'in'],
+        'sru_codi__rub_codi': ['exact', 'in'],
+        'art_acti': ['exact'],
+        'art_visw': ['exact'],
+        'art_stk': ['exact', 'gt'],
+        'art_pfin': ['exact', 'gte', 'lte'],
+    }
+    search_fields = ['art_nomb', 'art_codi', 'art_palac', 'mar_codi__mar_nomb']
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']
 
@@ -204,6 +212,19 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
         queryset = self.get_queryset().filter(art_acti=True, art_visw=True)
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def precios(self, request):
+        """GET /articulos/precios/ - Retorna min y max de precios globales del catálogo"""
+        queryset = self.get_queryset()
+        precios = queryset.aggregate(
+            min_price=Min('art_pfin'),
+            max_price=Max('art_pfin')
+        )
+        return Response({
+            'min_price': float(precios['min_price'] or 0),
+            'max_price': float(precios['max_price'] or 0)
+        })
 
 
 # ================================================================
@@ -608,6 +629,7 @@ def crear_pedido_desde_carrito(request):
             cli_codi=cliente,
             ped_tota=ped_tota,
             ped_fech=timezone.now().date(),  # ✅ .date() para DateField (no datetime)
+            ped_hora=timezone.now().time(),  # ✅ .time() para TimeField (solo hora)
             ped_fpag=ped_fpag
         )
         

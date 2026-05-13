@@ -110,12 +110,12 @@ class Articulo(models.Model):
     art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
     art_nomb = models.CharField(max_length=100)
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
+    art_palac = models.CharField(max_length=255, blank=True, null=True, help_text="Palabras clave para búsqueda si es complejo el art_nomb")
     art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True)
     art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto", null=True)
-    art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=False, help_text="Precio final con IVA")
+    art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=True, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
     art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos", null=True)
-    art_cant = models.PositiveIntegerField(default=0, help_text="Cantidad disponible")
     art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack", null=True)
     art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto", null=True)
     art_img = models.ImageField(upload_to='articulos/', blank=True, null=True)
@@ -157,7 +157,9 @@ class Articulo(models.Model):
 
     def save(self, *args, **kwargs):
         iva_rate = Decimal(str(self.get_iva_rate()))
-        self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
+        # Solo recalcular art_pfin si es 0 o None (no ha sido editado manualmente)
+        if not self.art_pfin or self.art_pfin == 0:
+            self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
         super().save(*args, **kwargs)
 
     @property
@@ -305,6 +307,7 @@ class Pedidos(models.Model):
 
     ped_codi = models.AutoField(primary_key=True)
     ped_fech = models.DateField(blank=True, null=True, help_text="Fecha del pedido")
+    ped_hora = models.TimeField(blank=True, null=True, help_text="Hora del pedido")
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
     ped_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES)

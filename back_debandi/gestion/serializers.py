@@ -77,9 +77,9 @@ class ArticuloSerializer(serializers.ModelSerializer):
     class Meta:
         model = Articulo
         fields = [
-            'art_codi', 'art_nomb', 'art_desc',
+            'art_codi', 'art_nomb', 'art_desc', 'art_palac',
             'art_pnet', 'art_pfin', 'art_cost',
-            'art_stk', 'art_cant', 'art_descu',
+            'art_stk', 'art_descu',
             'art_xbul', 'art_ubul',
             'mar_codi', 'mar_nomb', 'sru_codi', 'sru_nomb', 'rub_nomb',
             'art_tiva', 'art_depo', 'art_mext',
@@ -102,6 +102,7 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
     """Serializer para frontend con camelCase"""
     codigoArticulo = serializers.IntegerField(source='art_codi')
     descripcion = serializers.CharField(source='art_nomb')
+    palabrasClaves = serializers.CharField(source='art_palac', allow_null=True)
     marca = serializers.CharField(source='mar_codi.mar_nomb')
     precioNeto = serializers.DecimalField(source='art_pnet', max_digits=12, decimal_places=2)
     precioFinal = serializers.DecimalField(source='art_pfin', max_digits=12, decimal_places=2)
@@ -110,7 +111,7 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
     class Meta:
         model = Articulo
         fields = [
-            'codigoArticulo', 'descripcion', 'marca',
+            'codigoArticulo', 'descripcion', 'palabrasClaves', 'marca',
             'precioNeto', 'precioFinal', 'imagen'
         ]
 
@@ -287,7 +288,7 @@ class PedidosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedidos
         fields = [
-            'ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
+            'ped_codi', 'ped_fech', 'ped_hora', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
             'ped_tota', 'ped_fpag',
             'ped_exp', 'ped_fexp',
             'detalles'
