@@ -513,7 +513,4 @@ class Vendedor(models.Model):
         return self.ven_nomb
 
 
-#stock
-
-#class Stock(models.Model):
-#stk_codi
+#agregar class de Registro

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { CartService, type CartItem } from "@/services/cart.service"
+import { ApiService } from "@/services/api.service"
 import { formatCurrencySpanish } from "@/lib/format"
 
 export default function CheckoutPage() {
@@ -50,12 +51,14 @@ export default function CheckoutPage() {
           setCartItems(items as any)
           
           // ✅ Obtener total exacto del backend en lugar de calcular
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-          const totalResponse = await fetch(`${apiUrl}/carrito/total/?cli_codi=${user.id}`)
-          const totalData = await totalResponse.json()
-          
-          if (totalData.total) {
-            setTotal(parseFloat(totalData.total))
+          try {
+            const totalData = await ApiService.get<any>(`/carrito/total/?cli_codi=${user.id}`)
+            if (totalData.total) {
+              setTotal(parseFloat(totalData.total))
+            }
+          } catch (error) {
+            console.error('Error obteniendo total:', error)
+            setTotal(0)
           }
         }
       } catch (error) {
@@ -83,8 +86,6 @@ export default function CheckoutPage() {
           try {
             setIsLoading(true)
             
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-            
             // Preparar items del carrito
             const items = cartItems.map(item => ({
               art_codi: item.art_codi,
@@ -99,32 +100,25 @@ export default function CheckoutPage() {
               items: items
             }
             
-            const response = await fetch(`${apiUrl}/pedidos-crear-desde-carrito/`, {
-              method: "POST",
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            })
+            try {
+              const data = await ApiService.post<any>('/pedidos-crear-desde-carrito/', payload)
 
-            const data = await response.json()
-
-            if (response.ok) {
-              hasCreatedOrder.current = true
-              setOrderNumber(`ORD-${data.ped_codi}`)
-              setFinalOrderItems(cartItems)
-              setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
-              
-              // Vaciar carrito local (ya está limpio en BD)
-              localStorage.removeItem("cart")
-              window.dispatchEvent(new Event("storage"))
-              setShowSuccess(true)
-            } else {
-              setError(data.detail || data.error || "Error al crear el pedido")
+              if (data.success) {
+                hasCreatedOrder.current = true
+                setOrderNumber(`ORD-${data.ped_codi}`)
+                setFinalOrderItems(cartItems)
+                setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
+                
+                // Vaciar carrito local (ya está limpio en BD)
+                localStorage.removeItem("cart")
+                window.dispatchEvent(new Event("storage"))
+                setShowSuccess(true)
+              } else {
+                setError(data.detail || "Error al crear el pedido")
+              }
+            } catch (error: any) {
+              setError(error.message || "Error de conexión con el servidor")
             }
-          } catch (err) {
-            setError("Error de conexión con el servidor")
           } finally {
             setIsLoading(false)
           }
@@ -148,8 +142,6 @@ export default function CheckoutPage() {
     try {
       setIsLoading(true)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      
       // Preparar items del carrito
       const items = cartItems.map(item => ({
         art_codi: item.art_codi,
@@ -164,18 +156,9 @@ export default function CheckoutPage() {
         items: items
       }
       
-      const response = await fetch(`${apiUrl}/pedidos-crear-desde-carrito/`, {
-        method: "POST",
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
+      const data = await ApiService.post<any>('/pedidos-crear-desde-carrito/', payload)
 
-      const data = await response.json()
-
-      if (response.ok) {
+      if (data.success) {
         hasCreatedOrder.current = true
         const orderNum = `ORD-${data.ped_codi}`
         setOrderNumber(orderNum)
@@ -187,7 +170,7 @@ export default function CheckoutPage() {
         setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
         setShowSuccess(true)
       } else {
-        setError(data.detail || data.error || "Error al crear el pedido")
+        setError(data.detail || "Error al crear el pedido")
       }
     } catch (err) {
       setError("Error de conexión con el servidor")

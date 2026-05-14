@@ -190,27 +190,39 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 # REST FRAMEWORK CONFIGURATION - JWT Authentication
 # ============================================================================
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
-    'DEFAULT_PERMISSION_CLASSES': [
-        #'gestion.permissions.HasAPIKey',  # para produccion habilitar esta y sacar la de abajo
-        'rest_framework.permissions.AllowAny',
+    # 🔐 Autenticación JWT personalizada
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'gestion.permissions.ClienteJWTAuthentication',      # JWT Clientes
+        'gestion.permissions.VendedorJWTAuthentication',     # JWT Vendedores
+        'gestion.permissions.APIKeyAuthentication',          # API Key scripts
+        'rest_framework.authentication.SessionAuthentication', # Fallback
     ],
+    
+    # Permisos por defecto
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
 
-# JWT Configuration - usando variables de entorno para buena práctica
-ACCESS_TOKEN_LIFETIME_SECONDS = int(os.getenv('ACCESS_TOKEN_LIFETIME_SECONDS', '3600'))  # Default: 1 hora
-REFRESH_TOKEN_LIFETIME_SECONDS = int(os.getenv('REFRESH_TOKEN_LIFETIME_SECONDS', '2592000'))  # Default: 30 días
+# ============================================================================
+# SIMPLE JWT - Configuración de tokens
+# ============================================================================
+ACCESS_TOKEN_LIFETIME_SECONDS = int(os.getenv('ACCESS_TOKEN_LIFETIME_SECONDS', '3600'))
+REFRESH_TOKEN_LIFETIME_SECONDS = int(os.getenv('REFRESH_TOKEN_LIFETIME_SECONDS', '2592000'))
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(seconds=ACCESS_TOKEN_LIFETIME_SECONDS),
@@ -219,6 +231,8 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
     'VERIFY_SIGNATURE': True,
     'VERIFY_EXP': True,
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 # ============================================================================

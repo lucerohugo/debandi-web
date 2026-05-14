@@ -239,6 +239,22 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
 
+    def get_queryset(self):
+        """
+        Filtrar clientes por vendedor si es un vendedor logueado
+        """
+        queryset = super().get_queryset()
+        
+        # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor
+        ven_codi = self.request.query_params.get('ven_codi')
+        if ven_codi:
+            try:
+                queryset = queryset.filter(ven_codi_id=int(ven_codi))
+            except (ValueError, TypeError):
+                pass
+        
+        return queryset
+
     @action(detail=False, methods=['post'])
     def login(self, request):
         """POST /clientes/login/ - Login de cliente"""
@@ -701,8 +717,29 @@ class UsuarioViewSet(BaseViewSet):
 @require_http_methods(["POST", "OPTIONS"])
 def vendedor_login(request):
     """
-    POST /vendedores-login/
-    Login de vendedores - Devuelve JWT tokens
+    POST /api/vendedores-login/
+    
+    Login para vendedores - Genera JWT del CLIENTE asignado (Modo Supervisor).
+    
+    Body:
+    {
+        "username": "vendedor1",
+        "password": "password123"
+    }
+    
+    Response (200):
+    {
+        "success": true,
+        "access": "eyJhbGc...",
+        "refresh": "eyJhbGc...",
+        "message": "Vendedor ... autenticado como cliente ...",
+        "vendedor": { ... },
+        "cliente_activo": { ... }
+    }
+    
+    IMPORTANTE:
+    - El JWT generado usa cli_codi (del cliente), no ven_codi
+    - Esto permite que el vendedor vea datos del cliente automáticamente
     """
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
@@ -722,6 +759,7 @@ def vendedor_login(request):
                 status=400
             )
 
+        # Buscar vendedor por username
         try:
             vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=True)
         except Vendedor.DoesNotExist:
@@ -744,16 +782,30 @@ def vendedor_login(request):
                 status=401
             )
 
-        # Generar JWT tokens
-        refresh = RefreshToken()
-        refresh['user_id'] = vendedor.ven_codi
-        refresh['user_type'] = 'vendedor'
+        # 🔑 MODO SUPERVISOR: Obtener cliente asignado
+        # Buscar primer cliente asignado a este vendedor
+        clientes_asignados = Clientes.objects.filter(ven_codi=vendedor)
         
-        # Retornar datos del vendedor + JWT tokens
+        if not clientes_asignados.exists():
+            return JsonResponse(
+                {'success': False, 'detail': 'Vendedor sin clientes asignados'}, 
+                status=403
+            )
+        
+        cliente = clientes_asignados.first()
+        
+        # 🔑 Generar JWT CON EL CLI_CODI (no con ven_codi)
+        refresh = RefreshToken()
+        refresh['user_id'] = cliente.cli_codi  # ← CLI_CODI, no VEN_CODI
+        refresh['user_type'] = 'cliente'  # ← Como cliente, no vendedor
+        refresh['vendedor_suplantante'] = vendedor.ven_codi  # Marcar suplantación
+        
+        # Retornar datos del vendedor + cliente + JWT tokens
         return JsonResponse({
             "success": True,
             "access": str(refresh.access_token),
             "refresh": str(refresh),
+            "message": f"Vendedor {vendedor.ven_nomb} autenticado como cliente {cliente.cli_nomb}",
             "vendedor": {
                 "ven_codi": vendedor.ven_codi,
                 "ven_nomb": vendedor.ven_nomb,
@@ -764,6 +816,16 @@ def vendedor_login(request):
                 "ven_cuit": vendedor.ven_cuit,
                 "ven_actv": vendedor.ven_actv,
                 "loc_codi": vendedor.loc_codi_id,
+            },
+            "cliente_activo": {
+                "cli_codi": cliente.cli_codi,
+                "cli_nomb": cliente.cli_nomb,
+                "cli_emai": cliente.cli_emai,
+                "cli_ndoc": cliente.cli_ndoc,
+                "cli_celu": cliente.cli_celu,
+                "cli_tele": cliente.cli_tele,
+                "cli_dire": cliente.cli_dire,
+                "loc_codi": cliente.loc_codi_id,
             }
         }, status=200)
     
@@ -937,66 +999,97 @@ def get_csrf_token(request):
 
 @csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
 def cliente_login(request):
     """
-    POST /cliente-login/
-    Login de clientes - Devuelve JWT tokens
+    POST /api/cliente-login/
+    
+    Login para clientes.
+    
+    Body:
+    {
+        "email": "cliente@example.com",
+        "password": "password123"
+    }
+    
+    Response (200):
+    {
+        "success": true,
+        "access": "eyJhbGc...",
+        "refresh": "eyJhbGc...",
+        "cliente": {
+            "cli_codi": 1,
+            "cli_nomb": "Juan Pérez",
+            "cli_emai": "juan@example.com"
+        }
+    }
     """
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
     
     try:
-        data = json.loads(request.body)
-    except:
-        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+        try:
+            data = json.loads(request.body)
+        except:
+            return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+        
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return JsonResponse(
+                {'success': False, 'detail': 'Email y contraseña requeridos'}, 
+                status=400
+            )
+
+        # Buscar cliente por email
+        try:
+            cliente = Clientes.objects.get(cli_emai=email)
+        except Clientes.DoesNotExist:
+            return JsonResponse(
+                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                status=401
+            )
+
+        # Verificar contraseña
+        if not cliente.check_password(password):
+            return JsonResponse(
+                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                status=401
+            )
+
+        # Generar JWT tokens
+        refresh = RefreshToken()
+        refresh['user_id'] = cliente.cli_codi
+        refresh['user_type'] = 'cliente'  # ← IMPORTANTE: Marca como cliente
+        
+        # Retornar datos del cliente + JWT tokens
+        return JsonResponse({
+            "success": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "cliente": {
+                "cli_codi": cliente.cli_codi,
+                "cli_nomb": cliente.cli_nomb,
+                "cli_emai": cliente.cli_emai,
+                "cli_ndoc": cliente.cli_ndoc,
+                "cli_celu": cliente.cli_celu,
+                "cli_tele": cliente.cli_tele,
+                "cli_dire": cliente.cli_dire,
+                "cli_fchc": cliente.cli_fchc.isoformat() if cliente.cli_fchc else None,
+                "loc_codi": cliente.loc_codi_id,
+                "ven_codi": cliente.ven_codi_id if cliente.ven_codi else None,
+            }
+        }, status=200)
     
-    email = data.get('email')
-    password = data.get('password')
-
-    if not email or not password:
-        return JsonResponse(
-            {'success': False, 'detail': 'Email y contraseña requeridos'}, 
-            status=400
-        )
-
-    try:
-        cliente = Clientes.objects.get(cli_emai=email)
-    except Clientes.DoesNotExist:
-        return JsonResponse(
-            {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
-            status=401
-        )
-
-    # Verificar contraseña
-    if not cliente.check_password(password):
-        return JsonResponse(
-            {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
-            status=401
-        )
-
-    # Generar JWT tokens
-    refresh = RefreshToken()
-    refresh['user_id'] = cliente.cli_codi
-    refresh['user_type'] = 'cliente'
-    
-    # Retornar datos del cliente + JWT tokens
-    return JsonResponse({
-        "success": True,
-        "access": str(refresh.access_token),
-        "refresh": str(refresh),
-        "cliente": {
-            "cli_codi": cliente.cli_codi,
-            "cli_nomb": cliente.cli_nomb,
-            "cli_emai": cliente.cli_emai,
-            "cli_ndoc": cliente.cli_ndoc,
-            "cli_celu": cliente.cli_celu,
-            "cli_tele": cliente.cli_tele,
-            "cli_dire": cliente.cli_dire,
-            "cli_fchc": cliente.cli_fchc.isoformat() if cliente.cli_fchc else None,
-            "loc_codi": cliente.loc_codi_id,
-            "ven_codi": cliente.ven_codi_id if cliente.ven_codi else None,
-        }
-    }, status=200)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'detail': str(e)
+        }, status=500)
 
 
 @csrf_exempt

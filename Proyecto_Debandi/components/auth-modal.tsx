@@ -82,8 +82,8 @@ export default function AuthModal({ onClose }: AuthModalProps) {
 
     try {
       await loginVendedor(vendedorUsername, vendedorPassword)
+      // El contexto maneja la redirección a /vendedor/clientes
       onClose()
-      router.push("/vendedor/clientes")
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión")
     } finally {

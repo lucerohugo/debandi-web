@@ -30,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Script para color personalizado */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -48,6 +49,72 @@ export default function RootLayout({
                   }
                 } catch (e) {}
               })();
+            `,
+          }}
+        />
+        
+        {/* Script 2: Función para limpiar autenticación */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__cleanAuth = function() {
+                console.log('🗑️ Limpiando autenticación...');
+                localStorage.removeItem('jwtToken');
+                localStorage.removeItem('vendedor_api_key');
+                localStorage.removeItem('vendedor_session');
+                localStorage.removeItem('auth_user');
+                localStorage.removeItem('impersonation_state');
+                console.log('✅ Autenticación limpiada. Recargando página...');
+                location.reload();
+              };
+            `,
+          }}
+        />
+        
+        {/* Script 3: Función para ver localStorage */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__debugLS = function() {
+                console.log('📦 === CONTENIDO DE LOCALSTORAGE ===');
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  const value = localStorage.getItem(key);
+                  if (key && value) {
+                    console.log(key + ':', value.substring(0, 100) + (value.length > 100 ? '...' : ''));
+                  }
+                }
+                console.log('📦 === FIN LOCALSTORAGE ===');
+              };
+            `,
+          }}
+        />
+        
+        {/* Script 4: Función para validar JWT */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__validateJWT = function() {
+                const token = localStorage.getItem('jwtToken');
+                if (!token) {
+                  console.log('❌ No hay JWT en localStorage');
+                  return;
+                }
+                const parts = token.split('.');
+                console.log('JWT Validation:');
+                console.log('- Parts count:', parts.length, parts.length === 3 ? '✅' : '❌');
+                parts.forEach((part, i) => {
+                  console.log('- Part ' + i + ' length:', part.length, part.length > 0 ? '✅' : '❌');
+                });
+                if (parts.length === 3) {
+                  try {
+                    const decoded = JSON.parse(atob(parts[1]));
+                    console.log('- Decoded payload:', decoded);
+                  } catch (e) {
+                    console.log('- Error decoding:', e.message);
+                  }
+                }
+              };
             `,
           }}
         />

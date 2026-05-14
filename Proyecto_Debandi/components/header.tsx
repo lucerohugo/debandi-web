@@ -99,11 +99,30 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
 
   const handleLogoutVendedor = async () => {
     try {
-      await stopImpersonation()
+      // Limpiar COMPLETAMENTE: vendedor + cliente + JWT + todo
+      localStorage.removeItem('vendedor_session')
+      localStorage.removeItem('jwtToken')
+      localStorage.removeItem('auth_user')
+      localStorage.removeItem('impersonation_state')
+      
+      // Emitir evento para que auth-context limpie completamente
+      window.dispatchEvent(new CustomEvent('impersonation-stopped', {
+        detail: {
+          impersonation: {
+            isImpersonating: false
+          }
+        }
+      }))
+      
+      // Llamar logout del vendedor (limpia estado React y ApiService)
       await logoutVendedor()
+      
+      // Redirigir a inicio
       router.push("/")
     } catch (error) {
       console.error("Error al cerrar sesión:", error)
+      // Aunque haya error, forzar limpieza y redirección
+      router.push("/")
     }
   }
 

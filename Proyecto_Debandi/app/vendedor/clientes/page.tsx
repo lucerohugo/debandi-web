@@ -96,8 +96,29 @@ export default function VendedorClientesPage() {
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
     try {
-      await impersonate(cli_codi)
-      // La redirección a '/listado' se hace en el contexto mediante router.push
+      // Buscar datos completos del cliente
+      const clienteSeleccionado = clientes.find(c => c.cli_codi === cli_codi)
+      
+      if (!clienteSeleccionado) {
+        throw new Error('Cliente no encontrado')
+      }
+      
+      // Guardar cliente en localStorage
+      localStorage.setItem('auth_user', JSON.stringify(clienteSeleccionado))
+      
+      // Emitir evento de impersonación con toda la información
+      window.dispatchEvent(new CustomEvent('impersonation-started', {
+        detail: {
+          cliente: clienteSeleccionado,
+          impersonation: {
+            isImpersonating: true,
+            vendedor: vendedor
+          }
+        }
+      }))
+      
+      // Redirigir a página principal
+      router.push('/')
     } catch (err: any) {
       setError(err.message || "Error al ingresar como cliente")
       setImpersonating(null)
