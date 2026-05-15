@@ -75,6 +75,37 @@ const getHeaders = (additionalHeaders: Record<string, string> = {}): Record<stri
   return headers
 }
 
+/**
+ * Decodificar JWT sin validar firma (solo para leer payload)
+ * Retorna el payload decodificado o null si es inválido
+ */
+const decodeJWT = (token?: string | null): Record<string, any> | null => {
+  try {
+    const jwtToken = token || getJWTToken()
+    if (!jwtToken || !isValidJWTFormat(jwtToken)) return null
+    
+    const parts = jwtToken.split('.')
+    const decoded = JSON.parse(atob(parts[1]))
+    return decoded
+  } catch (error) {
+    console.error('[ApiService] Error decodificando JWT:', error)
+    return null
+  }
+}
+
+/**
+ * Obtener información del vendedor suplantante desde el JWT
+ */
+const getVendedorSuplantante = (): { ven_codi: number; ven_nomb?: string } | null => {
+  const payload = decodeJWT()
+  if (!payload || !payload.vendedor_suplantante) return null
+  
+  return {
+    ven_codi: payload.vendedor_suplantante,
+    ven_nomb: localStorage.getItem('vendedor_name') || undefined
+  }
+}
+
 export class ApiService {
   static setToken(token: string): void {
     setJWTToken(token)
@@ -130,14 +161,34 @@ export class ApiService {
     return response.json()
   }
 
-  static async delete<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${getApiUrl()}${endpoint}`, {
+  static async delete<T>(endpoint: string, data?: any): Promise<T> {
+    const fetchOptions: RequestInit = {
       method: 'DELETE',
       credentials: 'include',
       headers: getHeaders(),
-    })
+    }
+    
+    if (data) {
+      fetchOptions.body = JSON.stringify(data)
+    }
+    
+    const response = await fetch(`${getApiUrl()}${endpoint}`, fetchOptions)
     
     if (!response.ok) throw new Error(`Error: ${response.status}`)
     return response.json()
+  }
+
+  /**
+   * Decodificar JWT sin validar firma
+   */
+  static decodeJWT(token?: string | null): Record<string, any> | null {
+    return decodeJWT(token)
+  }
+
+  /**
+   * Obtener información del vendedor suplantante desde el JWT
+   */
+  static getVendedorSuplantante(): { ven_codi: number; ven_nomb?: string } | null {
+    return getVendedorSuplantante()
   }
 }

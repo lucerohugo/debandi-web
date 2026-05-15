@@ -40,7 +40,9 @@ if not SECRET_KEY:
 # En producción: DEBUG=False (default)
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = get_allowed_hosts()
+ALLOWED_HOSTS = [
+    "138.36.239.52",
+]
 
 
 # Application definition

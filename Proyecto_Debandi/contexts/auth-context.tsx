@@ -62,8 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (detail.impersonation) {
-        setImpersonation(detail.impersonation)
-        localStorage.setItem('impersonation_state', JSON.stringify(detail.impersonation))
+        // Obtener vendedor desde JWT en lugar de localStorage
+        const vendedorData = ApiService.getVendedorSuplantante()
+        const impersonationState: ImpersonationInfo = {
+          ...detail.impersonation,
+          vendedor: vendedorData ? {
+            ven_codi: vendedorData.ven_codi,
+            ven_nomb: detail.impersonation.vendedor?.ven_nomb || vendedorData.ven_nomb || 'Vendedor'
+          } : detail.impersonation.vendedor
+        }
+        
+        setImpersonation(impersonationState)
+        localStorage.setItem('impersonation_state', JSON.stringify(impersonationState))
       }
     }
 

@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, UserCog } from "lucide-react"
+import { Loader2, UserCog, CheckCircle } from "lucide-react"
 import ForgotPasswordModal from "./forgot-password-modal"
+import { RegistroService } from "@/services/registro.service"
 
 interface AuthModalProps {
   onClose: () => void
@@ -19,13 +20,30 @@ interface AuthModalProps {
 
 export default function AuthModal({ onClose }: AuthModalProps) {
   const router = useRouter()
-  const { login, register } = useAuth()
+  const { login } = useAuth()
   const { login: loginVendedor } = useVendedor()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [vendedorUsername, setVendedorUsername] = useState("")
   const [vendedorPassword, setVendedorPassword] = useState("")
+  const [registroSuccess, setRegistroSuccess] = useState(false)
+  const [documentError, setDocumentError] = useState("")
+
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    // Solo permitir números
+    const onlyNumbers = value.replace(/\D/g, '')
+    // Limitar a 8 caracteres
+    const limitedValue = onlyNumbers.slice(0, 8)
+    e.target.value = limitedValue
+    
+    if (limitedValue.length > 0 && limitedValue.length < 8) {
+      setDocumentError(`Documento debe tener 8 dígitos (${limitedValue.length}/8)`)
+    } else {
+      setDocumentError("")
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -49,6 +67,8 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
+    setDocumentError("")
+    setRegistroSuccess(false)
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
@@ -65,11 +85,39 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       return
     }
 
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres")
+      setLoading(false)
+      return
+    }
+
+    // Validar documento: debe ser exactamente 8 dígitos
+    if (!document || document.length !== 8 || isNaN(Number(document))) {
+      setError("El documento debe tener exactamente 8 dígitos numéricos")
+      setLoading(false)
+      return
+    }
+
     try {
-      await register(email, password, firstName, lastName, document)
-      onClose()
+      const form = e.currentTarget
+      await RegistroService.crearRegistro({
+        reg_nomb: firstName,
+        reg_apel: lastName,
+        reg_doc: document,
+        reg_emai: email,
+        reg_clav: password,
+      })
+      
+      setRegistroSuccess(true)
+      // Limpiar el formulario
+      form.reset()
+      
+      // Cerrar modal en 3 segundos
+      setTimeout(() => {
+        onClose()
+      }, 3000)
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message || "Error al registrarse. Intenta de nuevo.")
     } finally {
       setLoading(false)
     }
@@ -107,6 +155,16 @@ export default function AuthModal({ onClose }: AuthModalProps) {
               {error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {registroSuccess && (
+                <Alert className="mb-4 border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    ¡Registro exitoso! Tu solicitud está pendiente de aprobación. 
+                    Podrás iniciar sesión una vez que sea revisada.
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -162,6 +220,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                         name="firstName"
                         placeholder="Juan"
                         required
+                        disabled={loading || registroSuccess}
                       />
                     </div>
                     <div className="space-y-2">
@@ -171,6 +230,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                         name="lastName"
                         placeholder="Pérez"
                         required
+                        disabled={loading || registroSuccess}
                       />
                     </div>
                   </div>
@@ -179,10 +239,14 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                     <Input
                       id="document"
                       name="document"
+                      inputMode="numeric"
                       placeholder="12345678"
                       maxLength={8}
+                      onChange={handleDocumentChange}
                       required
+                      disabled={loading || registroSuccess}
                     />
+                    
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-email">Email</Label>
@@ -192,6 +256,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                       type="email"
                       placeholder="tu@email.com"
                       required
+                      disabled={loading || registroSuccess}
                     />
                   </div>
                   <div className="space-y-2">
@@ -202,6 +267,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                       type="password"
                       placeholder="••••••••"
                       required
+                      disabled={loading || registroSuccess}
                     />
                   </div>
                   <div className="space-y-2">
@@ -212,13 +278,26 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                       type="password"
                       placeholder="••••••••"
                       required
+                      disabled={loading || registroSuccess}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={loading}>
-                      {loading ? "Cargando..." : "Registrarse"}
+                    <Button type="submit" className="flex-1" disabled={loading || registroSuccess}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Registrando...
+                        </>
+                      ) : registroSuccess ? (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          ¡Registrado!
+                        </>
+                      ) : (
+                        "Registrarse"
+                      )}
                     </Button>
-                    <Button type="button" variant="outline" onClick={onClose}>
+                    <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                       Cancelar
                     </Button>
                   </div>

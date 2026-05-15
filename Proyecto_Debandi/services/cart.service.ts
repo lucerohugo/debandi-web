@@ -147,7 +147,7 @@ class CartServiceClass {
 
       if (cantidad <= 0) {
         // Eliminar del carrito
-        await ApiService.delete('/carrito-manage/', undefined, payload)
+        await ApiService.delete('/carrito-manage/', payload)
       } else {
         // Actualizar cantidad
         await ApiService.put('/carrito-manage/', payload)
@@ -180,7 +180,7 @@ class CartServiceClass {
       }
 
       // Usar endpoint /carrito-manage/ que funciona con DELETE
-      await ApiService.delete('/carrito-manage/', undefined, payload)
+      await ApiService.delete('/carrito-manage/', payload)
       
       // Invalidar caché
       cacheManager.invalidate(`cart_${clientId}`)
