@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor
+    CuentaBancaria, General, Usuario, Vendedor, Registro
 )
 
 
@@ -136,10 +136,34 @@ class ClientesSerializer(serializers.ModelSerializer):
         fields = [
             'cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit',
             'cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar',
-            'cli_estc', 'cli_ocup', 'loc_codi', 'loc_nomb', 'ven_codi',
+            'cli_estc', 'cli_ocup', 'loc_codi', 'loc_nomb', 'ven_codi', 'cli_acti',
             'cli_clav', 'cli_fchc', 'cli_fmod'
         ]
         read_only_fields = ['cli_codi', 'cli_fchc', 'cli_fmod', 'cli_clav']
+
+
+class RegistroSerializer(serializers.ModelSerializer):
+    """Serializer para registro de nuevos clientes"""
+    
+    class Meta:
+        model = Registro
+        fields = [
+            'reg_codi', 'reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai', 'reg_clav',
+            'reg_clie', 'reg_fchc', 'reg_fmod'
+        ]
+        read_only_fields = ['reg_codi', 'reg_fchc', 'reg_fmod']
+        extra_kwargs = {
+            'reg_clav': {'write_only': True}  # No retornar contraseña
+        }
+
+    def create(self, validated_data):
+        """Crear registro con contraseña hasheada"""
+        password = validated_data.pop('reg_clav', None)
+        registro = Registro(**validated_data)
+        if password:
+            registro.set_password(password)
+        registro.save()
+        return registro
 
 
 class VendedorSerializer(serializers.ModelSerializer):

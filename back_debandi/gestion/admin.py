@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor
+    CuentaBancaria, General, Usuario, Vendedor, Registro
 )
 
 
@@ -99,15 +99,44 @@ class ArticuloAdmin(admin.ModelAdmin):
 # PERSONAS
 # ================================================================
 
+@admin.register(Registro)
+class RegistroAdmin(admin.ModelAdmin):
+    list_display = ['reg_codi', 'reg_nomb', 'reg_apel', 'reg_emai', 'reg_clie', 'reg_fchc', 'reg_exp']
+    list_filter = ['reg_clie', 'reg_fchc']
+    search_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
+    readonly_fields = ['reg_codi', 'reg_fchc', 'reg_fmod', 'reg_clav']
+    fieldsets = (
+        ('Datos Personales', {
+            'fields': ('reg_codi', 'reg_nomb', 'reg_apel', 'reg_doc')
+        }),
+        ('Contacto', {
+            'fields': ('reg_emai',)
+        }),
+        ('Autenticación', {
+            'fields': ('reg_clav',),
+            'classes': ('collapse',)
+        }),
+        ('Estado', {
+            'fields': ('reg_clie','reg_exp',)
+            
+        }),
+        ('Fechas', {
+            'fields': ('reg_fchc', 'reg_fmod'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ['-reg_fchc']
+
+
 @admin.register(Clientes)
 class ClientesAdmin(admin.ModelAdmin):
-    list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'ven_codi']
-    list_filter = ['loc_codi', 'ven_codi']
+    list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'ven_codi', 'cli_acti']
+    list_filter = ['loc_codi', 'ven_codi', 'cli_acti']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
     readonly_fields = ['cli_fchc', 'cli_fmod']
     fieldsets = (
         ('Datos Personales', {
-            'fields': ('cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit')
+            'fields': ('cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit', 'cli_acti')
         }),
         ('Contacto', {
             'fields': ('cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar', 'loc_codi')
@@ -155,8 +184,6 @@ class VendedorAdmin(admin.ModelAdmin):
         }),
     )
     ordering = ['ven_nomb']
-
-
 # ================================================================
 # FAVORITOS Y CARRITO
 # ================================================================

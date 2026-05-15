@@ -186,6 +186,41 @@ class Articulo(models.Model):
 # CLIENTES Y AUTENTICACIÓN
 # ================================================================
 
+
+
+class Registro(models.Model):
+    """Registros pendientes de aprobación para convertirse en clientes"""
+    reg_codi = models.AutoField(primary_key=True)
+    reg_nomb = models.CharField(max_length=150, help_text="Nombre")
+    reg_apel = models.CharField(max_length=150, help_text="Apellido", null=True)
+    reg_doc = models.IntegerField(help_text="Documento")
+    reg_emai = models.EmailField(unique=True, help_text="Email")
+    reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)")
+    reg_clie = models.BooleanField(default=False, help_text="Aprobado/Convertido a Cliente")
+    reg_fchc = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
+    reg_fmod = models.DateTimeField(auto_now=True, help_text="Fecha de modificación")
+    reg_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
+    
+    class Meta:
+        verbose_name = "Registro"
+        verbose_name_plural = "Registros"
+        ordering = ["-reg_fchc"]
+    
+    def __str__(self):
+        return f"{self.reg_nomb} {self.reg_apel} ({self.reg_emai})"
+    
+    def set_password(self, raw_password):
+        """Hashear contraseña"""
+        from django.contrib.auth.hashers import make_password
+        self.reg_clav = make_password(raw_password)
+    
+    def check_password(self, raw_password):
+        """Verificar contraseña"""
+        from django.contrib.auth.hashers import check_password
+        return check_password(raw_password, self.reg_clav)
+
+
+
 class Clientes(models.Model):
     """Clientes compradores"""
     cli_codi = models.IntegerField(primary_key=True, editable=True)
@@ -202,6 +237,8 @@ class Clientes(models.Model):
     cli_bar = models.CharField(max_length=100, blank=True, help_text="Barrio", null=True)
     cli_estc = models.CharField(max_length=50, blank=True, null=True, help_text="Estado civil")
     cli_ocup = models.CharField(max_length=100, blank=True, null=True, help_text="Ocupación")
+    cli_acti = models.BooleanField(default=True, help_text="Cliente activo/de baja",null=True)
+    cli_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)")
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
@@ -247,12 +284,6 @@ class Clientes(models.Model):
         return f"{self.cli_nomb} - {self.cli_ndoc or self.cli_doc or 'S/D'}"
 
 
-
-
-
-# ================================================================
-# FAVORITOS Y CARRITO
-# ================================================================
 
 class Favoritos(models.Model):
     """Artículos favoritos de clientes"""
@@ -511,6 +542,3 @@ class Vendedor(models.Model):
 
     def __str__(self):
         return self.ven_nomb
-
-
-#agregar class de Registro

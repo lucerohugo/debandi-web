@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProvinciaViewSet, LocalidadViewSet, ZonaViewSet,
     MarcaViewSet, RubroViewSet, SubrubroViewSet, ArticuloViewSet,
-    ClientesViewSet, VendedorViewSet, FavoritosViewSet, CarritoItemViewSet,
+    ClientesViewSet, VendedorViewSet, RegistroViewSet, FavoritosViewSet, CarritoItemViewSet,
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
     GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login, 
     importar_datos, cliente_login, cliente_register, cliente_update_password, favoritos_manage,
@@ -29,6 +29,7 @@ router.register(r'articulos', ArticuloViewSet, basename='articulo')
 # Personas
 router.register(r'clientes', ClientesViewSet, basename='cliente')
 router.register(r'vendedores', VendedorViewSet, basename='vendedor')
+router.register(r'registros', RegistroViewSet, basename='registro')
 
 # Favoritos y Carrito
 router.register(r'favoritos', FavoritosViewSet, basename='favorito')

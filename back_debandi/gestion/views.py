@@ -15,7 +15,7 @@ import json
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor
+    CuentaBancaria, General, Usuario, Vendedor, Registro
 )
 from .serializers import (
     ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
@@ -23,7 +23,7 @@ from .serializers import (
     ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
     PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer, 
     DetallePedidoSerializer, DetallePedidoWriteSerializer,
-    CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer
+    CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer, RegistroSerializer
 )
 
 
@@ -231,7 +231,58 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 # PERSONAS
 # ================================================================
 
+class RegistroViewSet(BulkCreateMixin, BaseViewSet):
+    """
+    ViewSet para gestionar registros de nuevos clientes.
+    - GET /registros/ - Listar todos los registros
+    - POST /registros/ - Crear nuevo registro
+    - GET /registros/{id}/ - Obtener un registro
+    - PATCH /registros/{id}/ - Actualizar registro (incluido cambiar reg_clie)
+    - DELETE /registros/{id}/ - Eliminar registro
+    
+    Nota: Registro y Clientes son tablas separadas sin relación automática.
+    """
+    queryset = Registro.objects.all()
+    serializer_class = RegistroSerializer
+    lookup_field_name = "reg_codi"
+    filterset_fields = ['reg_clie']
+    search_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
+    ordering = ['-reg_fchc']
+    permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
+
+    def create(self, request, *args, **kwargs):
+        """POST /registros/ - Crear nuevo registro"""
+        data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
+        
+        # Validar campos requeridos
+        required_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai', 'reg_clav']
+        for field in required_fields:
+            if not data.get(field):
+                return Response(
+                    {'error': f'{field} es requerido'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Verificar email único
+        if Registro.objects.filter(reg_emai=data.get('reg_emai')).exists():
+            return Response(
+                {'error': 'El email ya está registrado'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Hashear contraseña
+        registro = serializer.save()
+        registro.set_password(data.get('reg_clav'))
+        registro.save()
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
+    """Clientes compradores"""
     queryset = Clientes.objects.all()
     serializer_class = ClientesSerializer
     lookup_field_name = "cli_codi"
