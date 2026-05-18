@@ -137,6 +137,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user)
       localStorage.setItem('auth_user', JSON.stringify(user))
       
+      // 🎉 Disparar evento para mostrar WelcomeModal
+      window.dispatchEvent(new CustomEvent('user-logged-in', {
+        detail: { firstName: user.firstName }
+      }))
+      
     } catch (error) {
       console.error('Login error:', error)
       throw error

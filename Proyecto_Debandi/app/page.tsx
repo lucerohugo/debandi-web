@@ -30,6 +30,7 @@ export default function Home() {
   const [filters, setFilters] = useState({
     brands: [],
     categories: [],
+    subcategories: [],
     priceRange: [0, 10000000],
     originalPriceRange: [0, 10000000],
     onlyStock: false,
@@ -48,6 +49,7 @@ export default function Home() {
   const hasActiveFilters = 
     (filters.brands && filters.brands.length > 0) ||
     (filters.categories && filters.categories.length > 0) ||
+    (filters.subcategories && filters.subcategories.length > 0) ||
     (filters.priceRange && 
       (filters.priceRange[0] !== filters.originalPriceRange[0] || 
        filters.priceRange[1] !== filters.originalPriceRange[1])) ||
@@ -59,6 +61,7 @@ export default function Home() {
     return (
       JSON.stringify(f1.brands) === JSON.stringify(f2.brands) &&
       JSON.stringify(f1.categories) === JSON.stringify(f2.categories) &&
+      JSON.stringify(f1.subcategories) === JSON.stringify(f2.subcategories) &&
       JSON.stringify(f1.priceRange) === JSON.stringify(f2.priceRange) &&
       JSON.stringify(f1.originalPriceRange) === JSON.stringify(f2.originalPriceRange) &&
       f1.onlyStock === f2.onlyStock
@@ -131,18 +134,19 @@ export default function Home() {
         // Construir query params con filtros
         let queryParams = `?page=${currentPage}&page_size=${itemsPerPage}`
         
-        // Agregar filtros de marcas (mar_codi)
+        // Agregar filtros de marcas (mar_codi) - separadas por comas para django-filter
         if (filters.brands && filters.brands.length > 0) {
-          filters.brands.forEach(brandId => {
-            queryParams += `&mar_codi=${brandId}`
-          })
+          queryParams += `&mar_codi=${filters.brands.join(',')}`
         }
         
-        // Agregar filtros de rubros (sru_codi__rub_codi para filtrar por rubro)  #cambiar a futuro por sru_Codi y no rub_codi 
+        // Agregar filtros de rubros (sru_codi__rub_codi para filtrar por rubro) - separadas por comas
         if (filters.categories && filters.categories.length > 0) {
-          filters.categories.forEach(rubroId => {
-            queryParams += `&sru_codi__rub_codi=${rubroId}`
-          })
+          queryParams += `&sru_codi__rub_codi=${filters.categories.join(',')}`
+        }
+        
+        // Agregar filtros de subrubros (sru_codi) - separadas por comas
+        if (filters.subcategories && filters.subcategories.length > 0) {
+          queryParams += `&sru_codi=${filters.subcategories.join(',')}`
         }
         
         // Agregar filtro de rango de precio SOLO SI EL SLIDER FUE TOCADO
@@ -236,6 +240,7 @@ export default function Home() {
   const handleFiltersChange = useCallback((newFilters: {
     brands: string[]
     categories: string[]
+    subcategories: string[]
     priceRange: number[]
     originalPriceRange: number[]
     onlyStock: boolean

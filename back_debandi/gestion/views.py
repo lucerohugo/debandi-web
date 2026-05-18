@@ -25,6 +25,7 @@ from .serializers import (
     DetallePedidoSerializer, DetallePedidoWriteSerializer,
     CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer, RegistroSerializer
 )
+from .filters import ArticuloFilterSet, SubrubroFilterSet
 
 
 # ================================================================
@@ -154,6 +155,7 @@ class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
     queryset = SubRubro.objects.all()
     serializer_class = SubrubroSerializer
     lookup_field_name = "sru_codi"
+    filterset_class = SubrubroFilterSet  # ✅ Usar FilterSet personalizado
     search_fields = ['sru_nomb', 'rub_codi__rub_nomb']
     ordering = ['rub_codi', 'sru_nomb']
 
@@ -179,15 +181,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = ArticuloSerializer
     permission_classes = [AllowAny]  # ✅ Público: productos visibles sin API Key
     lookup_field_name = "art_codi"
-    filterset_fields = {
-        'mar_codi': ['exact', 'in'],
-        'sru_codi': ['exact', 'in'],
-        'sru_codi__rub_codi': ['exact', 'in'],
-        'art_acti': ['exact'],
-        'art_visw': ['exact'],
-        'art_stk': ['exact', 'gt'],
-        'art_pfin': ['exact', 'gte', 'lte'],
-    }
+    filterset_class = ArticuloFilterSet  # ✅ Usar FilterSet personalizado
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'mar_codi__mar_nomb']
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']

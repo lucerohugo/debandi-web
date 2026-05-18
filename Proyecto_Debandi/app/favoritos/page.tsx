@@ -44,7 +44,7 @@ export default function FavoritesPage() {
       
       setNotification({
         show: true,
-        message: "✅ Producto agregado al carrito",
+        message: "Producto agregado al carrito",
         type: "success",
       })
 

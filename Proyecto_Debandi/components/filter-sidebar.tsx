@@ -14,6 +14,12 @@ interface Category {
   name: string
 }
 
+interface SubCategory {
+  id: string
+  name: string
+  rubroId: string
+}
+
 interface FilterSidebarProps {
   products: any[]
   categories: Category[]
@@ -21,6 +27,7 @@ interface FilterSidebarProps {
   onFiltersChange?: (filters: {
     brands: string[]
     categories: string[]
+    subcategories: string[]
     priceRange: number[]
     originalPriceRange: number[]
     onlyStock: boolean
@@ -36,6 +43,8 @@ export default function FilterSidebar({
   const { user } = useAuth()
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [selectedRubros, setSelectedRubros] = useState<string[]>([])
+  const [selectedSubrubros, setSelectedSubrubros] = useState<string[]>([])
+  const [subrubrosList, setSubrubrosList] = useState<SubCategory[]>([])
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000])
   const [originalPriceRange, setOriginalPriceRange] = useState<[number, number]>([0, 1000])
   const [minPrice, setMinPrice] = useState(0)
@@ -77,6 +86,40 @@ export default function FilterSidebar({
     }
   }, [brands])
 
+  // 🔥 Cargar subrubros dinámicamente cuando se seleccionan rubros
+  useEffect(() => {
+    const loadSubrubros = async () => {
+      if (selectedRubros.length === 0) {
+        setSubrubrosList([])
+        setSelectedSubrubros([])
+        return
+      }
+
+      try {
+        // Cargar subrubros para cada rubro seleccionado
+        const rubroIds = selectedRubros.join(',')
+        const response = await ApiService.get<any>(`/subrubros/?rub_codi=${rubroIds}&page_size=100`)
+        
+        const subrubros = Array.isArray(response.results) ? response.results : (Array.isArray(response) ? response : [])
+        
+        const subrubrosList: SubCategory[] = subrubros.map((sub: any) => ({
+          id: String(sub.sru_codi),
+          name: sub.sru_nomb,
+          rubroId: String(sub.rub_codi)
+        }))
+        
+        setSubrubrosList(subrubrosList)
+        // Limpiar subrubros seleccionados cuando cambios los rubros
+        setSelectedSubrubros([])
+      } catch (error) {
+        console.error('Error cargando subrubros:', error)
+        setSubrubrosList([])
+      }
+    }
+
+    loadSubrubros()
+  }, [selectedRubros])
+
   const handleBrandToggle = (brandId: string) => {
     setSelectedBrands((prev) => {
       const updated = prev.includes(brandId) ? prev.filter((b) => b !== brandId) : [...prev, brandId]
@@ -91,7 +134,14 @@ export default function FilterSidebar({
     })
   }
 
-  const handlePriceChange = (newRange: number[]) => {
+  const handleSubrubroToggle = (subrubroId: string) => {
+    setSelectedSubrubros((prev) => {
+      const updated = prev.includes(subrubroId) ? prev.filter((s) => s !== subrubroId) : [...prev, subrubroId]
+      return updated
+    })
+  }
+
+  const handlePriceChange = (newRange: [number, number]) => {
     setPriceRange(newRange)
   }
 
@@ -105,16 +155,19 @@ export default function FilterSidebar({
       onFiltersChange({
         brands: selectedBrands,
         categories: selectedRubros,
+        subcategories: selectedSubrubros,
         priceRange,
         originalPriceRange,
         onlyStock,
       })
     }
-  }, [selectedBrands, selectedRubros, priceRange, originalPriceRange, onlyStock])
+  }, [selectedBrands, selectedRubros, selectedSubrubros, priceRange, originalPriceRange, onlyStock])
 
   const handleClearFilters = () => {
     setSelectedBrands([])
     setSelectedRubros([])
+    setSelectedSubrubros([])
+    setSubrubrosList([])
     setPriceRange(originalPriceRange)
     setOnlyStock(false)
     
@@ -123,6 +176,7 @@ export default function FilterSidebar({
       onFiltersChange({
         brands: [],
         categories: [],
+        subcategories: [],
         priceRange: originalPriceRange,
         originalPriceRange: originalPriceRange,
         onlyStock: false,
