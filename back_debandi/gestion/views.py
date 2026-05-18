@@ -7,7 +7,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Q, Min, Max
-from django.http import JsonResponse
+from datetime import datetime
+from django.http import FileResponse
+from .services.excel_service import ExcelService
+from .services.pdf_service import PDFService
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
@@ -219,6 +222,46 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
             'min_price': float(precios['min_price'] or 0),
             'max_price': float(precios['max_price'] or 0)
         })
+
+    @action(detail=False, methods=['get'], url_path='exportar-excel')
+    def exportar_excel(self, request):
+        """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel"""
+        try:
+            excel_file = ExcelService.generar_excel()
+            
+            # Crear respuesta con descarga
+            response = FileResponse(
+                excel_file,
+                as_attachment=True,
+                filename=f"articulos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            return response
+        except Exception as e:
+            return Response(
+                {'error': f'Error al generar Excel: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], url_path='exportar-pdf')
+    def exportar_pdf(self, request):
+        """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF"""
+        try:
+            pdf_file = PDFService.generar_pdf()
+            
+            # Crear respuesta con descarga
+            response = FileResponse(
+                pdf_file,
+                as_attachment=True,
+                filename=f"articulos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                content_type='application/pdf'
+            )
+            return response
+        except Exception as e:
+            return Response(
+                {'error': f'Error al generar PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # ================================================================

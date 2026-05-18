@@ -14,7 +14,8 @@ import { useAuth } from "@/contexts/auth-context"
 import AuthModal from "@/components/auth-modal"
 import NotificationToast from "@/components/notification-toast"
 import ProductPreviewModal from "@/components/product-preview-modal"
-import { exportToPDF, exportToExcel } from "@/lib/export-utils"
+//import { exportToPDF, exportToExcel } from "@/lib/export-utils" lo borro ya que no me sirve 
+import { ExportUtils } from "@/lib/export-utils"
 import { ApiService } from "@/services/api.service"
 import { ConfigService } from "@/services/config.service"
 import { CartService } from "@/services/cart.service"
@@ -98,14 +99,15 @@ export default function ListadoProductos() {
   const handleExportPDF = async () => {
     setIsExporting(true)
     try {
-      // Traer TODOS los productos sin paginación
-      const response = await ApiService.get<any>(`/articulos/?page=1&page_size=5000`)
-      const allProducts = response.results || response.data || []
-      
-      // Exportar listado completo
-      await exportToPDF(allProducts, "listado-productos-debandi", "listado")
+      await ExportUtils.exportarPDF()
+      setNotificationMessage("PDF descargado exitosamente")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
       console.error("Error al exportar PDF:", error)
+      setNotificationMessage("Error al exportar PDF")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 5000)
     } finally {
       setIsExporting(false)
     }
@@ -114,14 +116,15 @@ export default function ListadoProductos() {
   const handleExportExcel = async () => {
     setIsExporting(true)
     try {
-      // Traer TODOS los productos sin paginación
-      const response = await ApiService.get<any>(`/articulos/?page=1&page_size=5000`)
-      const allProducts = response.results || response.data || []
-      
-      // Exportar listado completo
-      await exportToExcel(allProducts)
+      await ExportUtils.exportarExcel()
+      setNotificationMessage("✅ Excel descargado exitosamente")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
       console.error("Error al exportar Excel:", error)
+      setNotificationMessage("❌ Error al exportar Excel")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 5000)
     } finally {
       setIsExporting(false)
     }
