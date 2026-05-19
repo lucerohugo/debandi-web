@@ -8,7 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Q, Min, Max
 from datetime import datetime
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
 from django.views.decorators.http import require_http_methods

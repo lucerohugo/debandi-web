@@ -117,12 +117,12 @@ export default function ListadoProductos() {
     setIsExporting(true)
     try {
       await ExportUtils.exportarExcel()
-      setNotificationMessage("✅ Excel descargado exitosamente")
+      setNotificationMessage("Excel descargado exitosamente")
       setShowNotification(true)
       setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
       console.error("Error al exportar Excel:", error)
-      setNotificationMessage("❌ Error al exportar Excel")
+      setNotificationMessage("Error al exportar Excel")
       setShowNotification(true)
       setTimeout(() => setShowNotification(false), 5000)
     } finally {

@@ -10,8 +10,9 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-//import { exportToPDF, exportToExcel } from "@/lib/export-utils"
+import { ExportUtils } from "@/lib/export-utils"
 import { CartService, type CartItem } from "@/services/cart.service"
+import NotificationToast from "@/components/notification-toast"
 
 interface Product extends CartItem {
   quantity: number
@@ -21,30 +22,74 @@ export default function CartPage() {
   const [items, setItems] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null)
   const { user } = useAuth()
   const router = useRouter()
 
-  // const handleExportPDF = async () => {
-  //   setIsExporting(true)
-  //   try {
-  //     // Exportar carrito - configuracion viene del backend
-  //     await exportToPDF(items as any, "carrito-debandi", "carrito")
-  //   } catch (error) {
-  //     // Silent error
-  //   } finally {
-  //     setIsExporting(false)
-  //   }
-  // }
+  const handleExportPDF = async () => {
+    if (items.length === 0) {
+      setNotification({
+        type: 'error',
+        message: '✗ El carrito está vacío'
+      })
+      return
+    }
 
-  // const handleExportExcel = () => {
-  //   setIsExporting(true)
-  //   try {
-  //     // Exportar directamente los items del carrito (ya tienen estructura de Product del backend)
-  //     exportToExcel(items as any)
-  //   } finally {
-  //     setIsExporting(false)
-  //   }
-  // }
+    setIsExporting(true)
+    try {
+      // Exportar items del carrito a PDF
+      await ExportUtils.exportarCarritoPDF(items as any)
+      
+      setNotification({
+        type: 'success',
+        message: 'Carrito exportado a PDF correctamente'
+      })
+      setTimeout(() => setNotification(null), 3000)
+    } catch (error) {
+      console.error("Error al exportar PDF:", error)
+      setNotification({
+        type: 'error',
+        message: " No se pudo exportar el carrito a PDF"
+      })
+      setTimeout(() => setNotification(null), 3000)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    if (items.length === 0) {
+      setNotification({
+        type: 'error',
+        message: '✗ El carrito está vacío'
+      })
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      // Exportar items del carrito a Excel
+      await ExportUtils.exportarCarritoExcel(items as any)
+      
+      setNotification({
+        type: 'success',
+        message: 'Carrito exportado a Excel correctamente'
+      })
+      setTimeout(() => setNotification(null), 3000)
+    } catch (error) {
+      console.error("Error al exportar Excel:", error)
+      setNotification({
+        type: 'error',
+        message: "No se pudo exportar el carrito a Excel"
+      })
+      setTimeout(() => setNotification(null), 3000)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   useEffect(() => {
     // Redirigir si no está logueado
@@ -165,14 +210,14 @@ export default function CartPage() {
             </p>
             <div className="flex gap-3 flex-wrap">
               <Button
-                // onClick={handleExportPDF}
+                onClick={handleExportPDF}
                 disabled={isExporting}
                 variant="outline"
               >
                  Exportar PDF
               </Button>
               <Button
-                // onClick={handleExportExcel}
+                onClick={handleExportExcel}
                 disabled={isExporting}
                 variant="outline"
               >
@@ -184,6 +229,15 @@ export default function CartPage() {
       </main>
 
       <Footer />
+      
+      {notification && (
+        <NotificationToast
+          message={notification.message}
+          type={notification.type}
+          isOpen={!!notification}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </div>
   )
 }

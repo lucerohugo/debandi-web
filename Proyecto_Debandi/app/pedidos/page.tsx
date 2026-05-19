@@ -10,7 +10,7 @@ import { useOrders } from "@/contexts/orders-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Package, ChevronDown, ChevronUp, Download, RotateCw, Check, AlertCircle, Pencil } from "lucide-react"
-import { exportToPDF, type Product } from "@/lib/export-utils"
+import { ExportUtils } from "@/lib/export-utils"
 import { formatCurrencySpanish } from "@/lib/format"
 
 interface OrderItem {
@@ -118,31 +118,28 @@ export default function OrdersPage() {
 
   const handleExportOrderToPDF = async (order: Order) => {
     try {
-      // Convertir items del pedido a formato de producto para exportar
-      const productsToExport = order.items.map((item) => ({
+      // Preparar datos del pedido para exportar
+      const pedidoItems = order.items.map((item) => ({
         art_codi: item.art_codi,
         art_nomb: item.art_nomb,
-        art_pnet: item.price,
-        art_pfin: item.price,
         quantity: item.quantity,
-        mar_nomb: "",
-        rub_nomb: "",
-      } as Product))
+        price: item.price,
+      }));
       
-      // Exportar pedido - backend determina las columnas
-      await exportToPDF(productsToExport, `Pedido-${order.orderNumber}`, `pedido-${order.orderNumber}`)
+      // Exportar PDF del pedido específico
+      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber)
       
       // Mostrar notificación de éxito
       setNotification({
         type: 'success',
-        message: `✓ Pedido ${order.orderNumber} exportado a PDF correctamente`
+        message: `Pedido ${order.orderNumber} exportado a PDF correctamente`
       })
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       // Mostrar notificación de error
       setNotification({
         type: 'error',
-        message: "✗ No se pudo exportar el pedido a PDF"
+        message: "No se pudo exportar el pedido a PDF"
       })
       setTimeout(() => setNotification(null), 3000)
     }
@@ -298,7 +295,7 @@ export default function OrdersPage() {
                         <div className="flex-1 text-left">
                           <div className="flex items-center gap-3 mb-2">
                             <CardTitle className="text-lg">
-                              Pedido #{order.orderNumber}
+                              PEDIDO #{order.orderNumber}
                             </CardTitle>
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
