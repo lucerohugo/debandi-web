@@ -10,7 +10,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { exportToPDF, exportToExcel } from "@/lib/export-utils"
+//import { exportToPDF, exportToExcel } from "@/lib/export-utils"
 import { CartService, type CartItem } from "@/services/cart.service"
 
 interface Product extends CartItem {
@@ -24,27 +24,27 @@ export default function CartPage() {
   const { user } = useAuth()
   const router = useRouter()
 
-  const handleExportPDF = async () => {
-    setIsExporting(true)
-    try {
-      // Exportar carrito - configuracion viene del backend
-      await exportToPDF(items as any, "carrito-debandi", "carrito")
-    } catch (error) {
-      // Silent error
-    } finally {
-      setIsExporting(false)
-    }
-  }
+  // const handleExportPDF = async () => {
+  //   setIsExporting(true)
+  //   try {
+  //     // Exportar carrito - configuracion viene del backend
+  //     await exportToPDF(items as any, "carrito-debandi", "carrito")
+  //   } catch (error) {
+  //     // Silent error
+  //   } finally {
+  //     setIsExporting(false)
+  //   }
+  // }
 
-  const handleExportExcel = () => {
-    setIsExporting(true)
-    try {
-      // Exportar directamente los items del carrito (ya tienen estructura de Product del backend)
-      exportToExcel(items as any)
-    } finally {
-      setIsExporting(false)
-    }
-  }
+  // const handleExportExcel = () => {
+  //   setIsExporting(true)
+  //   try {
+  //     // Exportar directamente los items del carrito (ya tienen estructura de Product del backend)
+  //     exportToExcel(items as any)
+  //   } finally {
+  //     setIsExporting(false)
+  //   }
+  // }
 
   useEffect(() => {
     // Redirigir si no está logueado
@@ -165,14 +165,14 @@ export default function CartPage() {
             </p>
             <div className="flex gap-3 flex-wrap">
               <Button
-                onClick={handleExportPDF}
+                // onClick={handleExportPDF}
                 disabled={isExporting}
                 variant="outline"
               >
                  Exportar PDF
               </Button>
               <Button
-                onClick={handleExportExcel}
+                // onClick={handleExportExcel}
                 disabled={isExporting}
                 variant="outline"
               >
