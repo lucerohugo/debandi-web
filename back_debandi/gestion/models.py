@@ -268,6 +268,21 @@ class Clientes(models.Model):
         verbose_name_plural = "Clientes"
         ordering = ["cli_nomb"]
 
+    def save(self, *args, **kwargs):
+        """Hashear contraseña si es texto plano (no comienza con algoritmo Django)"""
+        from django.contrib.auth.hashers import make_password
+        
+        if self.cli_clav:
+            # Si no está hasheada (no comienza con 'pbkdf2_sha256' o similar), hashearla
+            if not self.cli_clav.startswith('pbkdf2_sha256$') and \
+               not self.cli_clav.startswith('pbkdf2_sha1$') and \
+               not self.cli_clav.startswith('argon2_argon2id$') and \
+               not self.cli_clav.startswith('scrypt$') and \
+               not self.cli_clav.startswith('bcrypt_sha256$') and \
+               len(self.cli_clav) < 100:  # Los hashes son más largos
+                self.cli_clav = make_password(self.cli_clav)
+        
+        super().save(*args, **kwargs)
 
     def set_password(self, raw_password):
         """Establece la contraseña hasheada"""
