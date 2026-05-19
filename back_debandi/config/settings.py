@@ -66,11 +66,12 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  #primero siempre
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -160,7 +161,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = get_cors_origins()
+CORS_ALLOWED_ORIGINS = [
+    "https://debandi-web.vercel.app",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -173,6 +176,8 @@ CORS_ALLOW_HEADERS = [
     'origin',
     'user-agent',
     'x-requested-with',
+    'content-type',
+    'authorization',
 ]
 
 # Session Configuration (no se usa con JWT, pero dejamos por si acaso)
