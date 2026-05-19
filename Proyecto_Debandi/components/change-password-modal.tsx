@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, CheckCircle } from "lucide-react"import { buildApiUrl } from "@/lib/utils"
+import { ArrowLeft, CheckCircle } from "lucide-react"
+import { buildApiUrl } from "@/lib/utils"
+
 interface ChangePasswordModalProps {
   onClose: () => void
 }
