@@ -89,16 +89,22 @@ class APIKeyAuthentication(BaseAuthentication):
 # =========================================================
 class IsAuthenticatedWithJWTOrAPIKey(BasePermission):
     """
-    API completamente privada.
+    API privada con toggle DEBUG.
     
-    Confía en Authentication layer para validar JWT/API Key.
-    Permission layer SOLO chequea si usuario está autenticado.
+    Si API_DEBUG_MODE=True → permite todo (localhost/staging/testing)
+    Si API_DEBUG_MODE=False → requiere JWT/API Key (producción)
     
     ✔ Sin redundancia
     ✔ DRF maneja autenticación
     ✔ Limpio y eficiente
+    ✔ Toggle seguro via variable de entorno
     """
     def has_permission(self, request, view):
+        # 🔓 MODO DEBUG: permite todo sin auth
+        if getattr(settings, 'API_DEBUG_MODE', False):
+            return True
+        
+        # 🔒 MODO PRODUCCIÓN: requiere autenticación
         return request.user and request.user.is_authenticated
 
 

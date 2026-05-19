@@ -257,3 +257,16 @@ FILTERS_VERBOSITY = 'quiet'  # No mostrar formularios de filtros HTML
 # API KEY - Para autenticación de scripts/integraciones
 # ============================================================================
 API_KEY = os.getenv('API_KEY', '5657c8d2427d7577e343ddbef4225ff3')
+
+# ============================================================================
+# API DEBUG MODE - Toggle seguro entre API privada/pública
+# ============================================================================
+# API_DEBUG_MODE=True → API abierta (localhost, staging, testing)
+# API_DEBUG_MODE=False → API privada (producción, default)
+# 
+# USO:
+# 🔓 abrir API: en .env → API_DEBUG_MODE=True
+# 🔒 cerrar API: en .env → API_DEBUG_MODE=False
+# 
+# ⚠️ NUNCA dejar True en producción
+API_DEBUG_MODE = os.getenv('API_DEBUG_MODE', 'False').lower() == 'true'
