@@ -204,17 +204,14 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 # REST FRAMEWORK CONFIGURATION - JWT Authentication + API KEY
 # ============================================================================
 REST_FRAMEWORK = {
-    # 🔐 Autenticación JWT personalizada + API Key
+    # 🔐 Autenticación: JWT + API Key
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'gestion.permissions.ClienteJWTAuthentication',      # JWT Clientes
-        'gestion.permissions.VendedorJWTAuthentication',     # JWT Vendedores
-        'gestion.permissions.APIKeyAuthentication',          # API Key scripts
+        'gestion.permissions.SimpleJWTAuthentication',      # JWT (cliente/vendedor)
+        'gestion.permissions.APIKeyAuthentication',         # API Key (scripts)
         'rest_framework.authentication.SessionAuthentication', # Fallback
     ],
     
-    # 🔒 PERMISOS POR DEFECTO - API PRIVADA OBLIGATORIA
-    # TODAS las solicitudes requieren autenticación válida (JWT o API Key)
-    # NO hay acceso público sin credenciales
+    # 🔒 PERMISOS: API PRIVADA OBLIGATORIA
     'DEFAULT_PERMISSION_CLASSES': [
         'gestion.permissions.IsAuthenticatedWithJWTOrAPIKey',
     ],
