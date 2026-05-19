@@ -1,5 +1,5 @@
 """
-Permisos personalizados para API REST - Arquitectura de autenticación híbrida
+Permisos personalizados para API REST - Arquitectura de autenticación híbrida PRIVADA
 
 ARQUITECTURA:
 ==============================================================================
@@ -13,10 +13,11 @@ ARQUITECTURA:
    - Header: Authorization: Api-Key <API_KEY>
    - Uso: Integraciones, Scripts automáticos, Procesos batch
 
-3. LECTURA PÚBLICA (Sin autenticación)
-   - GET Catálogo: Productos, Marcas, etc.
-   - GET Localidades, Provincias, Zonas
+3. ACCESO PÚBLICO: ❌ ELIMINADO
+   - TODA la API requiere autenticación obligatoria
+   - Sin JWT ni API Key válido → 403 Forbidden
 ==============================================================================
+"""
 """
 
 from rest_framework.permissions import BasePermission, IsAuthenticated, AllowAny
@@ -196,125 +197,139 @@ class APIKeyAuthentication(BaseAuthentication):
 
 class IsPublicOrAuthenticated(BasePermission):
     """
-    Permite lectura pública (GET).
-    Escritura (POST, PUT, DELETE) requiere autenticación JWT.
+    ❌ CLASE DEPRECADA - Ya no se usa
     
-    Uso: Endpoints de catálogo (articulos, marcas, etc.)
+    Anteriormente permitía lectura pública (GET).
+    Ahora TODA la API requiere autenticación obligatoria.
+    
+    Se mantiene por compatibilidad pero siempre retorna False.
     """
     
     def has_permission(self, request, view):
-        if request.method in ['GET', 'HEAD', 'OPTIONS']:
-            return True
-        return request.user and request.user.is_authenticated
-
-
-class HasAPIKeyOnly(BasePermission):
-    """
-    Requiere autenticación por API Key SOLO.
-    NO permite JWT de cliente/vendedor.
-    
-    Uso: POST /api/pedidos-crear-desde-carrito/
-    """
-    
-    def has_permission(self, request, view):
-        # Solo permisible si es API Key
-        if hasattr(request.user, 'user_type') and request.user.user_type == 'api':
-            return True
+        # ❌ Acceso público eliminado - requiere autenticación
         return False
 
 
-class HasAPIKey(BasePermission):
+class IsAuthenticatedWithJWTOrAPIKey(BasePermission):
     """
-    Valida que la solicitud incluya el API_KEY correcto en el header Authorization.
+    🔐 PERMISO OBLIGATORIO - API PRIVADA
     
-    Endpoints PÚBLICOS (sin API Key):
-    - GET /api/articulos/
-    - GET /api/rubros/
-    - GET /api/marcas/
-    - POST /api/cliente-login/
-    - POST /api/cliente-register/
-    - POST /api/vendedores-login/
-    - GET /api/carrito/?cli_codi=X (clientes logueados en frontend)
-    - GET /api/favoritos/?cli_codi=X (clientes logueados en frontend)
-    - POST /api/carrito-manage/, /api/favoritos-manage/
+    TODAS las solicitudes deben incluir autenticación válida:
     
-    Endpoints PROTEGIDOS (requieren Api-Key header):
-    - POST /api/pedidos-crear-desde-carrito/ (scripts/integraciones)
-    - Otros POST/PUT/DELETE en ViewSets (excepto los públicos)
+    ✅ PERMITIDO:
+    - Header: Authorization: Bearer <JWT_VÁLIDO>
+    - Header: Authorization: Api-Key <API_KEY_VÁLIDO>
     
-    Formato header: Authorization: Api-Key <token>
+    ❌ DENEGADO:
+    - Sin header Authorization
+    - Header inválido o token expirado
+    - Credenciales incorrectas
+    
+    NO hay excepciones por ruta ni método HTTP.
     """
     
     def has_permission(self, request, view):
         """
-        Sistema de permisos de dos capas:
-        
-        CAPA 1: Rutas públicas (sin autenticación)
-        - GET /api/articulos/, /api/marcas/, /api/rubros/ (catálogo)
-        - GET /api/carrito/cliente/?cli_codi=X (carrito del cliente)
-        - GET /api/favoritos/cliente/?cli_codi=X (favoritos del cliente)
-        - GET /api/pedidos/cliente/?cli_codi=X (pedidos del cliente)
-        - POST /api/cliente-login/, /api/cliente-register/, /api/vendedores-login/ (auth)
-        
-        CAPA 2: Rutas protegidas (requieren API Key O JWT)
-        - GET/POST en otros endpoints
-        - GET /api/pedidos/?ped_exp=false (scripts)
-        
-        ✅ Frontend: JWT (Authorization: Bearer <token>)
-        ✅ Scripts: API Key (Authorization: Api-Key <token>)
+        Verificar que la solicitud tenga autenticación válida.
+        NO hay rutas públicas.
         """
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '').strip()
         
-        # ========== RUTAS PÚBLICAS PARA FRONTEND ==========
-        # GET con cli_codi parameter: PERMITIDO sin autenticación
-        public_frontend_paths = [
-            '/api/carrito/cliente/',
-            '/api/favoritos/cliente/',
-            '/api/pedidos/cliente/',
-        ]
+        # ❌ Sin header Authorization
+        if not auth_header:
+            return False
         
-        if request.method == 'GET' and any(request.path.startswith(path) for path in public_frontend_paths):
-            cli_codi = request.query_params.get('cli_codi')
-            if cli_codi:
-                return True  # Cliente específico solicitado
-        
-        # ========== RUTAS PÚBLICAS GENERALES ==========
-        # GET en catálogo: PERMITIDO sin autenticación
-        public_get_paths = [
-            '/api/articulos/',
-            '/api/marcas/',
-            '/api/rubros/',
-        ]
-        
-        if request.method == 'GET' and any(request.path.startswith(path) for path in public_get_paths):
-            return True
-        
-        # ========== AUTH ENDPOINTS ==========
-        # POST en login/registro: PERMITIDO sin autenticación
-        public_post_paths = [
-            '/api/cliente-login/',
-            '/api/cliente-register/',
-            '/api/vendedores-login/',
-        ]
-        
-        if request.method == 'POST' and any(request.path.startswith(path) for path in public_post_paths):
-            return True
-        
-        # ========== PROTEGIDAS: REQUERIR API Key O JWT ==========
-        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        
-        # ✅ Opción 1: API Key (para scripts)
-        if auth_header.startswith("Api-Key "):
+        # ✅ Opción 1: API Key válido (para scripts/integraciones)
+        if auth_header.startswith('Api-Key '):
             token = auth_header[8:].strip()
+            if not token:
+                return False
+            
             api_key = getattr(settings, 'API_KEY', None)
             if api_key and token == api_key:
-                return True
+                return True  # ✅ API Key válido
+            return False  # ❌ API Key inválido
         
-        # ✅ Opción 2: JWT (para frontend)
-        if auth_header.startswith("Bearer "):
-            jwt_token = auth_header[7:].strip()
-            if jwt_token:
-                return True
+        # ✅ Opción 2: JWT válido (para frontend/admin)
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:].strip()
+            if not token:
+                return False
+            
+            try:
+                from rest_framework_simplejwt.tokens import UntypedToken
+                from jwt.exceptions import InvalidTokenError
+                
+                try:
+                    UntypedToken(token)  # Valida el token
+                    return True  # ✅ JWT válido
+                except InvalidTokenError:
+                    return False  # ❌ JWT inválido o expirado
+            except Exception:
+                return False  # ❌ Error validando JWT
         
-        # ❌ Sin autenticación válida
+        # ❌ Header con formato desconocido
+        return False
+
+
+# ============================================================================
+# RESUMEN: ARQUI​TECTURA DE AUTENTICACIÓN Y PERMISOS
+# ============================================================================
+"""
+🔐 FLUJO DE AUTENTICACIÓN:
+
+1. ClienteJWTAuthentication ← Intenta extraer JWT cliente (Bearer token)
+2. VendedorJWTAuthentication ← Intenta extraer JWT vendedor (Bearer token)
+3. APIKeyAuthentication ← Intenta extraer API Key (Api-Key token)
+4. SessionAuthentication ← Fallback para admin/desarrollo
+
+🔒 FLUJO DE PERMISOS:
+
+1. IsAuthenticatedWithJWTOrAPIKey ← REQUERIDO PARA TODA LA API
+   - ✅ Permite si hay JWT válido O API Key válido
+   - ❌ Deniega si no hay autenticación
+   - ❌ Deniega si JWT está expirado
+   - ❌ Deniega si API Key es inválido
+   - NO hay excepciones por ruta ni método HTTP
+   - NO hay acceso público
+
+⚠️ IMPORTANTE - API COMPLETAMENTE PRIVADA:
+- Todas las solicitudes DEBEN incluir Authorization header
+- Sin header = 403 Forbidden
+- Header inválido = 403 Forbidden  
+- JWT expirado = 403 Forbidden
+- Solo credenciales válidas = 200 OK
+
+📋 CÓMO USAR:
+
+1. Frontend (Next.js):
+   - Login con POST /api/cliente-login/
+   - Recibe JWT token
+   - Incluye en header: Authorization: Bearer <token>
+   - Token se renueva automáticamente
+
+2. Scripts/Integraciones:
+   - Incluir API Key en header: Authorization: Api-Key <API_KEY>
+   - API Key está en settings.py y .env
+   - No expira, es una credencial fija
+
+3. Curl/Postman (Testing):
+   - Con JWT: curl -H "Authorization: Bearer <token>" http://api...
+   - Con API Key: curl -H "Authorization: Api-Key <key>" http://api...
+"""
+            
+            try:
+                from rest_framework_simplejwt.tokens import UntypedToken
+                from jwt.exceptions import InvalidTokenError
+                
+                try:
+                    UntypedToken(token)  # Valida el token
+                    return True  # ✅ JWT válido
+                except InvalidTokenError:
+                    return False  # ❌ JWT inválido o expirado
+            except Exception:
+                return False  # ❌ Error validando JWT
+        
+        # ❌ Header con formato desconocido
         return False
 
