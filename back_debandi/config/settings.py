@@ -43,7 +43,8 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = [
     "138.36.239.52",
     "localhost",
-    "127.0.0.1"
+    "127.0.0.1",
+    "api.ferreteradebandi.online",
 ]
 
 
@@ -66,15 +67,15 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  #primero siempre
-    'django.middleware.security.SecurityMiddleware',
+    "corsheaders.middleware.CorsMiddleware",  # SIEMPRE PRIMERO
+    "django.middleware.security.SecurityMiddleware",
 
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
 
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -162,10 +163,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
     "https://debandi-web.vercel.app",
+    
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_ALL_METHODS = True
 
 CORS_ALLOW_HEADERS = [
     'accept',
