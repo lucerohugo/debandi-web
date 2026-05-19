@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, CheckCircle } from "lucide-react"
+import { buildApiUrl } from "@/lib/utils"
 
 interface ForgotPasswordModalProps {
   onClose: () => void
@@ -26,7 +27,7 @@ export default function ForgotPasswordModal({ onClose, onBack }: ForgotPasswordM
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/request-password-reset/`,
+        buildApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api', 'auth/request-password-reset/'),
         {
           method: "POST",
           credentials: "include",

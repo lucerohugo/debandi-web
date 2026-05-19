@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { ApiService } from '@/services/api.service'
+import { buildApiUrl } from '@/lib/utils'
 import type { User, ImpersonationInfo, AuthContextType } from './auth.types'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
       
-      const response = await fetch(`${apiUrl}/cliente-login/`, {
+      const response = await fetch(buildApiUrl(apiUrl, 'cliente-login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

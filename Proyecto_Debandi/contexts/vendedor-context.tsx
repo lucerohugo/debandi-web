@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ApiService } from '@/services/api.service'
+import { buildApiUrl } from '@/lib/utils'
 
 interface VendedorContextType {
   vendedor: any
@@ -41,7 +42,7 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
       
-      const response = await fetch(`${apiUrl}/vendedores-login/`, {
+      const response = await fetch(buildApiUrl(apiUrl, 'vendedores-login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -122,7 +123,7 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
       }
       
       const response = await fetch(
-        `${apiUrl}/clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}`,
+        buildApiUrl(apiUrl, `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}`),
         {
           credentials: 'include',
           headers: {

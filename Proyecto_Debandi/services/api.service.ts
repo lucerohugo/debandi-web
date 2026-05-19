@@ -8,6 +8,8 @@
  * - Manejo de errores consistente
  */
 
+import { buildApiUrl } from '@/lib/utils'
+
 const getApiUrl = (): string => {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -116,7 +118,7 @@ export class ApiService {
   }
 
   static async get<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${getApiUrl()}${endpoint}`, {
+    const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       credentials: 'include',
       headers: getHeaders(),
     })
@@ -126,7 +128,7 @@ export class ApiService {
   }
 
   static async post<T>(endpoint: string, data: any): Promise<T> {
-    const response = await fetch(`${getApiUrl()}${endpoint}`, {
+    const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'POST',
       credentials: 'include',
       headers: getHeaders(),
@@ -138,7 +140,7 @@ export class ApiService {
   }
 
   static async put<T>(endpoint: string, data: any): Promise<T> {
-    const response = await fetch(`${getApiUrl()}${endpoint}`, {
+    const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'PUT',
       credentials: 'include',
       headers: getHeaders(),
@@ -150,7 +152,7 @@ export class ApiService {
   }
 
   static async patch<T>(endpoint: string, data: any): Promise<T> {
-    const response = await fetch(`${getApiUrl()}${endpoint}`, {
+    const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'PATCH',
       credentials: 'include',
       headers: getHeaders(),
@@ -172,7 +174,7 @@ export class ApiService {
       fetchOptions.body = JSON.stringify(data)
     }
     
-    const response = await fetch(`${getApiUrl()}${endpoint}`, fetchOptions)
+    const response = await fetch(buildApiUrl(getApiUrl(), endpoint), fetchOptions)
     
     if (!response.ok) throw new Error(`Error: ${response.status}`)
     return response.json()

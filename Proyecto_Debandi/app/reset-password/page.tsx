@@ -12,6 +12,7 @@ import { AlertTriangle, CheckCircle, Loader } from "lucide-react"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { Suspense } from "react"
+import { buildApiUrl } from "@/lib/utils"
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -41,7 +42,7 @@ function ResetPasswordContent() {
   const validateToken = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/validate-reset-token/`,
+        buildApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api', 'auth/validate-reset-token/'),
         {
           method: "POST",
           credentials: "include",
@@ -84,7 +85,7 @@ function ResetPasswordContent() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password/`,
+        buildApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api', 'auth/reset-password/'),
         {
           method: "POST",
           credentials: "include",
