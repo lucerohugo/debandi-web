@@ -163,12 +163,12 @@ export default function ListadoProductos() {
         setProductsTabla(productsList)
         setTotalCount(totalFromBackend)
         
-        console.log(`✅ Página ${currentPage} cargada:`, {
+        console.log(` Página ${currentPage} cargada:`, {
           itemsEnPagina: productsList.length,
           totalDelBackend: totalFromBackend
         })
       } catch (error) {
-        console.error('❌ Error cargando productos:', error)
+        console.error(' Error cargando productos:', error)
       } finally {
         setLoading(false)
       }

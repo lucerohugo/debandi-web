@@ -21,6 +21,7 @@ interface Product {
   sru_nomb?: string
   rub_nomb?: string
   art_acti: boolean
+  art_carru?: boolean
 }
 
 export default function Home() {
@@ -178,9 +179,9 @@ export default function Home() {
         setProducts(allProducts)
         setTotalCount(total)
         
-        console.log(`📄 Página ${currentPage}: ${allProducts.length} productos de ${total} total (con filtros)`)
+        //console.log(` Página ${currentPage}: ${allProducts.length} productos de ${total} total (con filtros)`)
       } catch (error) {
-        console.error('Error cargando productos:', error)
+        //console.error('Error cargando productos:', error)
       } finally {
         setLoading(false)
       }
