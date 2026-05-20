@@ -165,6 +165,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://debandi-web.vercel.app",
+    "https://www.ferreteradebandi.online", #nuevo dominio
+    "https://ferreteradebandi.online", #dominio raiz(recomendado)
     
 ]
 
