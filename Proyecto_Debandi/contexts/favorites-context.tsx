@@ -127,13 +127,18 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const removeFavorite = async (productId: number) => {
     try {
-      // Usar el nuevo endpoint sin CSRF
+      if (!user) {
+        throw new Error('Usuario no autenticado')
+      }
+
+      // Enviar payload correcto con cli_codi y art_codi
       const payload = {
-        art_codi: productId,
-        cli_codi: user?.id
+        cli_codi: user.id,    // user.id es cli_codi (guardado en login)
+        art_codi: productId
       }
       
-      await ApiService.delete('/favoritos-manage/', undefined, payload)
+      // Firmar correcta: ApiService.delete(endpoint, data)
+      await ApiService.delete('/favoritos-manage/', payload)
       
       // Invalidar caché
       cacheManager.invalidate(FAVORITES_CACHE_KEY)
@@ -141,6 +146,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       // Recargar desde backend
       await syncFavoritesWithBackend()
     } catch (error) {
+      console.error('Error removiendo favorito:', error)
       throw error
     }
   }
