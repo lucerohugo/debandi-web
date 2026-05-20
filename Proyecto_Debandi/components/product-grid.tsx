@@ -9,7 +9,11 @@ interface Product {
   art_pnet?: number
   art_img?: string
   art_stk: number
+  art_desc?: string
   sru_nomb?: string
+  mar_nomb?: string
+  rub_nomb?: string
+  art_acti?: boolean
 }
 
 interface ProductGridProps {

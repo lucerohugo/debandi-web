@@ -12,11 +12,11 @@ import { useAuth } from "@/contexts/auth-context"
 interface Product {
   art_codi: number
   art_nomb: string
-  art_desc: string
-  art_pnet: number
+  art_desc?: string
+  art_pnet?: number
   art_pfin: number
   art_stk: number
-  art_carru: boolean
+  art_carru?: boolean
   art_img?: string
   mar_nomb?: string
   sru_nomb?: string

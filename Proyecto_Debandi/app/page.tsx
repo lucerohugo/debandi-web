@@ -12,15 +12,15 @@ import { ApiService } from "@/services/api.service"
 interface Product {
   art_codi: number
   art_nomb: string
-  art_desc: string
-  art_pnet: number
+  art_desc?: string
+  art_pnet?: number
   art_pfin: number
   art_stk: number
   art_img?: string
   mar_nomb?: string
   sru_nomb?: string
   rub_nomb?: string
-  art_acti: boolean
+  art_acti?: boolean
   art_carru?: boolean
 }
 
