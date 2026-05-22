@@ -1595,12 +1595,13 @@ def importar_datos(request):
     MODELOS = {
         "clientes": (Clientes, "cli_codi"),
         "articulos": (Articulo, "art_codi"),
-        "stock": (Stock, "art_codi") if hasattr(globals(), 'Stock') else None,
+        #"stock": (Stock, "art_codi") if hasattr(globals(), 'Stock') else None,
         "rubros": (Rubro, "rub_codi"),
         "subrubros": (SubRubro, "sru_codi"),
         "marcas": (Marca, "mar_codi"),
         "localidades": (Localidad, "loc_codi"),
         "vendedores": (Vendedor, "ven_codi"),
+        "zonas": (Zona, "zon_codi"),
     }
     
     # Filtrar modelos que existen

@@ -27,14 +27,14 @@ class ZonaAdmin(admin.ModelAdmin):
 @admin.register(Localidad)
 class LocalidadAdmin(admin.ModelAdmin):
     list_display = ['loc_codi', 'loc_nomb', 'loc_cpos', 'pci_codi']
-    list_filter = ['pci_codi', 'zon_codi']
+    list_filter = ['pci_codi']
     search_fields = ['loc_nomb', 'pci_codi__pci_nomb']
     fieldsets = (
         ('Identificación', {
             'fields': ('loc_codi', 'loc_nomb')
         }),
         ('Ubicación', {
-            'fields': ('pci_codi', 'zon_codi', 'loc_cpos')
+            'fields': ('pci_codi', 'loc_cpos')
         }),
     )
     ordering = ['pci_codi', 'loc_nomb']

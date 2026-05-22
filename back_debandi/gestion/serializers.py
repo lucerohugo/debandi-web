@@ -24,11 +24,10 @@ class ZonaSerializer(serializers.ModelSerializer):
 
 class LocalidadSerializer(serializers.ModelSerializer):
     pci_nomb = serializers.CharField(source='pci_codi.pci_nomb', read_only=True)
-    zon_nomb = serializers.CharField(source='zon_codi.zon_nomb', read_only=True)
 
     class Meta:
         model = Localidad
-        fields = ['loc_codi', 'loc_nomb', 'loc_cpos', 'pci_codi', 'pci_nomb', 'zon_codi', 'zon_nomb']
+        fields = ['loc_codi', 'loc_nomb', 'loc_cpos', 'pci_codi', 'pci_nomb']
 
 
 class LocalidadFrontendSerializer(serializers.ModelSerializer):

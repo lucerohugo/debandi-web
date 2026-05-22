@@ -45,7 +45,6 @@ class Localidad(models.Model):
     loc_nomb = models.CharField(max_length=100)
     loc_cpos = models.CharField(max_length=5, blank=True, null=True, help_text="Código postal")
     pci_codi = models.ForeignKey(Provincia, on_delete=models.PROTECT, related_name="localidades")
-    zon_codi = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name="localidades")
 
     class Meta:
         verbose_name = "Localidad"
