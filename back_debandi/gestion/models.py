@@ -510,7 +510,7 @@ class Vendedor(models.Model):
     ven_nomb = models.CharField(max_length=100)
     ven_doc = models.CharField(max_length=20, blank=True, null=True, help_text="Documento")
     ven_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
-    ven_emai = models.EmailField(blank=True)
+    ven_emai = models.EmailField(blank=True, null=True) #le puse null a email
     ven_tele = models.CharField(max_length=20, blank=True, null=True)
     ven_dom = models.CharField(max_length=150, blank=True, help_text="Domicilio", null=True)
     ven_bar = models.CharField(max_length=100, blank=True, help_text="Barrio", null=True)
