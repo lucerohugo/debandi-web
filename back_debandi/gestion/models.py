@@ -517,7 +517,7 @@ class Vendedor(models.Model):
     ven_cuit = models.CharField(max_length=20, blank=True, null=True, help_text="CUIT")
     ven_usua = models.CharField(max_length=50, blank=True, null=True, unique=True, help_text="Usuario para login")
     ven_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
-    ven_actv = models.BooleanField(default=False, help_text="Vendedor activo", null=True)
+    ven_actv = models.IntegerField(default=0, choices=[(0, 'Inactivo'), (1, 'Activo')], help_text="Vendedor activo", null=True)
     loc_codi = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendedores')
     ven_fchc = models.DateTimeField(auto_now_add=True,null=True)
     ven_fmod = models.DateTimeField(auto_now=True, null=True)

@@ -402,7 +402,7 @@ class VendedorViewSet(BulkCreateMixin, BaseViewSet):
             )
 
         try:
-            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=True)
+            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=1)
         except Vendedor.DoesNotExist:
             return Response(
                 {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
@@ -849,7 +849,7 @@ def vendedor_login(request):
 
         # Buscar vendedor por username
         try:
-            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=True)
+            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=1)
         except Vendedor.DoesNotExist:
             return JsonResponse(
                 {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
