@@ -238,7 +238,7 @@ class Clientes(models.Model):
     cli_acti = models.BooleanField(default=True, help_text="Cliente activo/de baja",null=True)
     cli_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
 
-    cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)")
+    cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
     cli_rexp = models.DateTimeField(blank=True, null=True, help_text="Expiración del token")
 
