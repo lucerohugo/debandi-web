@@ -129,13 +129,14 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
 
 class ClientesSerializer(serializers.ModelSerializer):
     loc_nomb = serializers.CharField(source='loc_codi.loc_nomb', read_only=True)
+    zon_nomb = serializers.CharField(source='zon_codi.zon_nomb', read_only=True)
 
     class Meta:
         model = Clientes
         fields = [
             'cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit',
             'cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar',
-            'cli_estc', 'cli_ocup', 'loc_codi', 'loc_nomb', 'ven_codi', 'cli_acti',
+            'cli_estc', 'cli_ocup', 'loc_codi', 'loc_nomb', 'zon_codi', 'zon_nomb', 'ven_codi', 'cli_acti',
             'cli_clav', 'cli_fchc', 'cli_fmod'
         ]
         read_only_fields = ['cli_codi', 'cli_fchc', 'cli_fmod', 'cli_clav']

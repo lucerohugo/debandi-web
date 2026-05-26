@@ -130,8 +130,8 @@ class RegistroAdmin(admin.ModelAdmin):
 
 @admin.register(Clientes)
 class ClientesAdmin(admin.ModelAdmin):
-    list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'ven_codi', 'cli_acti']
-    list_filter = ['loc_codi', 'ven_codi', 'cli_acti']
+    list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
+    list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
     readonly_fields = ['cli_fchc', 'cli_fmod']
     fieldsets = (
@@ -139,7 +139,7 @@ class ClientesAdmin(admin.ModelAdmin):
             'fields': ('cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit', 'cli_acti')
         }),
         ('Contacto', {
-            'fields': ('cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar', 'loc_codi')
+            'fields': ('cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar', 'loc_codi', 'zon_codi')
         }),
         ('Vendedor', {
             'fields': ('ven_codi',)

@@ -243,6 +243,7 @@ class Clientes(models.Model):
     cli_rexp = models.DateTimeField(blank=True, null=True, help_text="Expiración del token")
 
     loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="clientes", null=True)
+    zon_codi = models.ForeignKey(Zona, on_delete=models.SET_NULL, null=True, blank=True, related_name="clientes")
     ven_codi = models.ForeignKey('Vendedor', on_delete=models.SET_NULL, null=True, blank=True, related_name="clientes")
 
     cli_org = models.CharField(
