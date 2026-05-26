@@ -107,7 +107,7 @@ class Articulo(models.Model):
     """Artículos/Productos"""
     art_codi = models.IntegerField(primary_key=True, editable=True)
     art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
-    art_nomb = models.CharField(max_length=100)
+    art_nomb = models.CharField(max_length=255)
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
     art_palac = models.CharField(max_length=255, blank=True, null=True, help_text="Palabras clave para búsqueda si es complejo el art_nomb")
     art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True)
