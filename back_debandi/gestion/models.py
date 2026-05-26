@@ -227,7 +227,6 @@ class Clientes(models.Model):
     cli_fnac = models.DateField(blank=True, null=True, help_text="Fecha de nacimiento")
     cli_tdoc = models.CharField(max_length=20, default="DNI", help_text="Tipo de documento", null=True)
     cli_ndoc = models.CharField(max_length=20, blank=True, null=True, help_text="Número de documento")
-    cli_doc = models.CharField(max_length=8, blank=True, null=True, help_text="Documento (legado)")
     cli_cuit = models.CharField(max_length=20, blank=True, null=True, unique=True, help_text="CUIT")
     cli_emai = models.EmailField(blank=True, null=True, unique=True, help_text="Email")
     cli_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")
@@ -295,7 +294,7 @@ class Clientes(models.Model):
         return check_password(raw_password, self.cli_clav)
 
     def __str__(self):
-        return f"{self.cli_nomb} - {self.cli_ndoc or self.cli_doc or 'S/D'}"
+        return f"{self.cli_nomb} - {self.cli_ndoc or 'S/D'}"
 
 
 

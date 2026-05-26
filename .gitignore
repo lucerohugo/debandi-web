@@ -73,3 +73,13 @@ yarn-error.log*
 #carpetas
 bajadaPed/
 api/
+dbf/
+cargar_localidades.py 
+cargar_provincias.py
+cargar_stock.py
+cargar3_rubros.py
+cargar4_subrubros.py
+cargar5_zonas.py
+cargar6_vendedores.py
+cargar7_marcas.py
+cargar8_articulos.py
