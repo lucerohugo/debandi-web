@@ -1780,26 +1780,29 @@ def carrito_manage(request):
 def importar_datos(request):
     """
     POST /importar_datos/
-    Importa datos en bulk desde JSON con soporte para hashing de contraseñas
+    Importa datos en bulk desde JSON
     """
 
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
 
     try:
+
         data = json.loads(request.body)
 
-    except:
+    except Exception as e:
+
         return JsonResponse({
+
             'success': False,
-            'detail': 'JSON inválido'
+            'detail': f'JSON inválido: {str(e)}'
+
         }, status=400)
 
     MODELOS = {
 
         "clientes": (Clientes, "cli_codi"),
         "articulos": (Articulo, "art_codi"),
-        #"stock": (Stock, "art_codi"),
 
         "rubros": (Rubro, "rub_codi"),
         "subrubros": (SubRubro, "sru_codi"),
@@ -1809,19 +1812,12 @@ def importar_datos(request):
         "zonas": (Zona, "zon_codi"),
     }
 
-    # filtrar modelos válidos
-    MODELOS = {
-        k: v
-        for k, v in MODELOS.items()
-        if v is not None
-    }
-
     resultados = {}
 
     try:
 
         # =====================================================
-        # PROCESAR TABLA POR TABLA
+        # TABLA POR TABLA
         # =====================================================
 
         for key, (model, lookup) in MODELOS.items():
@@ -1832,21 +1828,27 @@ def importar_datos(request):
             items = data.get(key, [])
 
             resultados[key] = {
+
                 "total": len(items),
                 "ok": 0,
                 "error": 0,
                 "detalle": []
+
             }
 
-            # ============================================
-            # TRANSACCION SOLO PARA ESA TABLA
-            # ============================================
+            # =====================================================
+            # REGISTRO POR REGISTRO
+            # =====================================================
 
-            with transaction.atomic():
+            for item in items:
 
-                for item in items:
+                try:
 
-                    try:
+                    # ============================================
+                    # TRANSACCION POR REGISTRO
+                    # ============================================
+
+                    with transaction.atomic():
 
                         data_item = (
                             item.copy()
@@ -1859,11 +1861,13 @@ def importar_datos(request):
                         # ============================================
 
                         data_item = {
+
                             k: (
                                 None
                                 if v == ""
                                 else v
                             )
+
                             for k, v in data_item.items()
                         }
 
@@ -1896,8 +1900,10 @@ def importar_datos(request):
                                 resultados[key]["error"] += 1
 
                                 resultados[key]["detalle"].append({
+
                                     "error": "Falta cli_codi",
                                     "data": item
+
                                 })
 
                                 continue
@@ -1906,6 +1912,8 @@ def importar_datos(request):
                                 "cli_clav",
                                 None
                             )
+
+                            data_item.pop("cli_codi", None)
 
                             obj, created = model.objects.update_or_create(
 
@@ -1937,8 +1945,10 @@ def importar_datos(request):
                                 resultados[key]["error"] += 1
 
                                 resultados[key]["detalle"].append({
+
                                     "error": "Falta ven_codi",
                                     "data": item
+
                                 })
 
                                 continue
@@ -1947,6 +1957,8 @@ def importar_datos(request):
                                 "ven_clav",
                                 None
                             )
+
+                            data_item.pop("ven_codi", None)
 
                             obj, created = model.objects.update_or_create(
 
@@ -1971,19 +1983,21 @@ def importar_datos(request):
 
                         if key == "articulos":
 
-                            art_codi_id = (
+                            lookup_value = (
                                 data_item.get("art_codi")
                                 or
                                 data_item.get("art_codi_id")
                             )
 
-                            if art_codi_id is None:
+                            if lookup_value is None:
 
                                 resultados[key]["error"] += 1
 
                                 resultados[key]["detalle"].append({
+
                                     "error": "Falta art_codi",
                                     "data": item
+
                                 })
 
                                 continue
@@ -1993,7 +2007,7 @@ def importar_datos(request):
 
                             obj, created = model.objects.update_or_create(
 
-                                art_codi=art_codi_id,
+                                art_codi=lookup_value,
 
                                 defaults=data_item
                             )
@@ -2017,8 +2031,10 @@ def importar_datos(request):
                             resultados[key]["error"] += 1
 
                             resultados[key]["detalle"].append({
+
                                 "error": f"Falta campo {lookup}",
                                 "data": item
+
                             })
 
                             continue
@@ -2046,16 +2062,16 @@ def importar_datos(request):
 
                         resultados[key]["ok"] += 1
 
-                    except Exception as e:
+                except Exception as e:
 
-                        resultados[key]["error"] += 1
+                    resultados[key]["error"] += 1
 
-                        resultados[key]["detalle"].append({
+                    resultados[key]["detalle"].append({
 
-                            "error": str(e),
+                        "error": str(e),
+                        "data": item
 
-                            "data": item
-                        })
+                    })
 
             print(
                 f"OK: {resultados[key]['ok']} | "
@@ -2065,7 +2081,6 @@ def importar_datos(request):
         return JsonResponse({
 
             "success": True,
-
             "resultados": resultados
 
         }, status=200)
@@ -2075,7 +2090,6 @@ def importar_datos(request):
         return JsonResponse({
 
             "success": False,
-
             "error": str(e)
 
         }, status=500)
