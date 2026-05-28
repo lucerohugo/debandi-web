@@ -75,7 +75,6 @@ bajadaPed/
 api/
 dbf/
 cargar_localidades.py 
-cargar_provincias.py
 cargar_stock.py
 cargar3_rubros.py
 cargar4_subrubros.py

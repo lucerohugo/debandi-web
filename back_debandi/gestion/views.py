@@ -1567,35 +1567,240 @@ def carrito_manage(request):
 # IMPORTAR DATOS (SIN CSRF)
 # ================================================================
 
+# def importar_datos(request):
+#     """
+#     POST /importar_datos/
+#     Importa datos en bulk desde JSON con soporte para hashing de contraseñas
+    
+#     Body JSON:
+#     {
+#         "clientes": [{...}, ...],
+#         "articulos": [{...}, ...],
+#         "stock": [{...}, ...],
+#         "rubros": [{...}, ...],
+#         "subrubros": [{...}, ...],
+#         "marcas": [{...}, ...],
+#         "localidades": [{...}, ...],
+#         ...
+#     }
+#     """
+#     if request.method == 'OPTIONS':
+#         return JsonResponse({'status': 'ok'})
+
+#     try:
+#         data = json.loads(request.body)
+#     except:
+#         return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+    
+#     MODELOS = {
+#         "clientes": (Clientes, "cli_codi"),
+#         "articulos": (Articulo, "art_codi"),
+#         #"stock": (Stock, "art_codi") if hasattr(globals(), 'Stock') else None,
+#         "rubros": (Rubro, "rub_codi"),
+#         "subrubros": (SubRubro, "sru_codi"),
+#         "marcas": (Marca, "mar_codi"),
+#         "localidades": (Localidad, "loc_codi"),
+#         "vendedores": (Vendedor, "ven_codi"),
+#         "zonas": (Zona, "zon_codi"),
+#     }
+    
+#     # Filtrar modelos que existen
+#     MODELOS = {k: v for k, v in MODELOS.items() if v is not None}
+    
+#     resultados = {}
+    
+#     try:
+#         with transaction.atomic():
+#             for key, (model, lookup) in MODELOS.items():
+#                 items = data.get(key, [])
+                
+#                 resultados[key] = {
+#                     "total": len(items),
+#                     "ok": 0,
+#                     "error": 0,
+#                     "detalle": []
+#                 }
+                
+#                 for item in items:
+#                     try:
+#                         data_item = item.copy() if isinstance(item, dict) else dict(item)
+                        
+#                         # =========================
+#                         # NORMALIZAR VACÍOS → NULL
+#                         # =========================
+#                         data_item = {
+#                             k: (None if v == "" else v)
+#                             for k, v in data_item.items()
+#                         }
+                        
+#                         # =========================
+#                         # CONVERTIR FK → *_id
+#                         # =========================
+#                         for field in model._meta.fields:
+#                             if field.is_relation and field.many_to_one:
+#                                 fk_name = field.name
+#                                 if fk_name in data_item:
+#                                     data_item[f"{fk_name}_id"] = data_item.pop(fk_name)
+                        
+#                         # =====================================================
+#                         #  CLIENTES (con password hashing)
+#                         # =====================================================
+#                         if key == "clientes":
+                            
+#                             lookup_value = data_item.get("cli_codi")
+                            
+#                             if lookup_value is None:
+#                                 resultados[key]["error"] += 1
+#                                 resultados[key]["detalle"].append({
+#                                     "error": "Falta cli_codi",
+#                                     "data": item
+#                                 })
+#                                 continue
+                            
+#                             # Extraer contraseña antes de crear el objeto
+#                             clave = data_item.pop("cli_clav", None)
+                            
+#                             obj, created = model.objects.update_or_create(
+#                                 cli_codi=lookup_value,
+#                                 defaults=data_item
+#                             )
+                            
+#                             # Aplicar hashing de contraseña si existe
+#                             if clave:
+#                                 obj.set_password(clave)
+#                                 obj.save()
+                            
+#                             resultados[key]["ok"] += 1
+#                             continue
+                        
+#                         # =====================================================
+#                         #  VENDEDORES (con password hashing)
+#                         # =====================================================
+#                         if key == "vendedores":
+                            
+#                             lookup_value = data_item.get("ven_codi")
+                            
+#                             if lookup_value is None:
+#                                 resultados[key]["error"] += 1
+#                                 resultados[key]["detalle"].append({
+#                                     "error": "Falta ven_codi",
+#                                     "data": item
+#                                 })
+#                                 continue
+                            
+#                             # Extraer contraseña antes de crear el objeto
+#                             clave = data_item.pop("ven_clav", None)
+                            
+#                             obj, created = model.objects.update_or_create(
+#                                 ven_codi=lookup_value,
+#                                 defaults=data_item
+#                             )
+                            
+#                             # Aplicar hashing de contraseña si existe
+#                             if clave:
+#                                 obj.set_password(clave)
+#                                 obj.save()
+                            
+#                             resultados[key]["ok"] += 1
+#                             continue
+                        
+#                         # =====================================================
+#                         #  ARTÍCULOS (sin ForeignKey en lookup)
+#                         # =====================================================
+#                         if key == "articulos":
+                            
+#                             art_codi_id = data_item.get("art_codi") or data_item.get("art_codi_id")
+                            
+#                             if art_codi_id is None:
+#                                 resultados[key]["error"] += 1
+#                                 resultados[key]["detalle"].append({
+#                                     "error": "Falta art_codi",
+#                                     "data": item
+#                                 })
+#                                 continue
+                            
+#                             data_item.pop("art_codi", None)
+#                             data_item.pop("art_codi_id", None)
+                            
+#                             obj, created = model.objects.update_or_create(
+#                                 art_codi=art_codi_id,
+#                                 defaults=data_item
+#                             )
+                            
+#                             resultados[key]["ok"] += 1
+#                             continue
+                        
+#                         # =====================================================
+#                         #  RESTO (default)
+#                         # =====================================================
+#                         lookup_value = data_item.get(lookup) or data_item.get(f"{lookup}_id")
+                        
+#                         if lookup_value is None:
+#                             resultados[key]["error"] += 1
+#                             resultados[key]["detalle"].append({
+#                                 "error": f"Falta campo {lookup}",
+#                                 "data": item
+#                             })
+#                             continue
+                        
+#                         lookup_field = f"{lookup}_id" if any(
+#                             f.name == lookup and f.is_relation
+#                             for f in model._meta.fields
+#                         ) else lookup
+                        
+#                         data_item.pop(lookup, None)
+#                         data_item.pop(f"{lookup}_id", None)
+                        
+#                         obj, created = model.objects.update_or_create(
+#                             **{lookup_field: lookup_value},
+#                             defaults=data_item
+#                         )
+                        
+#                         resultados[key]["ok"] += 1
+                    
+#                     except Exception as e:
+#                         resultados[key]["error"] += 1
+#                         resultados[key]["detalle"].append({
+#                             "error": str(e),
+#                             "data": item
+#                         })
+        
+#         return JsonResponse({
+#             "success": True,
+#             "resultados": resultados
+#         }, status=200)
+    
+#     except Exception as e:
+#         return JsonResponse({
+#             "success": False,
+#             "error": str(e)
+#         }, status=500)
+
+#probando2
 def importar_datos(request):
     """
     POST /importar_datos/
     Importa datos en bulk desde JSON con soporte para hashing de contraseñas
-    
-    Body JSON:
-    {
-        "clientes": [{...}, ...],
-        "articulos": [{...}, ...],
-        "stock": [{...}, ...],
-        "rubros": [{...}, ...],
-        "subrubros": [{...}, ...],
-        "marcas": [{...}, ...],
-        "localidades": [{...}, ...],
-        ...
-    }
     """
+
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
 
     try:
         data = json.loads(request.body)
+
     except:
-        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
-    
+        return JsonResponse({
+            'success': False,
+            'detail': 'JSON inválido'
+        }, status=400)
+
     MODELOS = {
+
         "clientes": (Clientes, "cli_codi"),
         "articulos": (Articulo, "art_codi"),
-        #"stock": (Stock, "art_codi") if hasattr(globals(), 'Stock') else None,
+        #"stock": (Stock, "art_codi"),
+
         "rubros": (Rubro, "rub_codi"),
         "subrubros": (SubRubro, "sru_codi"),
         "marcas": (Marca, "mar_codi"),
@@ -1603,176 +1808,275 @@ def importar_datos(request):
         "vendedores": (Vendedor, "ven_codi"),
         "zonas": (Zona, "zon_codi"),
     }
-    
-    # Filtrar modelos que existen
-    MODELOS = {k: v for k, v in MODELOS.items() if v is not None}
-    
+
+    # filtrar modelos válidos
+    MODELOS = {
+        k: v
+        for k, v in MODELOS.items()
+        if v is not None
+    }
+
     resultados = {}
-    
+
     try:
-        with transaction.atomic():
-            for key, (model, lookup) in MODELOS.items():
-                items = data.get(key, [])
-                
-                resultados[key] = {
-                    "total": len(items),
-                    "ok": 0,
-                    "error": 0,
-                    "detalle": []
-                }
-                
+
+        # =====================================================
+        # PROCESAR TABLA POR TABLA
+        # =====================================================
+
+        for key, (model, lookup) in MODELOS.items():
+
+            print("===================================")
+            print("IMPORTANDO:", key)
+
+            items = data.get(key, [])
+
+            resultados[key] = {
+                "total": len(items),
+                "ok": 0,
+                "error": 0,
+                "detalle": []
+            }
+
+            # ============================================
+            # TRANSACCION SOLO PARA ESA TABLA
+            # ============================================
+
+            with transaction.atomic():
+
                 for item in items:
+
                     try:
-                        data_item = item.copy() if isinstance(item, dict) else dict(item)
-                        
-                        # =========================
-                        # NORMALIZAR VACÍOS → NULL
-                        # =========================
+
+                        data_item = (
+                            item.copy()
+                            if isinstance(item, dict)
+                            else dict(item)
+                        )
+
+                        # ============================================
+                        # VACIOS -> NULL
+                        # ============================================
+
                         data_item = {
-                            k: (None if v == "" else v)
+                            k: (
+                                None
+                                if v == ""
+                                else v
+                            )
                             for k, v in data_item.items()
                         }
-                        
-                        # =========================
-                        # CONVERTIR FK → *_id
-                        # =========================
+
+                        # ============================================
+                        # FK -> *_id
+                        # ============================================
+
                         for field in model._meta.fields:
+
                             if field.is_relation and field.many_to_one:
+
                                 fk_name = field.name
+
                                 if fk_name in data_item:
-                                    data_item[f"{fk_name}_id"] = data_item.pop(fk_name)
-                        
+
+                                    data_item[f"{fk_name}_id"] = (
+                                        data_item.pop(fk_name)
+                                    )
+
                         # =====================================================
-                        # 🔥 CLIENTES (con password hashing)
+                        # CLIENTES
                         # =====================================================
+
                         if key == "clientes":
-                            
+
                             lookup_value = data_item.get("cli_codi")
-                            
+
                             if lookup_value is None:
+
                                 resultados[key]["error"] += 1
+
                                 resultados[key]["detalle"].append({
                                     "error": "Falta cli_codi",
                                     "data": item
                                 })
+
                                 continue
-                            
-                            # Extraer contraseña antes de crear el objeto
-                            clave = data_item.pop("cli_clav", None)
-                            
+
+                            clave = data_item.pop(
+                                "cli_clav",
+                                None
+                            )
+
                             obj, created = model.objects.update_or_create(
+
                                 cli_codi=lookup_value,
+
                                 defaults=data_item
                             )
-                            
-                            # Aplicar hashing de contraseña si existe
+
                             if clave:
+
                                 obj.set_password(clave)
+
                                 obj.save()
-                            
+
                             resultados[key]["ok"] += 1
+
                             continue
-                        
+
                         # =====================================================
-                        # 🔥 VENDEDORES (con password hashing)
+                        # VENDEDORES
                         # =====================================================
+
                         if key == "vendedores":
-                            
+
                             lookup_value = data_item.get("ven_codi")
-                            
+
                             if lookup_value is None:
+
                                 resultados[key]["error"] += 1
+
                                 resultados[key]["detalle"].append({
                                     "error": "Falta ven_codi",
                                     "data": item
                                 })
+
                                 continue
-                            
-                            # Extraer contraseña antes de crear el objeto
-                            clave = data_item.pop("ven_clav", None)
-                            
+
+                            clave = data_item.pop(
+                                "ven_clav",
+                                None
+                            )
+
                             obj, created = model.objects.update_or_create(
+
                                 ven_codi=lookup_value,
+
                                 defaults=data_item
                             )
-                            
-                            # Aplicar hashing de contraseña si existe
+
                             if clave:
+
                                 obj.set_password(clave)
+
                                 obj.save()
-                            
+
                             resultados[key]["ok"] += 1
+
                             continue
-                        
+
                         # =====================================================
-                        # 🔥 ARTÍCULOS (sin ForeignKey en lookup)
+                        # ARTICULOS
                         # =====================================================
+
                         if key == "articulos":
-                            
-                            art_codi_id = data_item.get("art_codi") or data_item.get("art_codi_id")
-                            
+
+                            art_codi_id = (
+                                data_item.get("art_codi")
+                                or
+                                data_item.get("art_codi_id")
+                            )
+
                             if art_codi_id is None:
+
                                 resultados[key]["error"] += 1
+
                                 resultados[key]["detalle"].append({
                                     "error": "Falta art_codi",
                                     "data": item
                                 })
+
                                 continue
-                            
+
                             data_item.pop("art_codi", None)
                             data_item.pop("art_codi_id", None)
-                            
+
                             obj, created = model.objects.update_or_create(
+
                                 art_codi=art_codi_id,
+
                                 defaults=data_item
                             )
-                            
+
                             resultados[key]["ok"] += 1
+
                             continue
-                        
+
                         # =====================================================
-                        # 🔥 RESTO (default)
+                        # RESTO
                         # =====================================================
-                        lookup_value = data_item.get(lookup) or data_item.get(f"{lookup}_id")
-                        
+
+                        lookup_value = (
+                            data_item.get(lookup)
+                            or
+                            data_item.get(f"{lookup}_id")
+                        )
+
                         if lookup_value is None:
+
                             resultados[key]["error"] += 1
+
                             resultados[key]["detalle"].append({
                                 "error": f"Falta campo {lookup}",
                                 "data": item
                             })
+
                             continue
-                        
-                        lookup_field = f"{lookup}_id" if any(
-                            f.name == lookup and f.is_relation
-                            for f in model._meta.fields
-                        ) else lookup
-                        
+
+                        lookup_field = (
+                            f"{lookup}_id"
+                            if any(
+                                f.name == lookup and f.is_relation
+                                for f in model._meta.fields
+                            )
+                            else lookup
+                        )
+
                         data_item.pop(lookup, None)
                         data_item.pop(f"{lookup}_id", None)
-                        
+
                         obj, created = model.objects.update_or_create(
-                            **{lookup_field: lookup_value},
+
+                            **{
+                                lookup_field: lookup_value
+                            },
+
                             defaults=data_item
                         )
-                        
+
                         resultados[key]["ok"] += 1
-                    
+
                     except Exception as e:
+
                         resultados[key]["error"] += 1
+
                         resultados[key]["detalle"].append({
+
                             "error": str(e),
+
                             "data": item
                         })
-        
+
+            print(
+                f"OK: {resultados[key]['ok']} | "
+                f"ERROR: {resultados[key]['error']}"
+            )
+
         return JsonResponse({
+
             "success": True,
+
             "resultados": resultados
+
         }, status=200)
-    
+
     except Exception as e:
+
         return JsonResponse({
+
             "success": False,
+
             "error": str(e)
+
         }, status=500)
 
