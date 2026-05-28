@@ -195,7 +195,7 @@ class Registro(models.Model):
     reg_doc = models.IntegerField(help_text="Documento")
     reg_emai = models.EmailField(unique=True, help_text="Email")
     reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)")
-    reg_clie = models.BooleanField(default=False, help_text="Aprobado/Convertido a Cliente")
+    reg_clie = models.BooleanField(default=False, help_text="Aprobado/NO aprobado por debandi")
     reg_fchc = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
     reg_fmod = models.DateTimeField(auto_now=True, help_text="Fecha de modificación")
     reg_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
