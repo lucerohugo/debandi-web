@@ -228,7 +228,7 @@ class Clientes(models.Model):
     cli_tdoc = models.CharField(max_length=20, default="DNI", help_text="Tipo de documento", null=True)
     cli_ndoc = models.CharField(max_length=20, blank=True, null=True, help_text="Número de documento")
     cli_cuit = models.CharField(max_length=20, blank=True, null=True, unique=True, help_text="CUIT")
-    cli_emai = models.EmailField(blank=True, null=True, unique=True, help_text="Email")
+    cli_emai = models.CharField(max_length=70, blank=True, null=True, help_text="Email")
     cli_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")
     cli_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono", null=True)
     cli_dire = models.CharField(max_length=150, blank=True, help_text="Dirección", null=True)
