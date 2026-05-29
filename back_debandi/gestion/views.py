@@ -1857,19 +1857,19 @@ def importar_datos(request):
                         )
 
                         # ============================================
-                        # VACIOS -> NULL
+                        # LIMPIAR STRINGS / VACIOS -> NULL
                         # ============================================
 
-                        data_item = {
+                        for k, v in list(data_item.items()):
 
-                            k: (
-                                None
-                                if v == ""
-                                else v
-                            )
+                            if isinstance(v, str):
 
-                            for k, v in data_item.items()
-                        }
+                                v = v.strip()
+
+                                if v == "":
+                                    v = None
+
+                            data_item[k] = v
 
                         # ============================================
                         # FK -> *_id
@@ -1908,12 +1908,34 @@ def importar_datos(request):
 
                                 continue
 
+                            # ============================================
+                            # LIMPIAR UNIQUE
+                            # ============================================
+
+                            if not data_item.get("cli_emai"):
+                                data_item["cli_emai"] = None
+
+                            if not data_item.get("cli_cuit"):
+                                data_item["cli_cuit"] = None
+
+                            # ============================================
+                            # LIMPIAR PASSWORD
+                            # ============================================
+
                             clave = data_item.pop(
                                 "cli_clav",
                                 None
                             )
 
+                            # ============================================
+                            # SACAR PK DE DEFAULTS
+                            # ============================================
+
                             data_item.pop("cli_codi", None)
+
+                            # ============================================
+                            # UPDATE OR CREATE
+                            # ============================================
 
                             obj, created = model.objects.update_or_create(
 
@@ -1921,6 +1943,10 @@ def importar_datos(request):
 
                                 defaults=data_item
                             )
+
+                            # ============================================
+                            # PASSWORD
+                            # ============================================
 
                             if clave:
 
@@ -2064,6 +2090,14 @@ def importar_datos(request):
 
                 except Exception as e:
 
+                    import traceback
+
+                    print("===================================")
+                    print("ERROR IMPORTANDO")
+                    print("TABLA:", key)
+                    print("ERROR:", str(e))
+                    print(traceback.format_exc())
+
                     resultados[key]["error"] += 1
 
                     resultados[key]["detalle"].append({
@@ -2086,6 +2120,10 @@ def importar_datos(request):
         }, status=200)
 
     except Exception as e:
+
+        import traceback
+
+        print(traceback.format_exc())
 
         return JsonResponse({
 
