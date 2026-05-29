@@ -143,6 +143,8 @@ class MarcaViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['mar_nomb']
     ordering = ['mar_nomb']
     permission_classes = [AllowAny]  # ✅ Público: marcas visibles sin API Key
+    authentication_classes = []
+    
 
 
 class RubroViewSet(BulkCreateMixin, BaseViewSet):
@@ -152,6 +154,7 @@ class RubroViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['rub_nomb']
     ordering = ['rub_nomb']
     permission_classes = [AllowAny]  # ✅ Público: rubros visibles sin API Key
+    authentication_classes = []
 
 
 class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
@@ -161,6 +164,7 @@ class SubrubroViewSet(BulkCreateMixin, BaseViewSet):
     filterset_class = SubrubroFilterSet  # ✅ Usar FilterSet personalizado
     search_fields = ['sru_nomb', 'rub_codi__rub_nomb']
     ordering = ['rub_codi', 'sru_nomb']
+    authentication_classes = []
 
     @action(detail=False, methods=['get'])
     def por_rubro(self, request):
@@ -188,6 +192,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'mar_codi__mar_nomb']
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']
+    authentication_classes = []
 
     @action(detail=False, methods=['get'])
     def carrusel(self, request):
@@ -286,6 +291,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
     ordering = ['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
+    authentication_classes = []
 
     def create(self, request, *args, **kwargs):
         """POST /registros/ - Crear nuevo registro"""
@@ -327,6 +333,7 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def get_queryset(self):
         """
@@ -434,6 +441,7 @@ class FavoritosViewSet(BaseViewSet):
     filterset_fields = ['cli_codi']
     ordering = ['-fav_fecha']
     permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
+    authentication_classes = []
 
     def get_queryset(self):
         """
@@ -505,6 +513,7 @@ class CarritoItemViewSet(BaseViewSet):
     filterset_fields = ['cli_codi']
     ordering = ['-carr_fmod']
     permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
+    authentication_classes = []
 
     @action(detail=False, methods=['get'])
     def cliente(self, request):
@@ -565,6 +574,7 @@ class PedidosViewSet(BaseViewSet):
     ordering_fields = ['ped_codi', 'ped_fech']
     ordering = ['-ped_codi']
     permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
+    authentication_classes = []
 
     def get_queryset(self):
         """
@@ -681,6 +691,7 @@ class PedidosViewSet(BaseViewSet):
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])  # ✅ Permite cualquier autenticación (JWT, sin auth, etc)
+
 def crear_pedido_desde_carrito(request):
     """
     POST /api/pedidos-crear-desde-carrito/
