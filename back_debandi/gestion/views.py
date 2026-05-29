@@ -326,6 +326,7 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     filterset_fields = ['loc_codi', 'ven_codi']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         """
