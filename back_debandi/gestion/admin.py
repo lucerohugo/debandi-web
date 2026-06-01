@@ -13,14 +13,14 @@ from .models import (
 @admin.register(Provincia)
 class ProvinciaAdmin(admin.ModelAdmin):
     list_display = ['pci_codi', 'pci_nomb']
-    search_fields = ['pci_nomb']
+    search_fields = ['pci_codi', 'pci_nomb']
     ordering = ['pci_nomb']
 
 
 @admin.register(Zona)
 class ZonaAdmin(admin.ModelAdmin):
     list_display = ['zon_codi', 'zon_nomb']
-    search_fields = ['zon_nomb']
+    search_fields = ['zon_codi', 'zon_nomb']
     ordering = ['zon_nomb']
 
 
@@ -28,7 +28,7 @@ class ZonaAdmin(admin.ModelAdmin):
 class LocalidadAdmin(admin.ModelAdmin):
     list_display = ['loc_codi', 'loc_nomb', 'loc_cpos', 'pci_codi']
     list_filter = ['pci_codi']
-    search_fields = ['loc_nomb', 'pci_codi__pci_nomb']
+    search_fields = ['loc_codi', 'loc_nomb', 'pci_codi__pci_nomb']
     fieldsets = (
         ('Identificación', {
             'fields': ('loc_codi', 'loc_nomb')
@@ -47,14 +47,14 @@ class LocalidadAdmin(admin.ModelAdmin):
 @admin.register(Marca)
 class MarcaAdmin(admin.ModelAdmin):
     list_display = ['mar_codi', 'mar_nomb']
-    search_fields = ['mar_nomb']
+    search_fields = ['mar_codi', 'mar_nomb']
     ordering = ['mar_nomb']
 
 
 @admin.register(Rubro)
 class RubroAdmin(admin.ModelAdmin):
     list_display = ['rub_codi', 'rub_nomb']
-    search_fields = ['rub_nomb']
+    search_fields = ['rub_codi', 'rub_nomb']
     ordering = ['rub_nomb']
 
 
@@ -62,7 +62,7 @@ class RubroAdmin(admin.ModelAdmin):
 class SubrubroAdmin(admin.ModelAdmin):
     list_display = ['sru_codi', 'sru_nomb', 'rub_codi']
     list_filter = ['rub_codi']
-    search_fields = ['sru_nomb']
+    search_fields = ['sru_codi', 'sru_nomb']
     ordering = ['rub_codi', 'sru_nomb']
 
 
@@ -103,7 +103,7 @@ class ArticuloAdmin(admin.ModelAdmin):
 class RegistroAdmin(admin.ModelAdmin):
     list_display = ['reg_codi', 'reg_nomb', 'reg_apel', 'reg_emai', 'reg_clie', 'reg_fchc', 'reg_exp']
     list_filter = ['reg_clie', 'reg_fchc']
-    search_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
+    search_fields = ['reg_codi', 'reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
     readonly_fields = ['reg_codi', 'reg_fchc', 'reg_fmod', 'reg_clav']
     fieldsets = (
         ('Datos Personales', {
@@ -132,7 +132,7 @@ class RegistroAdmin(admin.ModelAdmin):
 class ClientesAdmin(admin.ModelAdmin):
     list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
-    search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
+    search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
     readonly_fields = ['cli_fchc', 'cli_fmod']
     fieldsets = (
         ('Datos Personales', {
@@ -164,7 +164,7 @@ class ClientesAdmin(admin.ModelAdmin):
 class VendedorAdmin(admin.ModelAdmin):
     list_display = ['ven_codi', 'ven_nomb', 'ven_actv', 'loc_codi']
     list_filter = ['ven_actv', 'loc_codi']
-    search_fields = ['ven_nomb', 'ven_doc', 'ven_emai']
+    search_fields = ['ven_codi', 'ven_nomb', 'ven_doc', 'ven_emai']
     readonly_fields = ['ven_fchc', 'ven_fmod']
     fieldsets = (
         ('Identificación', {
