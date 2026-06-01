@@ -1,5 +1,5 @@
 from rest_framework import viewsets, filters, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
@@ -690,8 +690,8 @@ class PedidosViewSet(BaseViewSet):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([AllowAny])  # ✅ Permite cualquier autenticación (JWT, sin auth, etc)
-
+@authentication_classes([])  # ✅ Desactiva autenticación global (SimpleJWT, APIKey, Session)
+@permission_classes([AllowAny])  # ✅ Permite acceso público sin restricción
 def crear_pedido_desde_carrito(request):
     """
     POST /api/pedidos-crear-desde-carrito/
