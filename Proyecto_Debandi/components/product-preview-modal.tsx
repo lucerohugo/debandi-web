@@ -84,7 +84,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         rub_nomb: product.rub_nomb
       })
 
-      setNotificationMessage(`✅ ${quantity} producto(s) agregado(s) al carrito`)
+      setNotificationMessage(` ${quantity} producto(s) agregado(s) al carrito`)
       setNotificationType("success")
       setShowNotification(true)
       setTimeout(() => setShowNotification(false), 3000)

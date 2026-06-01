@@ -310,7 +310,7 @@ export default function ListadoProductos() {
 
       // Limpiar selección
       setSelectedProducts(new Map())
-      setNotificationMessage(`✅ ${totalItems} producto(s) agregado(s) al carrito`)
+      setNotificationMessage(` ${totalItems} producto(s) agregado(s) al carrito`)
       setShowNotification(true)
       
       // Disparar evento para actualizar carrito en header
