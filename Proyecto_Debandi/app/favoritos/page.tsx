@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { useFavorites } from "@/contexts/favorites-context"
 import { useAuth } from "@/contexts/auth-context"
@@ -62,7 +63,8 @@ export default function FavoritesPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
         <div className="mb-6">

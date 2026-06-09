@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: Config = {
   gen_dire: '',
   gen_tele: '',
   gen_emai: 'info@debandi.com',
-  gen_colo: '#8cced9',
+  gen_colo: '#0A53BF',
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined)

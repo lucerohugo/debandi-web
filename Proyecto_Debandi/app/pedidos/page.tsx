@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { useAuth } from "@/contexts/auth-context"
 import { useOrders } from "@/contexts/orders-context"
@@ -11,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Package, ChevronDown, ChevronUp, Download, RotateCw, Check, AlertCircle, Pencil } from "lucide-react"
 import { ExportUtils } from "@/lib/export-utils"
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 
 interface OrderItem {
   art_codi: number
@@ -213,7 +214,7 @@ export default function OrdersPage() {
   if (loading || ordersLoading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header onSearch={() => {}} />
+        <SiteHeader />
         <main className="flex-1 flex items-center justify-center">
           <p className="text-muted-foreground">Cargando...</p>
         </main>
@@ -228,7 +229,8 @@ export default function OrdersPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
 
       {/* Notificación Flotante */}
       {notification && (
@@ -311,7 +313,7 @@ export default function OrdersPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold text-primary">
-                            {formatCurrencySpanish(order.total)}
+                            {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)} unidad{order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) !== 1 ? 'es' : ''}
@@ -359,10 +361,10 @@ export default function OrdersPage() {
                                 {item.art_nomb}
                               </h5>
                               <p className="text-sm text-muted-foreground mt-1">
-                                Cantidad: {item.quantity} × {formatCurrencySpanish(item.art_pfin)} c/u
+                                Cantidad: {item.quantity} × {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))} c/u
                               </p>
                               <p className="text-sm font-semibold text-foreground mt-2">
-                                {formatCurrencySpanish(item.art_pfin * item.quantity)}
+                                {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
                               </p>
                             </div>
                           </div>
@@ -372,7 +374,7 @@ export default function OrdersPage() {
                           <div className="flex justify-between items-center font-bold text-lg">
                             <span>Total</span>
                             <span className="text-primary">
-                              {formatCurrencySpanish(order.total)}
+                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
                             </span>
                           </div>
                         </div>

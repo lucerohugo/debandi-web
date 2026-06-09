@@ -1,27 +1,32 @@
 ﻿"use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { ShoppingCart, Heart } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
 import ProductPreviewModal from "./product-preview-modal"
+import { Button } from "./ui/button"
+
+interface Product {
+  art_codi: number
+  art_nomb: string
+  art_pnet?: number
+  art_pfin: number
+  art_stk: number
+  art_img?: string
+  mar_nomb?: string
+  rub_nomb?: string
+  grupo?: string
+  art_acti?: boolean
+}
 
 interface ProductCardProps {
-  product: {
-    art_codi: number
-    art_nomb: string
-    art_pnet: number
-    art_pfin: number
-    art_stk: number
-    art_img?: string
-    mar_nomb?: string
-    rub_nomb?: string
-    art_acti?: boolean
-  }
+  product: Product
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
@@ -31,13 +36,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [notificationMessage, setNotificationMessage] = useState("")
   const [notificationType, setNotificationType] = useState<"success" | "error">("success")
   const [showPreview, setShowPreview] = useState(false)
-  
+
   const { user } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
   const favorite = isFavorite(product.art_codi)
 
   const addToCart = async () => {
-    // Verificar si el usuario está logueado
     if (!user) {
       setShowAuthModal(true)
       return
@@ -46,10 +50,9 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true)
 
     try {
-      // Agregar al carrito directamente con los datos del producto
       await CartService.addToCart(product.art_codi, 1, {
         art_nomb: product.art_nomb,
-        art_pnet: product.art_pnet,
+        art_pnet: product.art_pnet || product.art_pfin,
         art_pfin: product.art_pfin,
         art_stk: product.art_stk,
         art_img: product.art_img,
@@ -57,16 +60,12 @@ export default function ProductCard({ product }: ProductCardProps) {
         rub_nomb: product.rub_nomb,
       })
 
-      // Mostrar notificación
       setNotificationMessage("Producto agregado al carrito")
       setNotificationType("success")
       setShowNotification(true)
       setTimeout(() => setShowNotification(false), 2000)
-
-      // Disparar evento para actualizar el navbar
       window.dispatchEvent(new Event("cart-updated"))
     } catch (error: any) {
-      // Mostrar error
       const errorMsg = error.response?.data?.error || "Error al agregar al carrito"
       setNotificationMessage(errorMsg)
       setNotificationType("error")
@@ -78,12 +77,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   const toggleFavorite = () => {
-    // Verificar si el usuario está logueado
     if (!user) {
       setShowAuthModal(true)
       return
     }
-    // Si está logueado, agregar o quitar de favoritos
     if (favorite) {
       removeFavorite(product.art_codi)
       setNotificationMessage("Eliminaste el producto de Mis favoritos")
@@ -93,83 +90,100 @@ export default function ProductCard({ product }: ProductCardProps) {
       setNotificationMessage("Se agregó a Mis favoritos")
       setNotificationType("success")
     }
-
     setShowNotification(true)
     setTimeout(() => setShowNotification(false), 3000)
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow group flex flex-col h-full">
-      <div 
-        className="relative h-48 bg-muted overflow-hidden cursor-pointer"
-        onClick={() => setShowPreview(true)}
-      >
-        <img
-          src={product.art_img || "/placeholder.svg"}
-          alt={product.art_nomb}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleFavorite()
-          }}
-          className="absolute top-3 left-3 bg-white rounded-full p-2 hover:bg-red-50 transition"
-          title={!user ? "Inicia sesión para agregar a favoritos" : favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-        >
-          <Heart className={`w-5 h-5 ${favorite ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-500"}`} />
-        </button>
-        {product.art_stk === 0 && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <span className="text-white font-bold">Agotado</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4 flex flex-col flex-grow">
-        <h3 
-          className="font-semibold text-foreground line-clamp-2 mb-2 cursor-pointer hover:text-primary transition"
+    <>
+      <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow group flex flex-col h-full">
+        {/* Imagen del producto */}
+        <div
+          className="relative w-full aspect-square bg-muted overflow-hidden cursor-pointer"
           onClick={() => setShowPreview(true)}
         >
-          {product.art_nomb}
-        </h3>
+          {product.art_img ? (
+            <Image
+              src={product.art_img}
+              alt={product.art_nomb}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground">Sin imagen</div>
+          )}
 
-        <div className="flex items-center gap-2 mb-4">
-          {user && (
-            <span className="text-2xl font-bold text-foreground">
-              {formatCurrencySpanish(product.art_pfin)}
-            </span>
+          {/* Botón Favoritos - arriba a la derecha */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleFavorite()
+            }}
+            className="absolute top-2 right-2 bg-background rounded-full p-1.5 hover:bg-accent transition-colors shadow-sm z-10"
+            title={!user ? "Inicia sesión para agregar a favoritos" : favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+            aria-label="Agregar a favoritos"
+          >
+            <Heart className={`w-4 h-4 ${favorite ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+          </button>
+
+          {/* Badge agotado */}
+          {product.art_stk === 0 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">Agotado</span>
+            </div>
           )}
         </div>
 
-        <button
-          onClick={user ? addToCart : () => setShowAuthModal(true)}
-          disabled={product.art_stk === 0 || isAdding}
-          className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
-        >
-          <ShoppingCart className="w-5 h-5" />
-          {isAdding ? "Agregando..." : user ? "Agregar al Carrito" : "Consultar"}
-        </button>
+        {/* Contenido */}
+        <div className="p-3 flex flex-col flex-grow">
+          {/* Grupo/Marca */}
+          {product.mar_nomb && (
+            <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wide mb-1">
+              {product.mar_nomb}
+            </p>
+          )}
+
+          {/* Nombre del producto */}
+          <h3
+            className="text-sm font-medium text-foreground line-clamp-2 mb-3 cursor-pointer hover:text-primary transition"
+            onClick={() => setShowPreview(true)}
+          >
+            {product.art_nomb}
+          </h3>
+
+          {/* Precio */}
+          <p className="text-lg font-bold text-foreground mb-3">
+            {formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}
+          </p>
+
+          {/* Botón Agregar al carrito */}
+          <Button
+            onClick={addToCart}
+            disabled={product.art_stk === 0 || isAdding}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-auto text-sm"
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {isAdding ? "Agregando..." : "Agregar al Carrito"}
+          </Button>
+        </div>
       </div>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
-
-      {/* Notificación elegante */}
-      <NotificationToast
-        message={notificationMessage}
-        type={notificationType}
-        isOpen={showNotification}
-        onClose={() => setShowNotification(false)}
-        duration={3000}
-      />
-
-      {/* Modal de previsualizador */}
-      <ProductPreviewModal
-        product={product}
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
-      />
-    </div>
+      {/* Modales */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      {showNotification && (
+        <NotificationToast
+          message={notificationMessage}
+          type={notificationType}
+          onClose={() => setShowNotification(false)}
+        />
+      )}
+      {showPreview && (
+        <ProductPreviewModal
+          product={product}
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </>
   )
 }

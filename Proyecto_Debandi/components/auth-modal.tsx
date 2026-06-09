@@ -15,10 +15,11 @@ import ForgotPasswordModal from "./forgot-password-modal"
 import { RegistroService } from "@/services/registro.service"
 
 interface AuthModalProps {
+  isOpen: boolean
   onClose: () => void
 }
 
-export default function AuthModal({ onClose }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter()
   const { login } = useAuth()
   const { login: loginVendedor } = useVendedor()
@@ -29,6 +30,8 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   const [vendedorPassword, setVendedorPassword] = useState("")
   const [registroSuccess, setRegistroSuccess] = useState(false)
   const [documentError, setDocumentError] = useState("")
+
+  if (!isOpen) return null
 
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value

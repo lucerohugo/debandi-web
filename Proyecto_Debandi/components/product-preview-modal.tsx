@@ -4,7 +4,7 @@ import { useState } from "react"
 import { X, ShoppingCart, Heart, Minus, Plus } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
@@ -43,7 +43,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
   const favorite = isFavorite(product.art_codi)
 
-  const finalPrice = product.art_pfin
+  const finalPrice = user ? applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0) : product.art_pfin
 
   const total = (finalPrice * quantity).toFixed(2)
 

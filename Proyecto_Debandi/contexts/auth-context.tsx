@@ -56,6 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: detail.cliente.cli_emai || '',
           firstName: detail.cliente.cli_nomb || 'Cliente',
           lastName: detail.cliente.cli_ape || '',
+          cli_codi: detail.cliente.cli_codi,
+          cli_desc: detail.cliente.cli_desc || 0,
+          cli_precs1: detail.cliente.cli_precs1 || 0,
+          cli_precs2: detail.cliente.cli_precs2 || 0,
+          localidad: detail.cliente.loc_nomb || '',
+          telefonoContacto: detail.cliente.cli_tele || '',
         }
         
         setUser(impersonatedUser)
@@ -133,6 +139,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: data.cliente.cli_emai || email,
         firstName: data.cliente.cli_nomb || 'Cliente',
         lastName: data.cliente.cli_ape || '',
+        cli_codi: data.cliente.cli_codi,
+        cli_desc: data.cliente.cli_desc || 0,
+        cli_precs1: data.cliente.cli_precs1 || 0,
+        cli_precs2: data.cliente.cli_precs2 || 0,
+        localidad: data.cliente.loc_nomb || '',
+        telefonoContacto: data.cliente.cli_tele || '',
       }
       
       setUser(user)
@@ -157,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, impersonation, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, impersonation, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   )

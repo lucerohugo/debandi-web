@@ -111,7 +111,7 @@ class Articulo(models.Model):
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
     art_palac = models.CharField(max_length=255, blank=True, null=True, help_text="Palabras clave para búsqueda si es complejo el art_nomb")
     art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True)
-    art_pnet = models.DecimalField(max_digits=12, decimal_places=2, help_text="Precio neto", null=True)
+    art_pnet = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Precio neto")
     art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=True, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
     art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos", null=True)
@@ -128,6 +128,7 @@ class Articulo(models.Model):
     art_acti = models.BooleanField(default=True, help_text="Artículo activo",null=True)
     art_visw = models.BooleanField(default=True, help_text="Visible en web", null=True)
     art_carru = models.BooleanField(default=False, help_text="Mostrar en carrusel de inicio", null=True)
+    art_prodr = models.BooleanField(default=False, help_text="Marcar como producto recomendado", null=True)
 
     art_org = models.CharField(
         max_length=20,
@@ -158,7 +159,8 @@ class Articulo(models.Model):
         iva_rate = Decimal(str(self.get_iva_rate()))
         # Solo recalcular art_pfin si es 0 o None (no ha sido editado manualmente)
         if not self.art_pfin or self.art_pfin == 0:
-            self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
+            if self.art_pnet:  # Solo si art_pnet tiene valor
+                self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
         super().save(*args, **kwargs)
 
     @property
@@ -176,14 +178,29 @@ class Articulo(models.Model):
         """Nombre del rubro"""
         return self.sru_codi.rub_codi.rub_nomb if self.sru_codi and self.sru_codi.rub_codi else '-'
 
+
+
+# ================================================================
+# NOVEDADES Y CONFIGURACIÓN DE SECCIONES
+# ================================================================
+
+class Novedades(models.Model):
+    """Configuración de secciones de novedades y ofertas"""
+    nov_codi = models.IntegerField(primary_key=True, editable=True)
+    nov_nomb = models.CharField(max_length=100, help_text="Nombre de la sección de novedades")
+    nov_bann = models.BooleanField(default=False, help_text="Mostrar banners de ofertas")
+    art_carru = models.ForeignKey(Articulo, on_delete=models.SET_NULL, null=True, blank=True, related_name="en_novedades", help_text="Artículo destacado en carrusel de nuevos productos")
+    nov_prodr = models.BooleanField(default=False, help_text="Mostrar productos recomendados")
+
+    class Meta:
+        verbose_name = "Novedad"
+        verbose_name_plural = "Novedades"
+        ordering = ["nov_nomb"]
+
     def __str__(self):
-        marca = self.mar_codi.mar_nomb if self.mar_codi else "Sin marca"
-        return f"{self.art_nomb} - {marca}"
+        return self.nov_nomb
 
 
-# ================================================================
-# CLIENTES Y AUTENTICACIÓN
-# ================================================================
 
 
 
@@ -235,12 +252,16 @@ class Clientes(models.Model):
     cli_bar = models.CharField(max_length=100, blank=True, help_text="Barrio", null=True)
     cli_estc = models.CharField(max_length=50, blank=True, null=True, help_text="Estado civil")
     cli_ocup = models.CharField(max_length=100, blank=True, null=True, help_text="Ocupación")
+    cli_desc = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Descuento cliente (%)")
+    cli_precs1 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio sugerido (%)")
+    cli_precs2 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio venta (%)")
     cli_acti = models.BooleanField(default=True, help_text="Cliente activo/de baja",null=True)
     cli_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
     cli_rexp = models.DateTimeField(blank=True, null=True, help_text="Expiración del token")
+
 
     loc_codi = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="clientes", null=True)
     zon_codi = models.ForeignKey(Zona, on_delete=models.SET_NULL, null=True, blank=True, related_name="clientes")
@@ -256,7 +277,7 @@ class Clientes(models.Model):
         default='ADMIN'
     )
 
-    cli_exp = models.BooleanField(default=False, help_text="Exportado a BrixSoft")
+    cli_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
     cli_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
 
     cli_fchc = models.DateTimeField(auto_now_add=True)
@@ -468,7 +489,7 @@ class General(models.Model):
     gen_logo = models.ImageField(upload_to='logos/', blank=True, null=True, help_text="Logo de Debandi")
     gen_loge = models.ImageField(upload_to='logos/', blank=True, null=True, help_text="Logo de BrixSoft")
     gen_cuit = models.CharField(max_length=20, default='00-00000000-0', help_text="CUIT de la empresa")
-    gen_colo = models.CharField(max_length=7, default='#8cced9', help_text="Color principal (HEX)")
+    gen_colo = models.CharField(max_length=7, default='#0A53BF', help_text="Color principal (HEX)")
     gen_loc = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True)
     gen_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
     gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")

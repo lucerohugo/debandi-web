@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
 )
 
 
@@ -82,7 +82,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
             'art_xbul', 'art_ubul',
             'mar_codi', 'mar_nomb', 'sru_codi', 'sru_nomb', 'rub_nomb',
             'art_tiva', 'art_depo', 'art_mext',
-            'art_acti', 'art_visw', 'art_carru', 'art_img', 'art_img_url',
+            'art_acti', 'art_visw', 'art_carru', 'art_prodr', 'art_img', 'art_img_url',
             'art_fchc', 'art_fmod'
         ]
         read_only_fields = ['art_codi', 'art_fchc', 'art_fmod', 'art_pfin']
@@ -124,6 +124,19 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
 
 
 # ================================================================
+# NOVEDADES
+# ================================================================
+
+class NovedadesSerializer(serializers.ModelSerializer):
+    """Serializer para Novedades"""
+    articulo = ArticuloFrontendSerializer(source='art_carru', read_only=True)
+
+    class Meta:
+        model = Novedades
+        fields = ['nov_codi', 'nov_nomb', 'art_carru', 'articulo', 'nov_bann', 'nov_prodr']
+
+
+# ================================================================
 # PERSONAS
 # ================================================================
 
@@ -136,7 +149,8 @@ class ClientesSerializer(serializers.ModelSerializer):
         fields = [
             'cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit',
             'cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar',
-            'cli_estc', 'cli_ocup', 'loc_codi', 'loc_nomb', 'zon_codi', 'zon_nomb', 'ven_codi', 'cli_acti',
+            'cli_estc', 'cli_ocup', 'cli_desc', 'cli_precs1', 'cli_precs2',
+            'loc_codi', 'loc_nomb', 'zon_codi', 'zon_nomb', 'ven_codi', 'cli_acti',
             'cli_clav', 'cli_fchc', 'cli_fmod'
         ]
         read_only_fields = ['cli_codi', 'cli_fchc', 'cli_fmod', 'cli_clav']

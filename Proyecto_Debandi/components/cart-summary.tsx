@@ -1,6 +1,7 @@
 ﻿"use client"
 
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useAuth } from "@/contexts/auth-context"
 
 interface CartItem {
   art_codi: number
@@ -17,12 +18,14 @@ interface CartSummaryProps {
 }
 
 export default function CartSummary({ items }: CartSummaryProps) {
+  const { user } = useAuth()
+  
   const handleRealizeOrder = () => {
     // Ir a checkout
     window.location.href = "/checkout"
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.art_pfin * item.quantity, 0)
+  const subtotal = items.reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0)
   const total = subtotal
 
   return (

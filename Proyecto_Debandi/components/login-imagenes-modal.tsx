@@ -44,9 +44,9 @@ export function LoginImagenesModal({ onLogin }: LoginImagenesModalProps) {
               <ImageIcon className="w-8 h-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Gestor de Imágenes</CardTitle>
+          <CardTitle className="text-2xl">Gestor WEB</CardTitle>
           <CardDescription>
-            Acceso para cargar imágenes de artículos
+            Acceso para datos web
           </CardDescription>
         </CardHeader>
 

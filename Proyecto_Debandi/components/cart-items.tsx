@@ -1,7 +1,8 @@
 ﻿"use client"
 
 import { Trash2, Minus, Plus } from "lucide-react"
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useAuth } from "@/contexts/auth-context"
 import { type Product } from "@/services/product.service"
 
 interface CartItemsProps {
@@ -10,6 +11,8 @@ interface CartItemsProps {
 }
 
 export default function CartItems({ items, onUpdate }: CartItemsProps) {
+  const { user } = useAuth()
+  
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return
     const updated = items.map((item, i) => (i === index ? { ...item, quantity: newQuantity } : item))
@@ -30,10 +33,10 @@ export default function CartItems({ items, onUpdate }: CartItemsProps) {
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground mb-1">{item.art_nomb}</h3>
             <p className="text-sm text-muted-foreground">
-              {item.quantity} x {formatCurrencySpanish(item.art_pfin)}
+              {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
             </p>
             <p className="text-sm text-cyan-500 font-semibold">
-              Subtotal: {formatCurrencySpanish(item.art_pfin * item.quantity)}
+              Subtotal: {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
             </p>
           </div>
 

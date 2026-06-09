@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { ShoppingCart, Eye, Search, X } from "lucide-react"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -46,11 +47,6 @@ interface ProductTabla {
   art_codi: number
   art_nomb: string
   art_desc?: string
-  mar_codi?: number
-  mar_nomb: string
-  sub_codi?: number
-  sru_nomb?: string
-  rub_nomb: string
   art_pnet: number | string
   art_pfin: number | string
   art_cost?: number | string
@@ -61,6 +57,9 @@ interface ProductTabla {
   art_tiva: string
   art_img?: string
   art_acti?: boolean
+  cli_desc?: number | string
+  cli_precs1?: number | string
+  cli_precs2?: number | string
 }
 
 interface SelectedProduct {
@@ -91,10 +90,20 @@ export default function ListadoProductos() {
   const [itemsPerPage, setItemsPerPage] = useState(15)  // Valor inicial 15 en lugar de cargar de config
   const [maxLimit, setMaxLimit] = useState(100)
   const [totalCount, setTotalCount] = useState(0)  // Total de artículos del backend
+  const [allProductsCache, setAllProductsCache] = useState<Map<number, Product>>(new Map()) // Caché de todos los productos cargados
+  const [mostrarIVA, setMostrarIVA] = useState(true) // Preferencia de mostrar IVA (por defecto true)
   const { user } = useAuth()
 
   // Ref para rastrear si el valor de búsqueda global realmente cambió
   const prevGlobalRef = useRef("")
+
+  // Leer preferencia de mostrar IVA desde localStorage
+  useEffect(() => {
+    const mostrar = localStorage.getItem("mostrar_iva")
+    if (mostrar !== null) {
+      setMostrarIVA(mostrar === "true")
+    }
+  }, [])
 
   const handleExportPDF = async () => {
     setIsExporting(true)
@@ -130,6 +139,35 @@ export default function ListadoProductos() {
     }
   }
 
+  // Función para calcular precio con margen (suma)
+  const calculatePriceWithMargin = (originalPrice: number | string, margin: number | string): number => {
+    const price = typeof originalPrice === 'string' ? parseFloat(originalPrice) : originalPrice
+    const marginValue = typeof margin === 'string' ? parseFloat(margin) : margin
+    if (!marginValue || marginValue === 0) return Math.round(price * 100) / 100
+    const result = price + (price * marginValue / 100)
+    // Redondear correctamente a 2 decimales: multiplicar por 100, redondear, dividir por 100
+    return Math.round(result * 100) / 100
+  }
+
+  // Función para aplicar descuento del cliente (resta)
+  const applyCustomerDiscount = (price: number | string, discount: number | string): number => {
+    if (!discount || discount === 0) {
+      const p = typeof price === 'string' ? parseFloat(price) : price
+      return Math.round(p * 100) / 100
+    }
+    const priceValue = typeof price === 'string' ? parseFloat(price) : price
+    const discountValue = typeof discount === 'string' ? parseFloat(discount) : discount
+    const result = priceValue - (priceValue * discountValue / 100)
+    // Redondear correctamente a 2 decimales
+    return Math.round(result * 100) / 100
+  }
+
+  // Función combinada: aplicar margen Y descuento
+  const calculateFinalPrice = (basePrice: number | string, margin: number | string, discount: number | string): number => {
+    const priceWithMargin = calculatePriceWithMargin(basePrice, margin)
+    return applyCustomerDiscount(priceWithMargin, discount)
+  }
+
   // Cargar configuración de paginación (opcional, puede omitirse si siempre quieres 15 items)
   useEffect(() => {
     const fetchConfig = async () => {
@@ -159,8 +197,25 @@ export default function ListadoProductos() {
         const productsList = response.results || response.data || []
         const totalFromBackend = response.count || 0
         
+        // Enriquecer productos con datos del cliente logueado
+        const enrichedProducts = productsList.map((product: any) => ({
+          ...product,
+          cli_desc: user?.cli_desc || 0,
+          cli_precs1: user?.cli_precs1 || 0,
+          cli_precs2: user?.cli_precs2 || 0,
+        }))
+        
+        // Acumular productos en caché en lugar de reemplazar
+        setAllProductsCache(prev => {
+          const newCache = new Map(prev)
+          productsList.forEach((product: Product) => {
+            newCache.set(product.art_codi, product)
+          })
+          return newCache
+        })
+        
         setProducts(productsList)
-        setProductsTabla(productsList)
+        setProductsTabla(enrichedProducts)
         setTotalCount(totalFromBackend)
         
         console.log(` Página ${currentPage} cargada:`, {
@@ -178,7 +233,7 @@ export default function ListadoProductos() {
     if (itemsPerPage > 0) {
       fetchProducts()
     }
-  }, [currentPage, itemsPerPage])  // Ambas dependencias para fetch correcto
+  }, [currentPage, itemsPerPage, user])  // Agregar user para actualizar cuando el cliente logueado cambie
 
   // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {
@@ -224,9 +279,7 @@ export default function ListadoProductos() {
 
   // Filtrar tabla de productos por búsqueda
   const filteredProductsTabla = productsTabla.filter((product) =>
-    product.art_nomb.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.mar_nomb.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.rub_nomb.toLowerCase().includes(searchQuery.toLowerCase())
+    product.art_nomb.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Calcular paginación
@@ -242,12 +295,12 @@ export default function ListadoProductos() {
     // (no es búsqueda global, solo en los items actuales)
     totalPages = Math.ceil(filteredProductsTabla.length / itemsPerPage)
     paginatedProducts = filteredProductsTabla
-    console.log("🔍 Búsqueda activa:", { searchQuery, filteredLength: filteredProductsTabla.length, totalPages })
+    
   } else {
     // Sin búsqueda: usar count del backend
     totalPages = Math.ceil(totalCount / itemsPerPage)
     paginatedProducts = productsTabla
-    console.log("📄 Sin búsqueda:", { totalCount, itemsPerPage, totalPages, productsTablaLength: productsTabla.length })
+    
   }
 
   const handleSelectProduct = (product: Product) => {
@@ -255,12 +308,13 @@ export default function ListadoProductos() {
     if (newSelected.has(product.art_codi)) {
       newSelected.delete(product.art_codi)
     } else {
-      const finalPrice = product.art_pfin || 0
+      const basePrice = mostrarIVA ? product.art_pfin : product.art_pnet
+      const priceWithDiscount = applyCustomerDiscount(basePrice, user?.cli_desc || 0)
       newSelected.set(product.art_codi, {
         id: product.art_codi,
         name: product.art_nomb || "",
-        price: finalPrice,
-        finalPrice: finalPrice,
+        price: priceWithDiscount,
+        finalPrice: priceWithDiscount,
         quantity: 1,
         brand: product.mar_nomb || "",
       })
@@ -290,14 +344,17 @@ export default function ListadoProductos() {
     let totalItems = 0
     try {
       for (const [productId, selectedItem] of selectedProducts) {
-        // Buscar el producto completo en la lista de productos
-        const fullProduct = products.find(p => p.art_codi === productId)
+        // Buscar el producto en el caché (que contiene todos los productos cargados)
+        const fullProduct = allProductsCache.get(productId)
         
         if (fullProduct) {
+          // Usar precio original sin descuento - el descuento se aplica en la visualización
+          const basePrice = mostrarIVA ? fullProduct.art_pfin : fullProduct.art_pnet
+          
           await CartService.addToCart(productId, selectedItem.quantity, {
             art_nomb: fullProduct.art_nomb,
             art_pnet: fullProduct.art_pnet,
-            art_pfin: fullProduct.art_pfin,
+            art_pfin: fullProduct.art_pfin, // Guardar precio original sin descuento
             art_stk: fullProduct.art_stk,
             art_img: fullProduct.art_img,
             mar_nomb: fullProduct.mar_nomb,
@@ -329,7 +386,8 @@ export default function ListadoProductos() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={setSearchQuery} />
+      <SiteHeader />
+      <NavigationBar />
 
       <main className="flex-1 w-full px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -339,7 +397,7 @@ export default function ListadoProductos() {
               Selecciona los productos que deseas y agrega al carrito
             </p>
             {/* Información de productos */}
-            {hasSearchQuery ? (
+            {/* {hasSearchQuery ? (
               <p className="text-sm text-muted-foreground mt-2">
                  Mostrando {filteredProductsTabla.length} de {productsTabla.length} productos encontrados
               </p>
@@ -348,25 +406,25 @@ export default function ListadoProductos() {
                  Mostrando {paginatedProducts.length} de {totalCount} productos
                 {totalPages > 0 && ` (página ${currentPage} de ${totalPages})`}
               </p>
-            )}
+            )} */}
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button
+            {/* <Button
               onClick={handleExportPDF}
               disabled={isExporting || products.length === 0}
               variant="outline"
               className="whitespace-nowrap"
             >
                Exportar PDF
-            </Button>
-            <Button
+            </Button> */}
+            {/* <Button
               onClick={handleExportExcel}
               disabled={isExporting || products.length === 0}
               variant="outline"
               className="whitespace-nowrap"
             >
              Exportar Excel
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -425,7 +483,9 @@ export default function ListadoProductos() {
                             <p className="font-medium text-sm truncate">{product.art_nomb}</p>
                             <p className="text-xs text-muted-foreground">{product.mar_nomb || 'Sin marca'}</p>
                             {user && (
-                              <p className="text-sm font-semibold text-primary mt-1">${product.art_pfin?.toLocaleString('es-AR') || '0'}</p>
+                              <p className="text-sm font-semibold text-primary mt-1">
+                                {formatCurrencySpanish(applyCustomerDiscount(product.art_pfin, user?.cli_desc || 0))}
+                              </p>
                             )}
                             {/* Mostrar estado si no hay stock */}
                             {product.art_stk <= 0 && (
@@ -446,7 +506,7 @@ export default function ListadoProductos() {
                                 await CartService.addToCart(product.art_codi, 1, {
                                   art_nomb: product.art_nomb,
                                   art_pnet: product.art_pnet,
-                                  art_pfin: product.art_pfin,
+                                  art_pfin: product.art_pfin, // Guardar precio original sin descuento
                                   art_stk: product.art_stk || 0,
                                   art_img: product.art_img,
                                   mar_nomb: product.mar_nomb,
@@ -501,9 +561,13 @@ export default function ListadoProductos() {
                         </th>
                         <th className="text-left py-3 px-4">Código</th>
                         <th className="text-left py-3 px-4">Producto</th>
-                        <th className="text-left py-3 px-4">Marca</th>
-                        <th className="text-left py-3 px-4">Rubro</th>
-                        <th className="text-right py-3 px-4">Precio</th>
+                        <th className="text-right py-3 px-4">Precio {mostrarIVA ? "C/ IVA" : "(sin IVA)"}</th>
+                        {Number(user?.cli_precs1 || 0) > 0 && (
+                          <th className="text-center py-3 px-4">Precio Sugerido 1</th>
+                        )}
+                        {Number(user?.cli_precs2 || 0) > 0 && (
+                          <th className="text-center py-3 px-4">Precio Sugerido 2</th>
+                        )}
                         <th className="text-center py-3 px-4">Cantidad</th>
                       </tr>
                     </thead>
@@ -521,12 +585,16 @@ export default function ListadoProductos() {
                                 if (newSelected.has(product.art_codi)) {
                                   newSelected.delete(product.art_codi)
                                 } else {
+                                  // Obtener el producto del caché para acceder a mar_nomb
+                                  const cachedProduct = allProductsCache.get(product.art_codi)
+                                  const basePrice = mostrarIVA ? product.art_pfin : product.art_pnet
+                                  const finalPrice = applyCustomerDiscount(basePrice, user?.cli_desc || 0)
                                   newSelected.set(product.art_codi, {
                                     id: product.art_codi,
                                     name: product.art_nomb,
-                                    price: parseFloat(product.art_pfin.toString().replace(/\./g, '').replace(',', '.')),
+                                    price: finalPrice,
                                     quantity: 1,
-                                    brand: product.mar_nomb,
+                                    brand: cachedProduct?.mar_nomb || "",
                                   })
                                 }
                                 setSelectedProducts(newSelected)
@@ -537,7 +605,7 @@ export default function ListadoProductos() {
                           <td 
                             className="py-3 px-4 cursor-pointer transition-colors duration-200 hover:text-blue-600 group"
                             onClick={() => {
-                              const fullProduct = products.find(p => p.art_codi === product.art_codi)
+                              const fullProduct = allProductsCache.get(product.art_codi)
                               if (fullProduct) {
                                 setSelectedProductForPreview(fullProduct)
                               }
@@ -548,9 +616,13 @@ export default function ListadoProductos() {
                               <Eye className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                           </td>
-                          <td className="py-3 px-4">{product.mar_nomb}</td>
-                          <td className="py-3 px-4">{product.rub_nomb}</td>
-                          <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(product.art_pfin)}</td>
+                          <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)))}</td>
+                          {Number(user?.cli_precs1 || 0) > 0 && (
+                            <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
+                          )}
+                          {Number(user?.cli_precs2 || 0) > 0 && (
+                            <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
+                          )}
                           <td className="py-3 px-4">
                             {isSelected ? (
                               <div className="flex items-center justify-center gap-2">
@@ -731,7 +803,7 @@ export default function ListadoProductos() {
 
       <Footer />
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />}
       
       <NotificationToast
         message={notificationMessage}

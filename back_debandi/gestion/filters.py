@@ -23,6 +23,8 @@ class ArticuloFilterSet(django_filters.FilterSet):
         fields = {
             'art_acti': ['exact'],
             'art_visw': ['exact'],
+            'art_carru': ['exact'],
+            'art_prodr': ['exact'],
             'art_stk': ['exact', 'gt'],
             'art_pfin': ['exact', 'gte', 'lte'],
         }

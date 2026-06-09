@@ -18,11 +18,11 @@ import json
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
 )
 from .serializers import (
     ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
-    MarcaSerializer, RubroSerializer, SubrubroSerializer, ArticuloSerializer, ArticuloFrontendSerializer,
+    MarcaSerializer, RubroSerializer, SubrubroSerializer, ArticuloSerializer, ArticuloFrontendSerializer, NovedadesSerializer,
     ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
     PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer, 
     DetallePedidoSerializer, DetallePedidoWriteSerializer,
@@ -267,6 +267,27 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
                 {'error': f'Error al generar PDF: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+# ================================================================
+# NOVEDADES
+# ================================================================
+
+class NovedadesViewSet(BulkCreateMixin, BaseViewSet):
+    """
+    ViewSet para gestionar novedades y secciones especiales.
+    - GET /novedades/ - Listar todas las novedades
+    - POST /novedades/ - Crear nueva novedad
+    - GET /novedades/{id}/ - Obtener una novedad específica
+    - PUT /novedades/{id}/ - Actualizar una novedad
+    - DELETE /novedades/{id}/ - Eliminar una novedad
+    """
+    queryset = Novedades.objects.all()
+    serializer_class = NovedadesSerializer
+    permission_classes = [AllowAny]
+    search_fields = ['nov_nomb', 'nov_codi']
+    ordering_fields = ['nov_codi', 'nov_nomb']
+    filterset_fields = ['nov_bann', 'nov_prodr']
 
 
 # ================================================================
@@ -1178,7 +1199,11 @@ def cliente_login(request):
                 "cli_tele": cliente.cli_tele,
                 "cli_dire": cliente.cli_dire,
                 "cli_fchc": cliente.cli_fchc.isoformat() if cliente.cli_fchc else None,
+                "cli_desc": float(cliente.cli_desc) if cliente.cli_desc else 0,
+                "cli_precs1": float(cliente.cli_precs1) if cliente.cli_precs1 else 0,
+                "cli_precs2": float(cliente.cli_precs2) if cliente.cli_precs2 else 0,
                 "loc_codi": cliente.loc_codi_id,
+                "loc_nomb": cliente.loc_codi.loc_nomb if cliente.loc_codi else None,
                 "ven_codi": cliente.ven_codi_id if cliente.ven_codi else None,
             }
         }, status=200)
@@ -1316,6 +1341,162 @@ def cliente_update_password(request):
             status=404
         )
     except Exception as e:
+        return JsonResponse(
+            {'success': False, 'detail': str(e)}, 
+            status=500
+        )
+
+
+@csrf_exempt
+@csrf_exempt
+@require_http_methods(["POST", "PUT", "OPTIONS"])
+def cliente_update_parametros(request):
+    """
+    POST/PUT /api/cliente-update-parametros/
+    Actualiza los parámetros del cliente (márgenes, preferencias)
+    
+    Requiere JWT token en header Authorization: Bearer <token>
+    
+    Body:
+    {
+        "cli_precs1": 60,
+        "cli_precs2": 70,
+        "cli_desc": 10
+    }
+    
+    Response (200):
+    {
+        "success": true,
+        "cliente": {
+            "cli_codi": 1,
+            "cli_precs1": 60,
+            "cli_precs2": 70,
+            "cli_desc": 10,
+            "cli_nomb": "Juan"
+        }
+    }
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+    
+    try:
+        # Obtener token del header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return JsonResponse(
+                {'success': False, 'detail': 'Token requerido'}, 
+                status=401
+            )
+        
+        token = auth_header.replace('Bearer ', '')
+        
+        # Decodificar JWT
+        from rest_framework_simplejwt.tokens import AccessToken
+        user_id = None
+        try:
+            access_token = AccessToken(token)
+            user_id = access_token.get('user_id')
+            user_type = access_token.get('user_type', '')
+            
+            if user_type != 'cliente':
+                return JsonResponse(
+                    {'success': False, 'detail': 'Usuario no es cliente'}, 
+                    status=403
+                )
+        except Exception as e:
+            # Si el token falla, intenta obtener el user_id del request body
+            import traceback
+            traceback.print_exc()
+            try:
+                data = json.loads(request.body)
+                user_id = data.get('cli_codi')
+            except:
+                pass
+            
+            if not user_id:
+                return JsonResponse(
+                    {'success': False, 'detail': 'Token inválido o expirado. Intenta iniciar sesión de nuevo.'}, 
+                    status=401
+                )
+        
+        # Obtener datos del request
+        try:
+            data = json.loads(request.body)
+        except:
+            return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+        
+        # Usar el user_id del token o del body
+        if not user_id and 'cli_codi' in data:
+            user_id = data['cli_codi']
+        
+        if not user_id:
+            return JsonResponse(
+                {'success': False, 'detail': 'No se pudo obtener el ID del cliente'}, 
+                status=400
+            )
+        
+        # Buscar cliente
+        try:
+            cliente = Clientes.objects.get(cli_codi=user_id)
+        except Clientes.DoesNotExist:
+            return JsonResponse(
+                {'success': False, 'detail': 'Cliente no encontrado'}, 
+                status=404
+            )
+        
+        # Actualizar campos si se proporcionan
+        if 'cli_precs1' in data:
+            valor = data['cli_precs1']
+            if valor is not None:
+                try:
+                    cliente.cli_precs1 = float(valor)
+                except (ValueError, TypeError):
+                    return JsonResponse(
+                        {'success': False, 'detail': 'cli_precs1 debe ser un número'}, 
+                        status=400
+                    )
+        
+        if 'cli_precs2' in data:
+            valor = data['cli_precs2']
+            if valor is not None:
+                try:
+                    cliente.cli_precs2 = float(valor)
+                except (ValueError, TypeError):
+                    return JsonResponse(
+                        {'success': False, 'detail': 'cli_precs2 debe ser un número'}, 
+                        status=400
+                    )
+        
+        if 'cli_desc' in data:
+            valor = data['cli_desc']
+            if valor is not None:
+                try:
+                    cliente.cli_desc = float(valor)
+                except (ValueError, TypeError):
+                    return JsonResponse(
+                        {'success': False, 'detail': 'cli_desc debe ser un número'}, 
+                        status=400
+                    )
+        
+        # Guardar cliente
+        cliente.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": "Parámetros actualizados",
+            "cliente": {
+                "cli_codi": cliente.cli_codi,
+                "cli_nomb": cliente.cli_nomb,
+                "cli_emai": cliente.cli_emai,
+                "cli_precs1": float(cliente.cli_precs1) if cliente.cli_precs1 else 0,
+                "cli_precs2": float(cliente.cli_precs2) if cliente.cli_precs2 else 0,
+                "cli_desc": float(cliente.cli_desc) if cliente.cli_desc else 0,
+            }
+        }, status=200)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse(
             {'success': False, 'detail': str(e)}, 
             status=500

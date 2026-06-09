@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
 )
 
 
@@ -145,7 +145,7 @@ class ClientesAdmin(admin.ModelAdmin):
             'fields': ('ven_codi',)
         }),
         ('Información', {
-            'fields': ('cli_estc', 'cli_ocup'),
+            'fields': ('cli_estc', 'cli_ocup', 'cli_desc', 'cli_precs1', 'cli_precs2'),
             'classes': ('collapse',)
         }),
         ('Autenticación', {
@@ -333,3 +333,27 @@ class UsuarioAdmin(admin.ModelAdmin):
     search_fields = ['usu_nomb']
     readonly_fields = ['usu_fcre']
     ordering = ['usu_nomb']
+
+
+# ================================================================
+# NOVEDADES Y SECCIONES
+# ================================================================
+
+@admin.register(Novedades)
+class NovedadesAdmin(admin.ModelAdmin):
+    list_display = ['nov_codi', 'nov_nomb', 'art_carru', 'nov_bann', 'nov_prodr']
+    list_filter = ['nov_bann', 'nov_prodr']
+    search_fields = ['nov_codi', 'nov_nomb']
+    fieldsets = (
+        ('Identificación', {
+            'fields': ('nov_codi', 'nov_nomb')
+        }),
+        ('Artículo Destacado', {
+            'fields': ('art_carru',),
+            'description': 'Selecciona el artículo que aparecerá en el carrusel de Nuevos Productos'
+        }),
+        ('Configuración de Secciones', {
+            'fields': ('nov_bann', 'nov_prodr')
+        }),
+    )
+    ordering = ['nov_nomb']

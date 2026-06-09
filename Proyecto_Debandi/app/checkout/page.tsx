@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+
 import { CartService, type CartItem } from "@/services/cart.service"
 import { ApiService } from "@/services/api.service"
-import { formatCurrencySpanish } from "@/lib/format"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -192,7 +194,8 @@ export default function CheckoutPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
 
       <main className="flex-1 flex items-center justify-center max-w-7xl mx-auto w-full px-4 py-8">
         {isLoading && (
@@ -239,7 +242,9 @@ export default function CheckoutPage() {
               <div className="bg-muted/50 rounded-lg p-6 space-y-4 text-left">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Total:</span>
-                  <span className="font-semibold">{formatCurrencySpanish(total)}</span>
+                  <span className="font-semibold">{formatCurrencySpanish(
+                    finalOrderItems.reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
+                  )}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Cantidad de productos:</span>
@@ -266,11 +271,11 @@ export default function CheckoutPage() {
                           <div className="flex-1">
                             <p className="font-medium text-foreground">{item.art_nomb}</p>
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity} x {formatCurrencySpanish(item.art_pfin)}
+                              {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
                             </p>
                           </div>
                           <p className="font-semibold text-primary">
-                            {formatCurrencySpanish(item.art_pfin * item.quantity)}
+                            {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
                           </p>
                         </div>
                       ))}
@@ -307,11 +312,11 @@ export default function CheckoutPage() {
                       <div>
                         <p className="font-medium text-foreground">{item.art_nomb}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.quantity} x {formatCurrencySpanish(item.art_pfin)}
+                          {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
                         </p>
                       </div>
                       <p className="font-semibold text-primary">
-                        {formatCurrencySpanish(item.art_pfin * item.quantity)}
+                        {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
                       </p>
                     </div>
                   ))}
@@ -326,11 +331,10 @@ export default function CheckoutPage() {
               <div className="text-right mb-6">
                 <p className="text-muted-foreground mb-2">Total</p>
                 <p className="text-4xl font-bold text-primary">
-                  {/* Usar total del estado (calculado por el backend con IVA incluido) */}
-                  {showSuccess && finalTotal !== null 
-                    ? formatCurrencySpanish(finalTotal)
-                    : formatCurrencySpanish(total)
-                  }
+                  {/* Calcular total con descuento aplicado */}
+                  {formatCurrencySpanish(
+                    getDisplayItems().reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
+                  )}
                 </p>
               </div>
 

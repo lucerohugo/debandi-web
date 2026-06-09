@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import CartItems from "@/components/cart-items"
 import CartSummary from "@/components/cart-summary"
@@ -159,7 +160,7 @@ export default function CartPage() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header onSearch={() => {}} />
+        <SiteHeader />
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
           <div className="animate-pulse">Cargando carrito...</div>
         </main>
@@ -170,7 +171,8 @@ export default function CartPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
         <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-75 transition mb-6">

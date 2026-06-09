@@ -265,7 +265,7 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                             <p className="text-xs text-muted-foreground">{product.mar_nomb || 'Sin marca'}</p>
                             {/* Mostrar precio solo si está autenticado */}
                             {user && (
-                              <p className="text-sm font-semibold text-primary mt-1">${product.art_pfin?.toLocaleString('es-AR') || '0'}</p>
+                              <p className="text-sm font-semibold text-primary mt-1">{formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}</p>
                             )}
                             {/* Mostrar estado si no hay stock */}
                             {product.art_stk <= 0 && (
@@ -408,6 +408,14 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                       >
                         <Heart className="w-5 h-5 text-accent" />
                         <span className="font-medium">Mis Favoritos</span>
+                      </Link>
+                      <Link
+                        href="/mis-datos"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/10 transition text-sm"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <UserCog className="w-5 h-5 text-accent" />
+                        <span className="font-medium">Mis Datos</span>
                       </Link>
                       <button
                         onClick={() => {
@@ -565,6 +573,10 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                   <Link href="/favoritos" className="flex items-center gap-3 px-3 py-2 hover:bg-accent/10 rounded transition text-sm">
                     <Heart className="w-5 h-5 text-accent" />
                     <span className="font-medium">Mis Favoritos</span>
+                  </Link>
+                  <Link href="/mis-datos" className="flex items-center gap-3 px-3 py-2 hover:bg-accent/10 rounded transition text-sm">
+                    <UserCog className="w-5 h-5 text-accent" />
+                    <span className="font-medium">Mis Datos</span>
                   </Link>
                   <button 
                     onClick={() => {

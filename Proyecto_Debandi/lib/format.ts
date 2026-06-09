@@ -43,3 +43,22 @@ export function formatPriceSpanish(value: number | string): string {
 export function formatCurrencySpanish(value: number | string, currency: string = "$"): string {
   return `${currency}${formatPriceSpanish(value)}`
 }
+
+/**
+ * Aplica descuento porcentual a un precio
+ * @param price - Precio base
+ * @param discount - Porcentaje de descuento (ej: 10 para 10%)
+ * @returns Precio con descuento aplicado
+ */
+export function applyDiscountToPrice(price: number | string, discount: number | string): number {
+  const priceNum = typeof price === 'string' ? parseFloat(price) : price
+  const discountNum = typeof discount === 'string' ? parseFloat(discount) : discount
+  
+  if (!discountNum || discountNum === 0) {
+    // Redondear correctamente a 2 decimales incluso sin descuento
+    return Math.round(priceNum * 100) / 100
+  }
+  const result = priceNum - (priceNum * discountNum / 100)
+  // Redondear correctamente a 2 decimales
+  return Math.round(result * 100) / 100
+}

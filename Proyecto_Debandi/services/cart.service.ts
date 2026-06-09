@@ -45,6 +45,32 @@ class CartServiceClass {
   }
 
   /**
+   * Obtener el descuento del cliente logueado
+   */
+  private getClientDiscount(): number {
+    try {
+      if (typeof window === 'undefined') return 0
+      
+      const authUser = localStorage.getItem('auth_user')
+      if (authUser) {
+        const user = JSON.parse(authUser)
+        return user.cli_desc || 0
+      }
+    } catch (error) {
+      console.error('Error obteniendo descuento del cliente:', error)
+    }
+    return 0
+  }
+
+  /**
+   * Aplicar descuento al precio
+   */
+  private applyDiscount(price: number, discount: number): number {
+    if (!discount || discount === 0) return price
+    return price - (price * discount / 100)
+  }
+
+  /**
    * Obtener todos los items del carrito desde la BD
    */
   async getCart(): Promise<CartItem[]> {
@@ -60,25 +86,28 @@ class CartServiceClass {
       // DRF retorna {count, next, previous, results}
       const items = Array.isArray(response) ? response : (response?.results || [])
       
-      return items.map((item: any) => ({
-        carr_codi: item.carr_codi,
-        cli_codi: item.cli_codi,
-        art_codi: item.art_codi,
-        art_nomb: item.art_nomb,
-        art_pnet: item.art_pnet,
-        art_pfin: item.art_pfin,
-        art_tiva: item.art_tiva,
-        art_stk: item.art_stk,
-        art_img: item.art_img,
-        mar_nomb: item.mar_nomb,
-        rub_nomb: item.rub_nomb,
-        carr_cant: item.carr_cant,
-        quantity: item.carr_cant, // Alias para compatibilidad con componentes
-        carr_pnet: item.carr_pnet,
-        carr_pfin: item.carr_pfin,
-        carr_fech: item.carr_fech,
-        carr_fmod: item.carr_fmod
-      }))
+      // Retornar items sin aplicar descuento - los componentes lo harán
+      return items.map((item: any) => {
+        return {
+          carr_codi: item.carr_codi,
+          cli_codi: item.cli_codi,
+          art_codi: item.art_codi,
+          art_nomb: item.art_nomb,
+          art_pnet: item.art_pnet,
+          art_pfin: item.carr_pfin, // Precio original sin descuento
+          art_tiva: item.art_tiva,
+          art_stk: item.art_stk,
+          art_img: item.art_img,
+          mar_nomb: item.mar_nomb,
+          rub_nomb: item.rub_nomb,
+          carr_cant: item.carr_cant,
+          quantity: item.carr_cant, // Alias para compatibilidad con componentes
+          carr_pnet: item.carr_pnet,
+          carr_pfin: item.carr_pfin, // Precio original sin descuento
+          carr_fech: item.carr_fech,
+          carr_fmod: item.carr_fmod
+        }
+      })
     } catch (error) {
       console.error('Error cargando carrito:', error)
       return []
@@ -104,13 +133,13 @@ class CartServiceClass {
         // Actualizar cantidad en BD
         await this.updateCart(art_codi, existingItem.carr_cant + cantidad)
       } else if (producto) {
-        // Crear nuevo item en BD
+        // Crear nuevo item en BD SIN aplicar descuento (se aplicará visualmente en componentes)
         const payload = {
           cli_codi: clientId,
           art_codi: art_codi,
           carr_cant: cantidad,
           carr_pnet: producto.art_pnet || 0,
-          carr_pfin: producto.art_pfin || 0
+          carr_pfin: producto.art_pfin || 0 // Guardar sin descuento
         }
         
         await ApiService.post('/carrito-manage/', payload)

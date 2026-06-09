@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
 import Footer from "@/components/footer"
 import Link from "next/link"
 import { ArrowLeft, Trash2, Plus, Minus, Save, AlertCircle, Check, Loader2, Search, X } from "lucide-react"
@@ -327,7 +327,7 @@ export default function EditOrderPage() {
   if (authLoading || loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header onSearch={() => {}} />
+        <SiteHeader />
         <main className="flex-1 flex items-center justify-center">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -342,7 +342,7 @@ export default function EditOrderPage() {
   if (error) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header onSearch={() => {}} />
+        <SiteHeader />
         <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
           <Link href="/pedidos" className="flex items-center gap-2 text-primary hover:text-primary/80 mb-6">
             <ArrowLeft className="w-4 h-4" />
@@ -368,7 +368,7 @@ export default function EditOrderPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
 
       {/* Notificación Flotante */}
       {notification && (

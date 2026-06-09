@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import AuthModal from "@/components/auth-modal"
 import { Button } from "@/components/ui/button"
@@ -69,7 +70,8 @@ export default function ContactPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
 
       <main className="flex-1">
         {/* Sección de información de contacto */}

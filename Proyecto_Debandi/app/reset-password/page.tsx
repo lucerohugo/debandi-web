@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle, CheckCircle, Loader } from "lucide-react"
-import Header from "@/components/header"
+import SiteHeader from "@/components/site-header"
+import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { Suspense } from "react"
 import { buildApiUrl } from "@/lib/utils"
@@ -249,7 +250,8 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      <Header onSearch={() => {}} />
+      <SiteHeader />
+      <NavigationBar />
       <main className="flex-1 flex items-center justify-center py-12 px-4">
         <Suspense fallback={
           <div className="flex items-center gap-3">
