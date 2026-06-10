@@ -764,7 +764,7 @@ export default function GestorImagenes() {
                     <div>
                       <label className="block text-sm font-medium mb-2">Nombre</label>
                       <Input
-                        placeholder="Ej: Oferta Verano 2026"
+                        placeholder="Ej: Debandi"
                         value={bannerNombre}
                         onChange={(e) => setBannerNombre(e.target.value)}
                       />
