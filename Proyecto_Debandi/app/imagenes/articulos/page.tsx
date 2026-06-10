@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,14 +31,24 @@ interface ArticulosResponse {
 interface Novedad {
   nov_codi: number
   nov_nomb: string
+  nov_titl?: string | null
+  nov_desc?: string | null
+  nov_img_url?: string | null
   nov_bann: boolean
   nov_prodr: boolean
+  nov_fechi?: string | null
+  nov_fechf?: string | null
   art_carru?: Articulo | null
 }
 
 export default function GestorImagenes() {
   const { isLoggedIn, username, login, logout } = useImagenesAdmin()
   const [mounted, setMounted] = useState(false)
+  
+  // Refs para scroll a top
+  const tablasArticulosRef = useRef<HTMLDivElement>(null)
+  const tablasNuevosRef = useRef<HTMLDivElement>(null)
+  const tablasRecomendadosRef = useRef<HTMLDivElement>(null)
   
   // Estados para Imágenes
   const [articulos, setArticulos] = useState<Articulo[]>([])
@@ -56,7 +66,13 @@ export default function GestorImagenes() {
   const [articulosNuevos, setArticulosNuevos] = useState<Set<number>>(new Set())
   
   // Estados para Banners
+  const [bannerEditando, setBannerEditando] = useState<Novedad | null>(null)
   const [bannerNombre, setBannerNombre] = useState("")
+  const [bannerTitulo, setBannerTitulo] = useState("")
+  const [bannerDesc, setBannerDesc] = useState("")
+  const [bannerFechaInicio, setBannerFechaInicio] = useState("")
+  const [bannerFechaFinal, setBannerFechaFinal] = useState("")
+  const [bannerImagen, setBannerImagen] = useState<File | null>(null)
   const [banners, setBanners] = useState<Novedad[]>([])
   const [loadingBanners, setLoadingBanners] = useState(false)
   
@@ -77,7 +93,7 @@ export default function GestorImagenes() {
     setLoadingArticulos(true)
     try {
       const apiUrl = getApiUrl()
-      let url = `${apiUrl}/articulos/?limit=20&offset=${(pagina - 1) * 20}`
+      let url = `${apiUrl}/articulos/?page=${pagina}`
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search)}`
       }
@@ -96,7 +112,7 @@ export default function GestorImagenes() {
     setLoadingNuevos(true)
     try {
       const apiUrl = getApiUrl()
-      let url = `${apiUrl}/articulos/?limit=20&offset=${(pagina - 1) * 20}`
+      let url = `${apiUrl}/articulos/?page=${pagina}`
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search)}`
       }
@@ -128,7 +144,7 @@ export default function GestorImagenes() {
     setLoadingRecomendados(true)
     try {
       const apiUrl = getApiUrl()
-      let url = `${apiUrl}/articulos/?limit=20&offset=${(pagina - 1) * 20}`
+      let url = `${apiUrl}/articulos/?page=${pagina}`
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search)}`
       }
@@ -241,31 +257,95 @@ export default function GestorImagenes() {
     }
   }
 
-  const crearBanner = async () => {
+  const guardarBanner = async () => {
     if (!bannerNombre.trim()) {
       alert("Por favor ingresa un nombre para el banner")
       return
     }
+    
     try {
       const apiUrl = getApiUrl()
-      const res = await fetch(`${apiUrl}/novedades/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nov_nomb: bannerNombre,
-          nov_bann: true,
-          nov_prodr: false,
-          art_carru: null,
-        }),
-      })
+      const method = bannerEditando ? "PATCH" : "POST"
+      const url = bannerEditando 
+        ? `${apiUrl}/novedades/${bannerEditando.nov_codi}/`
+        : `${apiUrl}/novedades/`
+
+      // Construir JSON en lugar de FormData para évitar problemas de tipo
+      const body: any = {
+        nov_nomb: bannerNombre,
+        nov_titl: bannerTitulo || null,
+        nov_desc: bannerDesc || null,
+        nov_bann: true,
+        nov_prodr: false,
+      }
+      
+      if (bannerFechaInicio) body.nov_fechi = bannerFechaInicio
+      if (bannerFechaFinal) body.nov_fechf = bannerFechaFinal
+
+      // Si hay imagen, necesitamos usar FormData
+      let fetchOptions: RequestInit = {
+        method,
+      }
+
+      if (bannerImagen) {
+        // Usar FormData para soportar imagen
+        const formData = new FormData()
+        Object.keys(body).forEach(key => {
+          const value = body[key]
+          if (value !== null && value !== undefined) {
+            formData.append(key, String(value))
+          }
+        })
+        formData.append('nov_img', bannerImagen)
+        fetchOptions.body = formData
+      } else {
+        // Usar JSON si no hay imagen
+        fetchOptions.headers = { "Content-Type": "application/json" }
+        fetchOptions.body = JSON.stringify(body)
+      }
+
+      const res = await fetch(url, fetchOptions)
+      
       if (res.ok) {
-        setBannerNombre("")
+        limpiarFormularioBanner()
         await cargarBanners()
-        alert("Banner creado exitosamente")
+        alert(bannerEditando ? "Banner actualizado exitosamente" : "Banner creado exitosamente")
+      } else {
+        const errorText = await res.text()
+        console.error("Error del servidor:", errorText)
+        
+        // Intentar parsear como JSON si es posible
+        try {
+          const errorJson = JSON.parse(errorText)
+          alert("Error al guardar banner: " + JSON.stringify(errorJson))
+        } catch {
+          alert("Error al guardar banner: " + errorText.substring(0, 300))
+        }
       }
     } catch (error) {
-      console.error("Error creando banner:", error)
+      console.error("Error guardando banner:", error)
+      alert("Error al guardar banner: " + String(error))
     }
+  }
+
+  const limpiarFormularioBanner = () => {
+    setBannerEditando(null)
+    setBannerNombre("")
+    setBannerTitulo("")
+    setBannerDesc("")
+    setBannerFechaInicio("")
+    setBannerFechaFinal("")
+    setBannerImagen(null)
+  }
+
+  const editarBanner = (banner: Novedad) => {
+    setBannerEditando(banner)
+    setBannerNombre(banner.nov_nomb)
+    setBannerTitulo(banner.nov_titl || "")
+    setBannerDesc(banner.nov_desc || "")
+    setBannerFechaInicio(banner.nov_fechi || "")
+    setBannerFechaFinal(banner.nov_fechf || "")
+    setBannerImagen(null) // Reset para subir nueva imagen si se desea
   }
 
   const eliminarBanner = async (novCodi: number) => {
@@ -338,6 +418,25 @@ export default function GestorImagenes() {
     }
   }, [isLoggedIn])
 
+  // Scroll al top cuando cambian los artículos
+  useEffect(() => {
+    if (tablasArticulosRef.current) {
+      tablasArticulosRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [articulos])
+
+  useEffect(() => {
+    if (tablasNuevosRef.current) {
+      tablasNuevosRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [nuevosArticulos])
+
+  useEffect(() => {
+    if (tablasRecomendadosRef.current) {
+      tablasRecomendadosRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [recomendadosArticulos])
+
   if (!mounted) {
     return <div className="min-h-screen bg-gray-50" />
   }
@@ -367,7 +466,7 @@ export default function GestorImagenes() {
             <Link href="/" className="text-primary hover:text-primary/80 mb-2 inline-block text-sm">
               ← Volver al inicio
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Gestor de Imagenes WEB</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Gestor visual WEB</h1>
             <p className="text-gray-600 mt-1">Administra las imágenes y contenido visual de tu tienda</p>
           </div>
           <div className="flex items-center gap-4">
@@ -427,7 +526,7 @@ export default function GestorImagenes() {
                     }}
                   />
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" ref={tablasArticulosRef}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -551,7 +650,7 @@ export default function GestorImagenes() {
                     }}
                   />
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" ref={tablasNuevosRef}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -651,47 +750,128 @@ export default function GestorImagenes() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-blue-800">
-                    Los banners se mostrarán en la sección de ofertas especiales del sitio web.
+                    Los banners se mostrarán en la página de inicio con imagen y fechas de vigencia.
                   </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Formulario de Banner */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+                  <h3 className="font-semibold text-gray-900">
+                    {bannerEditando ? `Editar Banner #${bannerEditando.nov_codi}` : "Crear Nuevo Banner"}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Nombre</label>
+                      <Input
+                        placeholder="Ej: Oferta Verano 2026"
+                        value={bannerNombre}
+                        onChange={(e) => setBannerNombre(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Título (Mostrado en banner)</label>
+                      <Input
+                        placeholder="Ej: ¡PROMO MUNDIAL!"
+                        value={bannerTitulo}
+                        onChange={(e) => setBannerTitulo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium mb-2">Nombre del banner</label>
-                    <Input
-                      placeholder="Ej: Oferta Verano 2026"
-                      value={bannerNombre}
-                      onChange={(e) => setBannerNombre(e.target.value)}
+                    <label className="block text-sm font-medium mb-2">Descripción</label>
+                    <textarea
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Ej: Los mejores precios en herramientas de calidad profesional"
+                      value={bannerDesc}
+                      onChange={(e) => setBannerDesc(e.target.value)}
+                      rows={3}
                     />
                   </div>
-                  <div className="flex items-end">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Fecha Inicio</label>
+                      <Input
+                        type="date"
+                        value={bannerFechaInicio}
+                        onChange={(e) => setBannerFechaInicio(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Fecha Final</label>
+                      <Input
+                        type="date"
+                        value={bannerFechaFinal}
+                        onChange={(e) => setBannerFechaFinal(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Imagen del Banner (1600x320px)</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) setBannerImagen(file)
+                        }}
+                        className="w-full cursor-pointer"
+                      />
+                    </div>
+                    {bannerImagen && (
+                      <p className="text-sm text-green-600 mt-2">✓ Imagen seleccionada: {bannerImagen.name}</p>
+                    )}
+                    {!bannerImagen && bannerEditando?.nov_img_url && (
+                      <p className="text-sm text-gray-600 mt-2">Imagen actual del banner (cargada)</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
                     <Button
-                      onClick={crearBanner}
-                      className="w-full bg-primary hover:bg-primary/90 text-white"
+                      onClick={guardarBanner}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-white"
                     >
-                      Crear Banner
+                      {bannerEditando ? "Actualizar Banner" : "Crear Banner"}
                     </Button>
+                    {bannerEditando && (
+                      <Button
+                        onClick={limpiarFormularioBanner}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
                   </div>
                 </div>
+
+                {/* Tabla de Banners */}
                 <div className="overflow-x-auto mt-6">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-2 px-3 font-semibold">Código</th>
                         <th className="text-left py-2 px-3 font-semibold">Nombre</th>
-                        <th className="text-left py-2 px-3 font-semibold">nov_bann</th>
-                        <th className="text-left py-2 px-3 font-semibold">Acción</th>
+                        <th className="text-left py-2 px-3 font-semibold">Título</th>
+                        <th className="text-left py-2 px-3 font-semibold">Imagen</th>
+                        <th className="text-left py-2 px-3 font-semibold">Fechas</th>
+                        <th className="text-left py-2 px-3 font-semibold">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loadingBanners ? (
                         <tr>
-                          <td colSpan={4} className="text-center py-4 text-gray-500">
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
                             Cargando...
                           </td>
                         </tr>
                       ) : banners.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="text-center py-4 text-gray-500">
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
                             No hay banners creados
                           </td>
                         </tr>
@@ -699,13 +879,41 @@ export default function GestorImagenes() {
                         banners.map((banner) => (
                           <tr key={banner.nov_codi} className="border-b hover:bg-gray-50">
                             <td className="py-2 px-3">{banner.nov_codi}</td>
-                            <td className="py-2 px-3">{banner.nov_nomb}</td>
+                            <td className="py-2 px-3 font-medium">{banner.nov_nomb}</td>
+                            <td className="py-2 px-3">{banner.nov_titl || "-"}</td>
                             <td className="py-2 px-3">
-                              <span className={banner.nov_bann ? "text-green-600 font-semibold" : "text-gray-500"}>
-                                {banner.nov_bann ? "Activo" : "Inactivo"}
-                              </span>
+                              {banner.nov_img_url ? (
+                                <div className="w-12 h-12 relative rounded border border-gray-200 overflow-hidden bg-gray-100">
+                                  <Image
+                                    src={banner.nov_img_url}
+                                    alt={banner.nov_nomb}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-xs">Sin imagen</span>
+                              )}
                             </td>
-                            <td className="py-2 px-3">
+                            <td className="py-2 px-3 text-xs">
+                              {banner.nov_fechi || banner.nov_fechf ? (
+                                <div>
+                                  {banner.nov_fechi && <div>Inicio: {banner.nov_fechi}</div>}
+                                  {banner.nov_fechf && <div>Final: {banner.nov_fechf}</div>}
+                                </div>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="py-2 px-3 flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => editarBanner(banner)}
+                              >
+                                Editar
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="destructive"
@@ -749,7 +957,7 @@ export default function GestorImagenes() {
                     }}
                   />
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" ref={tablasRecomendadosRef}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">

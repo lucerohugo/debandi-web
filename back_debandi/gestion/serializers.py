@@ -130,10 +130,27 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
 class NovedadesSerializer(serializers.ModelSerializer):
     """Serializer para Novedades"""
     articulo = ArticuloFrontendSerializer(source='art_carru', read_only=True)
+    nov_img_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Novedades
-        fields = ['nov_codi', 'nov_nomb', 'art_carru', 'articulo', 'nov_bann', 'nov_prodr']
+        fields = [
+            'nov_codi', 'nov_nomb', 'nov_titl', 'nov_desc', 'nov_img', 'nov_img_url',
+            'art_carru', 'articulo', 'nov_bann', 'nov_prodr', 'nov_fechi', 'nov_fechf'
+        ]
+        read_only_fields = ['nov_codi', 'nov_img_url', 'articulo']
+        extra_kwargs = {
+            'nov_img': {'write_only': True}  # Solo para recibir, no devolver
+        }
+    
+    def get_nov_img_url(self, obj):
+        """Retorna URL completa de la imagen del banner"""
+        if obj.nov_img:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.nov_img.url)
+            return f"/media/{obj.nov_img.name}"
+        return None
 
 
 # ================================================================

@@ -12,28 +12,110 @@ interface PromoSlide {
   cta?: string
   image?: string
   link?: string
+  startDate?: string
+  endDate?: string
 }
 
-const defaultSlides: PromoSlide[] = [
-  {
-    id: 1,
-    title: "¡Hasta 10% de descuentos!",
-    description: "Tarugas, espuma poliuretano, selladores, siliconas, mechas y mucho más!",
-    cta: "Ver ofertas",
-    image: "/promo-1.png",
-  },
-  {
-    id: 2,
-    title: "Ofertas en Herramientas",
-    description: "Los mejores precios en herramientas de calidad profesional",
-    cta: "Comprar ahora",
-    image: "/promo-2.png",
-  },
-]
+interface Novedad {
+  nov_codi: number
+  nov_nomb: string
+  nov_titl?: string
+  nov_desc?: string
+  nov_img_url?: string
+  nov_fechi?: string
+  nov_fechf?: string
+}
 
 export default function PromoBanner() {
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [slides, setSlides] = useState<PromoSlide[]>(defaultSlides)
+  const [slides, setSlides] = useState<PromoSlide[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+        const res = await fetch(`${apiUrl}/novedades/?limit=100`)
+        const data = await res.json()
+        
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        console.log("Banners desde API:", data.results) // Debug
+
+        const activeBanners = (data.results || [])
+          .filter((banner: Novedad) => {
+            // Filtrar solo banners activos por fecha
+            const start = banner.nov_fechi ? new Date(banner.nov_fechi) : null
+            const end = banner.nov_fechf ? new Date(banner.nov_fechf) : null
+            
+            if (start && start > today) return false // No ha empezado
+            if (end && end < today) return false // Ya terminó
+            
+            return banner.nov_img_url && banner.nov_titl // Solo si tiene imagen y título
+          })
+          .map((banner: Novedad, index: number) => {
+            console.log("Banner activo mapeado:", banner) // Debug
+            return {
+              id: banner.nov_codi,
+              title: banner.nov_titl || "Oferta Especial",
+              description: banner.nov_desc || "Aprovecha esta oportunidad",
+              cta: "Ver ofertas",
+              image: banner.nov_img_url,
+              startDate: banner.nov_fechi,
+              endDate: banner.nov_fechf,
+            }
+          })
+
+        // Si no hay banners activos, mostrar los slides por defecto
+        if (activeBanners.length === 0) {
+          console.log("No hay banners activos, usando banners por defecto")
+          setSlides([
+            {
+              id: 1,
+              title: "¡Hasta 10% de descuentos!",
+              description: "Tarugas, espuma poliuretano, selladores, siliconas, mechas y mucho más!",
+              cta: "Ver ofertas",
+              image: "/promo-1.png",
+            },
+            {
+              id: 2,
+              title: "Ofertas en Herramientas",
+              description: "Los mejores precios en herramientas de calidad profesional",
+              cta: "Comprar ahora",
+              image: "/promo-2.png",
+            },
+          ])
+        } else {
+          console.log("Banners activos encontrados:", activeBanners.length)
+          setSlides(activeBanners)
+        }
+      } catch (error) {
+        console.error("Error cargando banners:", error)
+        // Mostrar banners por defecto si hay error
+        setSlides([
+          {
+            id: 1,
+            title: "¡Hasta 10% de descuentos!",
+            description: "Tarugas, espuma poliuretano, selladores, siliconas, mechas y mucho más!",
+            cta: "Ver ofertas",
+            image: "/promo-1.png",
+          },
+          {
+            id: 2,
+            title: "Ofertas en Herramientas",
+            description: "Los mejores precios en herramientas de calidad profesional",
+            cta: "Comprar ahora",
+            image: "/promo-2.png",
+          },
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBanners()
+  }, [])
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length)
@@ -45,30 +127,42 @@ export default function PromoBanner() {
 
   // Auto-advance slides
   useEffect(() => {
+    if (slides.length === 0) return
     const timer = setInterval(nextSlide, 5000)
     return () => clearInterval(timer)
   }, [slides.length])
 
+  if (loading || slides.length === 0) {
+    return (
+      <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden">
+        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+          <p className="text-gray-600">Cargando ofertas...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="relative w-full h-64 sm:h-80 bg-accent rounded-lg overflow-hidden group">
+    <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden group">
       {/* Slide actual */}
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full bg-gradient-to-r from-slate-200 to-slate-100 flex items-center justify-center">
         {slides[currentSlide].image && (
           <Image
             src={slides[currentSlide].image}
             alt={slides[currentSlide].title}
             fill
-            className="object-cover"
+            className="w-full h-full object-contain"
+            priority
           />
         )}
 
-        {/* Overlay gradiente */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background/80 to-transparent flex items-center">
+        {/* Overlay gradiente - Negro oscuro a transparente para mejor contraste */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center">
           <div className="p-6 sm:p-8 max-w-lg">
-            <h2 className="text-2xl sm:text-4xl font-bold text-foreground mb-2">
+            <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">
               {slides[currentSlide].title}
             </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mb-4">
+            <p className="text-sm sm:text-base text-gray-100 mb-4">
               {slides[currentSlide].description}
             </p>
             {slides[currentSlide].cta && (

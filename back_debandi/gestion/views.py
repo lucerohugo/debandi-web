@@ -273,7 +273,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 # NOVEDADES
 # ================================================================
 
-class NovedadesViewSet(BulkCreateMixin, BaseViewSet):
+class NovedadesViewSet(BaseViewSet):
     """
     ViewSet para gestionar novedades y secciones especiales.
     - GET /novedades/ - Listar todas las novedades
@@ -288,6 +288,23 @@ class NovedadesViewSet(BulkCreateMixin, BaseViewSet):
     search_fields = ['nov_nomb', 'nov_codi']
     ordering_fields = ['nov_codi', 'nov_nomb']
     filterset_fields = ['nov_bann', 'nov_prodr']
+    
+    def create(self, request, *args, **kwargs):
+        """Override create para devolver serializer correcto con nov_img_url"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update para devolver serializer correcto con nov_img_url"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 # ================================================================

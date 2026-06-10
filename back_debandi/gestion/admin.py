@@ -341,12 +341,20 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Novedades)
 class NovedadesAdmin(admin.ModelAdmin):
-    list_display = ['nov_codi', 'nov_nomb', 'art_carru', 'nov_bann', 'nov_prodr']
+    list_display = ['nov_codi', 'nov_nomb', 'nov_titl', 'art_carru', 'nov_bann', 'nov_prodr']
     list_filter = ['nov_bann', 'nov_prodr']
-    search_fields = ['nov_codi', 'nov_nomb']
+    search_fields = ['nov_codi', 'nov_nomb', 'nov_titl']
     fieldsets = (
         ('Identificación', {
             'fields': ('nov_codi', 'nov_nomb')
+        }),
+        ('Banner - Contenido Visual', {
+            'fields': ('nov_titl', 'nov_desc', 'nov_img'),
+            'description': 'Configuración del banner que se muestra en la página de inicio'
+        }),
+        ('Banner - Fechas de Vigencia', {
+            'fields': ('nov_fechi', 'nov_fechf'),
+            'description': 'El banner solo se mostrará entre estas fechas (ambas opcionales)'
         }),
         ('Artículo Destacado', {
             'fields': ('art_carru',),

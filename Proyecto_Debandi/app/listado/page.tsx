@@ -561,14 +561,18 @@ export default function ListadoProductos() {
                         </th>
                         <th className="text-left py-3 px-4">Código</th>
                         <th className="text-left py-3 px-4">Producto</th>
-                        <th className="text-right py-3 px-4">Precio {mostrarIVA ? "C/ IVA" : "(sin IVA)"}</th>
-                        {Number(user?.cli_precs1 || 0) > 0 && (
-                          <th className="text-center py-3 px-4">Precio Sugerido 1</th>
+                        {user && (
+                          <>
+                            <th className="text-right py-3 px-4">Precio {mostrarIVA ? "C/ IVA" : "(sin IVA)"}</th>
+                            {Number(user?.cli_precs1 || 0) > 0 && (
+                              <th className="text-center py-3 px-4">Precio Sugerido 1</th>
+                            )}
+                            {Number(user?.cli_precs2 || 0) > 0 && (
+                              <th className="text-center py-3 px-4">Precio Sugerido 2</th>
+                            )}
+                            <th className="text-center py-3 px-4">Cantidad</th>
+                          </>
                         )}
-                        {Number(user?.cli_precs2 || 0) > 0 && (
-                          <th className="text-center py-3 px-4">Precio Sugerido 2</th>
-                        )}
-                        <th className="text-center py-3 px-4">Cantidad</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -616,14 +620,16 @@ export default function ListadoProductos() {
                               <Eye className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)))}</td>
-                          {Number(user?.cli_precs1 || 0) > 0 && (
-                            <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
-                          )}
-                          {Number(user?.cli_precs2 || 0) > 0 && (
-                            <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
-                          )}
-                          <td className="py-3 px-4">
+                          {user && (
+                            <>
+                              <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)))}</td>
+                              {Number(user?.cli_precs1 || 0) > 0 && (
+                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
+                              )}
+                              {Number(user?.cli_precs2 || 0) > 0 && (
+                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
+                              )}
+                              <td className="py-3 px-4">
                             {isSelected ? (
                               <div className="flex items-center justify-center gap-2">
                                 <button
@@ -665,6 +671,8 @@ export default function ListadoProductos() {
                               <span className="text-muted-foreground text-center block">-</span>
                             )}
                           </td>
+                            </>
+                          )}
                         </tr>
                       )
                     })}
