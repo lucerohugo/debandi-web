@@ -17,12 +17,12 @@ export default function Home() {
       {/* Navigation Bar */}
       <NavigationBar />
 
+      {/* Promo Banner - Full Screen Width */}
+      <PromoBanner />
+
       {/* Main Content */}
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
-          {/* Promo Banner */}
-          <PromoBanner />
-
           {/* Nuevos Productos */}
           <div className="mt-12">
             <NewProducts />

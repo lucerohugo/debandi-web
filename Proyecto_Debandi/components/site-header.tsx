@@ -50,7 +50,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   useEffect(() => {
     const loadCart = async () => {
       const items = await CartService.getCart()
-      setCartCount(items.length)
+      const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || item.carr_cant || 0), 0)
+      setCartCount(totalQuantity)
     }
     if (mounted) {
       loadCart()
@@ -65,7 +66,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   useEffect(() => {
     const handleCartUpdated = async () => {
       const items = await CartService.getCart()
-      setCartCount(items.length)
+      const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || item.carr_cant || 0), 0)
+      setCartCount(totalQuantity)
     }
 
     window.addEventListener("cart-updated", handleCartUpdated)

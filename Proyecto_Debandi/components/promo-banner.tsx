@@ -67,48 +67,18 @@ export default function PromoBanner() {
             }
           })
 
-        // Si no hay banners activos, mostrar los slides por defecto
+        // Si no hay banners activos, no mostrar nada
         if (activeBanners.length === 0) {
-          console.log("No hay banners activos, usando banners por defecto")
-          setSlides([
-            {
-              id: 1,
-              title: "¡Hasta 10% de descuentos!",
-              description: "Tarugas, espuma poliuretano, selladores, siliconas, mechas y mucho más!",
-              cta: "Ver ofertas",
-              image: "/promo-1.png",
-            },
-            {
-              id: 2,
-              title: "Ofertas en Herramientas",
-              description: "Los mejores precios en herramientas de calidad profesional",
-              cta: "Comprar ahora",
-              image: "/promo-2.png",
-            },
-          ])
+          console.log("No hay banners activos")
+          setSlides([])
         } else {
           console.log("Banners activos encontrados:", activeBanners.length)
           setSlides(activeBanners)
         }
       } catch (error) {
         console.error("Error cargando banners:", error)
-        // Mostrar banners por defecto si hay error
-        setSlides([
-          {
-            id: 1,
-            title: "¡Hasta 10% de descuentos!",
-            description: "Tarugas, espuma poliuretano, selladores, siliconas, mechas y mucho más!",
-            cta: "Ver ofertas",
-            image: "/promo-1.png",
-          },
-          {
-            id: 2,
-            title: "Ofertas en Herramientas",
-            description: "Los mejores precios en herramientas de calidad profesional",
-            cta: "Comprar ahora",
-            image: "/promo-2.png",
-          },
-        ])
+        // Si hay error, no mostrar banners
+        setSlides([])
       } finally {
         setLoading(false)
       }
@@ -132,7 +102,7 @@ export default function PromoBanner() {
     return () => clearInterval(timer)
   }, [slides.length])
 
-  if (loading || slides.length === 0) {
+  if (loading) {
     return (
       <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden">
         <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -142,8 +112,12 @@ export default function PromoBanner() {
     )
   }
 
+  if (slides.length === 0) {
+    return null
+  }
+
   return (
-    <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden group">
+    <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden group -mx-[calc((100vw-100%)/2)]">
       {/* Slide actual */}
       <div className="relative w-full h-full bg-gradient-to-r from-slate-200 to-slate-100 flex items-center justify-center">
         {slides[currentSlide].image && (
@@ -151,7 +125,7 @@ export default function PromoBanner() {
             src={slides[currentSlide].image}
             alt={slides[currentSlide].title}
             fill
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
             priority
           />
         )}
@@ -175,13 +149,13 @@ export default function PromoBanner() {
       </div>
 
       {/* Flechas de navegación */}
-      <button
+      {/* <button
         onClick={prevSlide}
         className="absolute left-4 top-1/2 -translate-y-1/2 bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
         aria-label="Slide anterior"
       >
         <ChevronLeft className="w-5 h-5" />
-      </button>
+      </button> */}
       <button
         onClick={nextSlide}
         className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"

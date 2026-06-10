@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { ShoppingCart, Eye, Search, X } from "lucide-react"
 import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
@@ -8,7 +9,6 @@ import Footer from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { formatCurrencySpanish } from "@/lib/format"
 import { useAuth } from "@/contexts/auth-context"
@@ -92,7 +92,9 @@ export default function ListadoProductos() {
   const [totalCount, setTotalCount] = useState(0)  // Total de artículos del backend
   const [allProductsCache, setAllProductsCache] = useState<Map<number, Product>>(new Map()) // Caché de todos los productos cargados
   const [mostrarIVA, setMostrarIVA] = useState(true) // Preferencia de mostrar IVA (por defecto true)
+  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map()) // Cantidades para cada producto en la tabla
   const { user } = useAuth()
+  const router = useRouter()
 
   // Ref para rastrear si el valor de búsqueda global realmente cambió
   const prevGlobalRef = useRef("")
@@ -378,6 +380,53 @@ export default function ListadoProductos() {
     }
   }
 
+  const handleAddSingleProductToCart = async (productId: number, quantity: number) => {
+    // Verificar si el usuario está logueado
+    if (!user) {
+      setShowAuthModal(true)
+      return
+    }
+
+    if (!quantity || quantity <= 0) {
+      setNotificationMessage("Por favor ingresa una cantidad mayor a 0")
+      setShowNotification(true)
+      return
+    }
+
+    try {
+      // Buscar el producto en el caché
+      const fullProduct = allProductsCache.get(productId)
+      
+      if (fullProduct) {
+        await CartService.addToCart(productId, quantity, {
+          art_nomb: fullProduct.art_nomb,
+          art_pnet: fullProduct.art_pnet,
+          art_pfin: fullProduct.art_pfin,
+          art_stk: fullProduct.art_stk,
+          art_img: fullProduct.art_img,
+          mar_nomb: fullProduct.mar_nomb,
+          rub_nomb: fullProduct.rub_nomb,
+          quantity: quantity
+        })
+
+        // Disparar evento para actualizar carrito en header
+        window.dispatchEvent(new Event("cart-updated"))
+        
+        // Mostrar notificación de éxito
+        setNotificationMessage(`${quantity} ${quantity === 1 ? 'producto' : 'productos'} agregado(s) al carrito`)
+        setShowNotification(true)
+        setTimeout(() => setShowNotification(false), 3000)
+      } else {
+        setNotificationMessage("Error: Producto no encontrado")
+        setShowNotification(true)
+      }
+    } catch (error) {
+      console.error("Error al agregar al carrito:", error)
+      setNotificationMessage(`❌ Error al agregar producto al carrito`)
+      setShowNotification(true)
+    }
+  }
+
   const totalItems = Array.from(selectedProducts.values()).reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = Array.from(selectedProducts.values()).reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -556,9 +605,6 @@ export default function ListadoProductos() {
                   <table className="w-full">
                     <thead className="border-b bg-muted">
                       <tr>
-                        <th className="text-left py-3 px-4 w-12">
-                          <span className="text-xs">Seleccionar</span>
-                        </th>
                         <th className="text-left py-3 px-4">Código</th>
                         <th className="text-left py-3 px-4">Producto</th>
                         {user && (
@@ -570,41 +616,16 @@ export default function ListadoProductos() {
                             {Number(user?.cli_precs2 || 0) > 0 && (
                               <th className="text-center py-3 px-4">Precio Sugerido 2</th>
                             )}
-                            <th className="text-center py-3 px-4">Cantidad</th>
+                            <th className="text-center py-3 px-4">Pedir</th>
                           </>
                         )}
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedProducts.map((product) => {
-                      const isSelected = selectedProducts.has(product.art_codi)
-                      const selectedItem = selectedProducts.get(product.art_codi)
+                      const quantity = cartQuantities.get(product.art_codi) || 0
                       return (
                         <tr key={product.art_codi} className="border-b hover:bg-muted/50">
-                          <td className="py-3 px-4">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => {
-                                const newSelected = new Map(selectedProducts)
-                                if (newSelected.has(product.art_codi)) {
-                                  newSelected.delete(product.art_codi)
-                                } else {
-                                  // Obtener el producto del caché para acceder a mar_nomb
-                                  const cachedProduct = allProductsCache.get(product.art_codi)
-                                  const basePrice = mostrarIVA ? product.art_pfin : product.art_pnet
-                                  const finalPrice = applyCustomerDiscount(basePrice, user?.cli_desc || 0)
-                                  newSelected.set(product.art_codi, {
-                                    id: product.art_codi,
-                                    name: product.art_nomb,
-                                    price: finalPrice,
-                                    quantity: 1,
-                                    brand: cachedProduct?.mar_nomb || "",
-                                  })
-                                }
-                                setSelectedProducts(newSelected)
-                              }}
-                            />
-                          </td>
                           <td className="py-3 px-4 font-medium">{product.art_codi}</td>
                           <td 
                             className="py-3 px-4 cursor-pointer transition-colors duration-200 hover:text-blue-600 group"
@@ -630,47 +651,29 @@ export default function ListadoProductos() {
                                 <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
                               )}
                               <td className="py-3 px-4">
-                            {isSelected ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    if (selectedItem && selectedItem.quantity > 1) {
-                                      const newSelected = new Map(selectedProducts)
-                                      newSelected.set(product.art_codi, {
-                                        ...selectedItem,
-                                        quantity: selectedItem.quantity - 1
-                                      })
-                                      setSelectedProducts(newSelected)
-                                    }
-                                  }}
-                                  className="px-2 py-1 border rounded hover:bg-muted"
-                                  disabled={!selectedItem || selectedItem.quantity <= 1}
-                                >
-                                  -
-                                </button>
-                                <span className="w-8 text-center font-medium">
-                                  {selectedItem?.quantity || 1}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    if (selectedItem) {
-                                      const newSelected = new Map(selectedProducts)
-                                      newSelected.set(product.art_codi, {
-                                        ...selectedItem,
-                                        quantity: selectedItem.quantity + 1
-                                      })
-                                      setSelectedProducts(newSelected)
-                                    }
-                                  }}
-                                  className="px-2 py-1 border rounded hover:bg-muted"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-center block">-</span>
-                            )}
-                          </td>
+                                <div className="flex items-center justify-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={quantity}
+                                    onChange={(e) => {
+                                      const newQty = Math.max(1, parseInt(e.target.value) || 1)
+                                      const newQuantities = new Map(cartQuantities)
+                                      newQuantities.set(product.art_codi, newQty)
+                                      setCartQuantities(newQuantities)
+                                    }}
+                                    className="w-16 px-2 py-1 border rounded text-center"
+                                    disabled={product.art_stk <= 0}
+                                  />
+                                  <button
+                                    onClick={() => handleAddSingleProductToCart(product.art_codi, quantity)}
+                                    disabled={product.art_stk <= 0}
+                                    className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                                  >
+                                    Pedir
+                                  </button>
+                                </div>
+                              </td>
                             </>
                           )}
                         </tr>
@@ -789,24 +792,6 @@ export default function ListadoProductos() {
             )}
           </div>
         </div>
-
-        {/* Botón flotante sticky con carrito */}
-        {selectedProducts.size > 0 && (
-          <div className="fixed right-8 bottom-8 z-40">
-            <button
-              onClick={handleAddToCart}
-              className="relative flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200"
-              title={`Agregar ${totalItems} ${totalItems === 1 ? 'producto' : 'productos'} al carrito`}
-            >
-              <ShoppingCart className="w-7 h-7" />
-              {totalItems > 0 && (
-                <span className="absolute top-0 right-0 bg-accent text-accent-foreground text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
-                  {totalItems}
-                </span>
-              )}
-            </button>
-          </div>
-        )}
       </main>
 
       <Footer />
