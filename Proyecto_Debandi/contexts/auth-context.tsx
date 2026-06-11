@@ -14,7 +14,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [impersonation, setImpersonation] = useState<ImpersonationInfo>(() => {
     // Asegurarse de que estamos en el cliente (no en SSR)
     if (typeof window === 'undefined') {
-      console.log('🔥 AUTH-CONTEXT INIT: SSR mode, localStorage no disponible')
       return { isImpersonating: false }
     }
     
@@ -22,15 +21,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('impersonation_state')
       if (saved) {
         const parsed = JSON.parse(saved)
-        console.log('🔥 AUTH-CONTEXT INIT: Impersonation_state encontrado en localStorage:', parsed)
-        console.log('🔥   isImpersonating:', parsed.isImpersonating)
-        console.log('🔥   vendedor.ven_nomb:', parsed.vendedor?.ven_nomb)
         return parsed
-      } else {
-        console.log('🔥 AUTH-CONTEXT INIT: impersonation_state NO está en localStorage')
       }
     } catch (error) {
-      console.error('🔥 AUTH-CONTEXT INIT: Error al parsear impersonation_state:', error)
       localStorage.removeItem('impersonation_state')
     }
     
@@ -40,12 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Cargar usuario del localStorage en montaje
   useEffect(() => {
     const loadFromStorage = () => {
-      console.log('📂 AUTH-CONTEXT useEffect: Leyendo del localStorage...')
       const savedUser = localStorage.getItem('auth_user')
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser)
-          console.log('👤 AUTH-CONTEXT: Usuario encontrado:', parsed.cli_nomb || parsed.firstName)
           setUser(parsed)
         } catch (error) {
           console.error('Error parsing user:', error)
@@ -63,17 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (savedImpersonation) {
         try {
           const parsedImpersonation = JSON.parse(savedImpersonation)
-          console.log('📋 AUTH-CONTEXT useEffect: Impersonación recuperada:', parsedImpersonation)
-          console.log('📋   isImpersonating:', parsedImpersonation.isImpersonating)
-          console.log('📋   vendedor:', parsedImpersonation.vendedor?.ven_nomb)
           setImpersonation(parsedImpersonation)
         } catch (error) {
           console.error('Error parsing impersonation state:', error)
           localStorage.removeItem('impersonation_state')
           setImpersonation({ isImpersonating: false })
         }
-      } else {
-        console.log('📋 AUTH-CONTEXT useEffect: No hay impersonation_state en localStorage')
       }
     }
     
@@ -85,20 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // IMPORTANTE: Escuchar evento personalizado cuando se actualiza localStorage
     const handleStorageUpdate = () => {
-      console.log('🔔 AUTH-CONTEXT: storage-updated event recibido 🚨 RE-LEYENDO AGRESIVAMENTE')
       // Re-leer DIRECTAMENTE del localStorage (sin pasar por loadFromStorage)
       const savedImpersonation = localStorage.getItem('impersonation_state')
-      console.log('🔔 AUTH-CONTEXT: localStorage.impersonation_state =', savedImpersonation)
       
       if (savedImpersonation) {
         try {
           const parsed = JSON.parse(savedImpersonation)
-          console.log('🔔 AUTH-CONTEXT: Parsed =', parsed)
-          console.log('🔔 AUTH-CONTEXT: Llamando setImpersonation ahora...')
           setImpersonation(parsed)
-          console.log('🔔 AUTH-CONTEXT: setImpersonation completado ✅')
         } catch (error) {
-          console.error('🔔 AUTH-CONTEXT: Error parsing:', error)
+          console.error('Error parsing:', error)
         }
       }
       
@@ -116,15 +97,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Escuchar eventos de impersonación
   useEffect(() => {
-    console.log('🔧 Auth-context: Registrando listeners de impersonación')
-    
     const handleImpersonationStarted = (event: Event) => {
       const customEvent = event as CustomEvent
       const { detail } = customEvent
-      console.log('📥 Auth-context: Evento impersonation-started recibido', detail)
       
       if (detail.cliente) {
-        console.log('👤 Auth-context: Procesando cliente:', detail.cliente.cli_nomb)
         const impersonatedUser: User = {
           id: detail.cliente.cli_codi,
           email: detail.cliente.cli_emai || '',
@@ -143,7 +120,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (detail.impersonation) {
-        console.log('🔐 Auth-context: Procesando impersonación, vendedor:', detail.impersonation.vendedor)
         // Usar directamente los datos del vendedor que vienen en el evento
         const impersonationState: ImpersonationInfo = {
           isImpersonating: true,
@@ -153,21 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        console.log('💾 Auth-context: Seteando impersonation state:', impersonationState)
-        console.log('💾 Auth-context: vendedor.ven_nomb =', impersonationState.vendedor?.ven_nomb)
         setImpersonation(impersonationState)
         localStorage.setItem('impersonation_state', JSON.stringify(impersonationState))
-        console.log('✅ Impersonación activada:', impersonationState)
-      } else {
-        console.log('⚠️ Auth-context: ADVERTENCIA - detail.impersonation es undefined!')
-        console.log('⚠️ detail:', detail)
       }
     }
 
     const handleImpersonationStopped = (event: Event) => {
       const customEvent = event as CustomEvent
       const { detail } = customEvent
-      console.log('🛑 Auth-context: Evento impersonation-stopped recibido')
       
       // Limpiar impersonación
       if (detail.impersonation) {
@@ -184,10 +153,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener('impersonation-started', handleImpersonationStarted)
     window.addEventListener('impersonation-stopped', handleImpersonationStopped)
-    console.log('✔️ Auth-context: Listeners registrados')
     
     return () => {
-      console.log('🧹 Auth-context: Removiendo listeners')
       window.removeEventListener('impersonation-started', handleImpersonationStarted)
       window.removeEventListener('impersonation-stopped', handleImpersonationStopped)
     }
@@ -238,7 +205,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 50))
       
       // 🎉 Disparar evento para actualizar carrito
-      console.log('🛒 AUTH-CONTEXT: Disparando cart-updated después del login')
       window.dispatchEvent(new Event('cart-updated'))
       
       // 🎉 Disparar evento para mostrar WelcomeModal

@@ -536,7 +536,8 @@ export default function ListadoProductos() {
                               <p className="text-sm font-semibold text-primary mt-1">
                                 {formatCurrencySpanish(applyCustomerDiscount(product.art_pfin, user?.cli_desc || 0))}
                               </p>
-                            )}\n                          </div>
+                            )}
+                          </div>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation()
