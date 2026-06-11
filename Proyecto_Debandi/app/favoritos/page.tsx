@@ -139,15 +139,12 @@ export default function FavoritesPage() {
                     </Button>
                     <Button
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.art_stk === 0}
                       className="flex-1"
                     >
                       <ShoppingCart className="w-4 h-4 mr-1" />
                       Agregar
                     </Button>
                   </div>
-
-                  {product.art_stk === 0 && <p className="text-xs text-red-500 font-semibold">Sin Stock</p>}
                 </CardContent>
               </Card>
             ))}

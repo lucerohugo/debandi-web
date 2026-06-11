@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Search, ShoppingCart, Menu, X, User, LogOut, Shield, Heart, Package, Key, Download, UserCog } from "lucide-react"
 import { playfairDisplay, poppins } from "@/lib/fonts"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { useAuth } from "@/contexts/auth-context"
 import { useVendedor } from "@/contexts/vendedor-context"
 import { useConfig } from "@/contexts/config-context"
@@ -39,6 +40,8 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  // Estado para el banner de supervisor - lee del localStorage directamente
+  const [bannerData, setBannerData] = useState<{ isImpersonating: boolean; vendedor?: { ven_nomb: string } } | null>(null)
   const { user, logout, impersonation } = useAuth()
   const { stopImpersonation, logout: logoutVendedor } = useVendedor()
   const { config, loading } = useConfig()
@@ -46,6 +49,57 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
 
   // Ref para rastrear si el valor realmente cambió (para búsqueda local)
   const prevRef = useRef("")
+
+  // BANNER: Leer directamente del localStorage para mostrar banner de supervisor
+  useEffect(() => {
+    const checkBannerState = () => {
+      if (typeof window === 'undefined') return
+      
+      const savedImpersonation = localStorage.getItem('impersonation_state')
+      
+      if (savedImpersonation) {
+        try {
+          const parsed = JSON.parse(savedImpersonation)
+          setBannerData(parsed)
+        } catch (err) {
+          setBannerData(null)
+        }
+      } else {
+        setBannerData(null)
+      }
+    }
+
+    // Verificar al montar - con pequeño delay para asegurar DOM listo
+    const timer = setTimeout(() => {
+      checkBannerState()
+    }, 50)
+
+    // Escuchar cambios en el localStorage
+    const handleStorageChange = () => {
+      checkBannerState()
+    }
+    
+    // Listener explícito para impersonation-started - MÁS AGRESIVO
+    const handleImpersonationStarted = (event: Event) => {
+      // Verificar inmediatamente
+      setTimeout(() => {
+        checkBannerState()
+      }, 100)
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('storage-updated', handleStorageChange)
+    window.addEventListener('impersonation-started', handleImpersonationStarted)
+    window.addEventListener('impersonation-stopped', handleStorageChange)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('storage-updated', handleStorageChange)
+      window.removeEventListener('impersonation-started', handleImpersonationStarted)
+      window.removeEventListener('impersonation-stopped', handleStorageChange)
+    }
+  }, [])
 
   // Búsqueda LOCAL para Inicio (debounce de 300ms)
   // Solo dispara si el valor REALMENTE cambió
@@ -153,16 +207,20 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
     setFavoritesCount(favorites.length)
   }, [favorites])
 
+  // LOGS DE DIAGNÓSTICO - Removidos
+  // console.log("🟡 HEADER RENDER")
+  // console.log("🟡 HEADER impersonation =", impersonation)
+
   return (
     <>
-      {/* Banner de Supervisor/Impersonación */}
-      {impersonation.isImpersonating && (
+      {/* Banner de Supervisor/Impersonación - Lee del localStorage directamente */}
+      {bannerData?.isImpersonating && (
         <div className="bg-amber-500 text-amber-950 px-4 py-2 sticky top-0 z-[60]">
           <div className="max-w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
               <UserCog className="w-5 h-5" />
               <span className="font-medium text-sm">
-                Modo Supervisor: Vendedor ({impersonation.vendedor?.ven_nomb || 'Vendedor'}) 
+                Modo Supervisor: Vendedor ({bannerData.vendedor?.ven_nomb || 'Vendedor'}) 
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -189,7 +247,7 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
         </div>
       )}
       
-      <header className={`bg-primary text-primary-foreground sticky ${impersonation.isImpersonating ? 'top-10' : 'top-0'} z-50 shadow-md`}>
+      <header className={`bg-primary text-primary-foreground sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50 shadow-md`}>
       <div className="max-w-full px-4 py-4">
         <div className="flex items-center justify-between gap-8">
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
@@ -266,18 +324,10 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                             {/* Mostrar precio solo si está autenticado */}
                             {user && (
                               <p className="text-sm font-semibold text-primary mt-1">{formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}</p>
-                            )}
-                            {/* Mostrar estado si no hay stock */}
-                            {product.art_stk <= 0 && (
-                              <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
-                            )}
-                          </div>
+                            )}\n                          </div>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation()
-                              if (product.art_stk <= 0) {
-                                return
-                              }
                               if (!user) {
                                 setShowAuthModal(true)
                                 return
@@ -299,9 +349,8 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
                                 console.error('Error agregando al carrito:', err)
                               }
                             }}
-                            disabled={product.art_stk <= 0}
-                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={product.art_stk <= 0 ? "Producto agotado" : "Agregar al carrito"}
+                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors"
+                            title="Agregar al carrito"
                           >
                             <ShoppingCart className="w-5 h-5 text-primary" />
                           </button>
@@ -632,7 +681,7 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
         )}
       </div>
       
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />}
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
       {showPreviewModal && selectedProduct && (
         <ProductPreviewModal 

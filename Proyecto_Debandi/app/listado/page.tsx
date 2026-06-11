@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/auth-context"
 import AuthModal from "@/components/auth-modal"
 import NotificationToast from "@/components/notification-toast"
 import ProductPreviewModal from "@/components/product-preview-modal"
+import StockIndicator from "@/components/stock-indicator"
 //import { exportToPDF, exportToExcel } from "@/lib/export-utils" lo borro ya que no me sirve 
 import { ExportUtils } from "@/lib/export-utils"
 import { ApiService } from "@/services/api.service"
@@ -535,18 +536,10 @@ export default function ListadoProductos() {
                               <p className="text-sm font-semibold text-primary mt-1">
                                 {formatCurrencySpanish(applyCustomerDiscount(product.art_pfin, user?.cli_desc || 0))}
                               </p>
-                            )}
-                            {/* Mostrar estado si no hay stock */}
-                            {product.art_stk <= 0 && (
-                              <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
-                            )}
-                          </div>
+                            )}\n                          </div>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation()
-                              if (product.art_stk <= 0) {
-                                return
-                              }
                               if (!user) {
                                 setShowAuthModal(true)
                                 return
@@ -574,9 +567,8 @@ export default function ListadoProductos() {
                                 setTimeout(() => setShowNotification(false), 3000)
                               }
                             }}
-                            disabled={product.art_stk <= 0}
-                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={product.art_stk <= 0 ? "Producto agotado" : "Agregar al carrito"}
+                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors"
+                            title="Agregar al carrito"
                           >
                             <ShoppingCart className="w-5 h-5 text-primary" />
                           </button>
@@ -616,6 +608,7 @@ export default function ListadoProductos() {
                             {Number(user?.cli_precs2 || 0) > 0 && (
                               <th className="text-center py-3 px-4">Precio Sugerido 2</th>
                             )}
+                            <th className="text-center py-3 px-4">Stock</th>
                             <th className="text-center py-3 px-4">Pedir</th>
                           </>
                         )}
@@ -650,6 +643,9 @@ export default function ListadoProductos() {
                               {Number(user?.cli_precs2 || 0) > 0 && (
                                 <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
                               )}
+                              <td className="py-3 px-4 text-center min-w-[150px]">
+                                <StockIndicator stock={product.art_stk} maxStock={100} showLabel={false} />
+                              </td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center justify-center gap-2">
                                   <input
@@ -663,12 +659,10 @@ export default function ListadoProductos() {
                                       setCartQuantities(newQuantities)
                                     }}
                                     className="w-16 px-2 py-1 border rounded text-center"
-                                    disabled={product.art_stk <= 0}
                                   />
                                   <button
                                     onClick={() => handleAddSingleProductToCart(product.art_codi, quantity)}
-                                    disabled={product.art_stk <= 0}
-                                    className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                                    className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-medium"
                                   >
                                     Pedir
                                   </button>

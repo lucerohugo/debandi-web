@@ -10,6 +10,7 @@ import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
 import ProductPreviewModal from "./product-preview-modal"
+import StockIndicator from "./stock-indicator"
 import { Button } from "./ui/button"
 
 interface Product {
@@ -125,13 +126,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           >
             <Heart className={`w-4 h-4 ${favorite ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
           </button>
-
-          {/* Badge agotado */}
-          {product.art_stk === 0 && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">Agotado</span>
-            </div>
-          )}
         </div>
 
         {/* Contenido */}
@@ -156,10 +150,17 @@ export default function ProductCard({ product }: ProductCardProps) {
             {formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}
           </p>
 
+          {/* Indicador de Stock */}
+          {user && (
+            <div className="mb-3">
+              <StockIndicator stock={product.art_stk} maxStock={100} />
+            </div>
+          )}
+
           {/* Botón Agregar al carrito */}
           <Button
             onClick={addToCart}
-            disabled={product.art_stk === 0 || isAdding}
+            disabled={isAdding}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-auto text-sm"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />

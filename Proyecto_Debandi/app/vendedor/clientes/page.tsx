@@ -103,21 +103,38 @@ export default function VendedorClientesPage() {
         throw new Error('Cliente no encontrado')
       }
       
-      // Guardar cliente en localStorage
+      console.log('\n🎯 VENDEDOR/CLIENTES: Iniciando impersonación de:', clienteSeleccionado.cli_nomb)
+      console.log('🎯 Vendedor actual:', vendedor)
+      
+      // 1. PRIMERO: Guardar impersonation_state en localStorage
+      const impState = {
+        isImpersonating: true,
+        vendedor: vendedor
+      }
+      localStorage.setItem('impersonation_state', JSON.stringify(impState))
+      console.log('💾 VENDEDOR/CLIENTES: Impersonation_state guardado en localStorage')
+      
+      // 2. Guardar cliente en localStorage
       localStorage.setItem('auth_user', JSON.stringify(clienteSeleccionado))
+      console.log('✔️ VENDEDOR/CLIENTES: Cliente guardado en localStorage')
       
-      // Emitir evento de impersonación con toda la información
+      // 3. Emitir evento de impersonación con toda la información
+      const eventData = {
+        cliente: clienteSeleccionado,
+        impersonation: impState
+      }
+      console.log('📡 VENDEDOR/CLIENTES: Disparando evento impersonation-started')
+      
       window.dispatchEvent(new CustomEvent('impersonation-started', {
-        detail: {
-          cliente: clienteSeleccionado,
-          impersonation: {
-            isImpersonating: true,
-            vendedor: vendedor
-          }
-        }
+        detail: eventData
       }))
+      console.log('✅ VENDEDOR/CLIENTES: Evento impersonation-started disparado')
       
-      // Redirigir a página principal
+      // 4. Pequeño delay para asegurar que todo se procese
+      await new Promise(resolve => setTimeout(resolve, 150))
+      console.log('⏰ VENDEDOR/CLIENTES: Delay completado, navegando a /')
+      
+      // 5. Redirigir a página principal
       router.push('/')
     } catch (err: any) {
       setError(err.message || "Error al ingresar como cliente")

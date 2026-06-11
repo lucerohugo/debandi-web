@@ -473,18 +473,13 @@ export default function EditOrderPage() {
                       <button
                         key={product.art_codi}
                         onClick={() => addProductToOrder(product)}
-                        disabled={product.art_stk <= 0}
-                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors"
                       >
                         <div>
                           <p className="font-medium text-foreground">{product.art_nomb}</p>
                           <p className="text-sm text-muted-foreground">
                             Cód: {product.art_codi} {product.mar_nomb && `• ${product.mar_nomb}`}
                           </p>
-                          {/* Mostrar badge si no hay stock */}
-                          {product.art_stk <= 0 && (
-                            <p className="text-sm font-semibold text-gray-500 mt-2">Agotado</p>
-                          )}
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-primary">{formatCurrencySpanish(product.art_pfin)}</p>

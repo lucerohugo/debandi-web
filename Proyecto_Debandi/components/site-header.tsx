@@ -8,6 +8,7 @@ import { Search, ShoppingCart, Heart, Moon, Sun, LogOut, User, Shield, Key, User
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { useConfig } from "@/contexts/config-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 import { useTheme } from "next-themes"
 import { CartService } from "@/services/cart.service"
 import { SearchService } from "@/services/search.service"
@@ -24,6 +25,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { user, logout, impersonation } = useAuth()
+  const { stopImpersonation, logout: logoutVendedor } = useVendedor()
   const { favorites } = useFavorites()
   
   const [searchValue, setSearchValue] = useState("")
@@ -39,12 +41,62 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [mounted, setMounted] = useState(false)
+  // Banner de supervisor - lee del localStorage directamente
+  const [bannerData, setBannerData] = useState<{ isImpersonating: boolean; vendedor?: { ven_nomb: string } } | null>(null)
+  const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // BANNER: Leer directamente del localStorage para mostrar banner de supervisor
+  useEffect(() => {
+    const checkBannerState = () => {
+      if (typeof window === 'undefined') return
+      
+      const savedImpersonation = localStorage.getItem('impersonation_state')
+      
+      if (savedImpersonation) {
+        try {
+          const parsed = JSON.parse(savedImpersonation)
+          setBannerData(parsed)
+        } catch (err) {
+          setBannerData(null)
+        }
+      } else {
+        setBannerData(null)
+      }
+    }
+
+    // Verificar al montar
+    checkBannerState()
+
+    // Escuchar cambios en el localStorage
+    const handleStorageChange = () => {
+      checkBannerState()
+    }
+
+    // Listener explícito para impersonation-started
+    const handleImpersonationStarted = (event: Event) => {
+      setTimeout(() => {
+        checkBannerState()
+      }, 100)
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('storage-updated', handleStorageChange)
+    window.addEventListener('impersonation-started', handleImpersonationStarted)
+    window.addEventListener('impersonation-stopped', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('storage-updated', handleStorageChange)
+      window.removeEventListener('impersonation-started', handleImpersonationStarted)
+      window.removeEventListener('impersonation-stopped', handleStorageChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -104,6 +156,40 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
     setShowSearchDropdown(false)
   }
 
+  const handleStopImpersonation = async () => {
+    setStoppingImpersonation(true)
+    try {
+      await stopImpersonation()
+    } catch (error) {
+      console.error("Error stopping impersonation:", error)
+    } finally {
+      setStoppingImpersonation(false)
+    }
+  }
+
+  const handleLogoutVendedor = async () => {
+    try {
+      localStorage.removeItem('vendedor_session')
+      localStorage.removeItem('jwtToken')
+      localStorage.removeItem('auth_user')
+      localStorage.removeItem('impersonation_state')
+      
+      window.dispatchEvent(new CustomEvent('impersonation-stopped', {
+        detail: {
+          impersonation: {
+            isImpersonating: false
+          }
+        }
+      }))
+      
+      await logoutVendedor()
+      router.push("/")
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+      router.push("/")
+    }
+  }
+
   const handleLogout = () => {
     logout()
     setShowUserMenu(false)
@@ -129,8 +215,42 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
 
   return (
     <>
+      {/* Banner de Supervisor/Impersonación - Lee del localStorage directamente */}
+      {bannerData?.isImpersonating && (
+        <div className="bg-amber-500 text-amber-950 px-4 py-2 sticky top-0 z-[60]">
+          <div className="max-w-full flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserCog className="w-5 h-5" />
+              <span className="font-medium text-sm">
+                Modo Supervisor: Vendedor ({bannerData.vendedor?.ven_nomb || 'Vendedor'}) 
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleStopImpersonation}
+                disabled={stoppingImpersonation}
+                className="bg-amber-600 hover:bg-amber-700 text-white border-0"
+              >
+                {stoppingImpersonation ? "Saliendo..." : "Volver al Panel"}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleLogoutVendedor}
+                className="bg-red-600 hover:bg-red-700 text-white border-0"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Cerrar Sesión
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Header Principal */}
-      <header className="bg-background border-b border-border sticky top-0 z-50">
+      <header className={`bg-background border-b border-border sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50`}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
@@ -242,10 +362,10 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                     <>
                       {/* Overlay backdrop con desenfoque - Solo debajo del header */}
                       <div
-                        className="fixed top-[90px] left-0 right-0 bottom-0 backdrop-blur z-40"
+                        className={`fixed left-0 right-0 bottom-0 backdrop-blur z-40 ${bannerData?.isImpersonating ? 'top-[140px]' : 'top-[90px]'}`}
                         onClick={() => setShowUserMenu(false)}
                       />
-                      <div className="absolute right-0 mt-2 w-72 bg-white/80 dark:bg-slate-900/90 backdrop-blur-md border-2 border-white/60 dark:border-white/40 rounded-lg shadow-2xl z-50 divide-y divide-white/20">
+                      <div className={`absolute right-0 w-72 bg-white/80 dark:bg-slate-900/90 backdrop-blur-md border-2 border-white/60 dark:border-white/40 rounded-lg shadow-2xl z-50 divide-y divide-white/20 ${bannerData?.isImpersonating ? 'top-full mt-2' : 'top-full mt-2'}`}>
                         <div className="px-4 py-3 text-center">
                           <p className="text-xs font-medium text-gray-900/80 dark:text-white/70">{user.email}</p>
                         </div>
@@ -292,16 +412,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                           <Key className="w-4 h-4 inline mr-3" />
                           Cambiar Contraseña
                         </button>
-                        {impersonation && (
-                          <button
-                            onClick={handleLogout}
-                            className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                          >
-                            <LogOut className="w-4 h-4 inline mr-3" />
-                            Cerrar Sesión
-                          </button>
-                        )}
-                        {!impersonation && (
+                        {!bannerData?.isImpersonating && (
                           <button
                             onClick={handleLogout}
                             className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"

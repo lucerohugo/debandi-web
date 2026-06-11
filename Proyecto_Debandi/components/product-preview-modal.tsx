@@ -8,6 +8,7 @@ import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
+import StockIndicator from "./stock-indicator"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 
@@ -49,7 +50,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
   const handleQuantityChange = (value: string) => {
     const num = parseInt(value) || 0
-    if (num > 0 && num <= product.art_stk) {
+    if (num > 0) {
       setQuantity(num)
     }
   }
@@ -61,9 +62,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   }
 
   const handleIncrement = () => {
-    if (quantity < product.art_stk) {
-      setQuantity(quantity + 1)
-    }
+    setQuantity(quantity + 1)
   }
 
   const handleAddToCart = async () => {
@@ -128,8 +127,9 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-background rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <>
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-background rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         {/* Botón cerrar */}
         <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Detalles del Producto</h2>
@@ -151,11 +151,6 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
                 alt={product.art_nomb}
                 className="w-full h-full object-cover"
               />
-              {product.art_stk === 0 && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">Agotado</span>
-                </div>
-              )}
             </div>
             <button
               onClick={toggleFavorite}
@@ -191,55 +186,55 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
             {/* Cantidad */}
             {user ? (
-              product.art_stk > 0 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-semibold mb-2 block">Cantidad</label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleDecrement}
-                        disabled={quantity <= 1}
-                        className="p-2 border border-border rounded-lg hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <Input
-                        type="number"
-                        min="1"
-                        max={product.art_stk}
-                        value={quantity}
-                        onChange={(e) => handleQuantityChange(e.target.value)}
-                        className="w-16 text-center"
-                      />
-                      <button
-                        onClick={handleIncrement}
-                        disabled={quantity >= product.art_stk}
-                        className="p-2 border border-border rounded-lg hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Total */}
-                  <div className="bg-muted p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">Total:</span>
-                      <span className="text-xl font-bold">{formatCurrencySpanish(parseFloat(total))}</span>
-                    </div>
-                  </div>
-
-                  {/* Botón agregar */}
-                  <Button
-                    onClick={handleAddToCart}
-                    disabled={product.art_stk === 0}
-                    className="w-full bg-primary text-primary-foreground py-3 text-lg font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
-                  >
-                    <ShoppingCart className="w-5 h-5" />
-                    Agregar al Carrito
-                  </Button>
+              <div className="space-y-4">
+                {/* Indicador de Stock */}
+                <div className="bg-muted p-4 rounded-lg">
+                  <StockIndicator stock={product.art_stk} maxStock={100} />
                 </div>
-              )
+
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Cantidad</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDecrement}
+                      disabled={quantity <= 1}
+                      className="p-2 border border-border rounded-lg hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => handleQuantityChange(e.target.value)}
+                      className="w-16 text-center"
+                    />
+                    <button
+                      onClick={handleIncrement}
+                      className="p-2 border border-border rounded-lg hover:bg-muted transition"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">Total:</span>
+                    <span className="text-xl font-bold">{formatCurrencySpanish(parseFloat(total))}</span>
+                  </div>
+                </div>
+
+                {/* Botón agregar */}
+                <Button
+                  onClick={handleAddToCart}
+                  className="w-full bg-primary text-primary-foreground py-3 text-lg font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  Agregar al Carrito
+                </Button>
+              </div>
             ) : (
               <Button
                 onClick={() => setShowAuthModal(true)}
@@ -253,7 +248,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         </div>
       </div>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />}
       <NotificationToast
         message={notificationMessage}
         type={notificationType}
@@ -262,5 +257,6 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         duration={3000}
       />
     </div>
+    </>
   )
 }
