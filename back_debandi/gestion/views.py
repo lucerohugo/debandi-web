@@ -9,11 +9,16 @@ from django.db import transaction
 from django.db.models import Q, Min, Max
 from datetime import datetime
 from django.http import FileResponse, JsonResponse
+from django.core.mail import send_mail
+from django.conf import settings
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
@@ -359,7 +364,55 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         registro.set_password(data.get('reg_clav'))
         registro.save()
         
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Re-serializar para obtener los datos exactos guardados
+        response_serializer = self.get_serializer(registro)
+        
+        # ================================================================
+        # ENVIAR NOTIFICACIÓN POR EMAIL
+        # ================================================================
+        
+        try:
+            # Construir el cuerpo del email
+            fecha_registro = registro.reg_fchc.strftime('%d/%m/%Y %H:%M') if registro.reg_fchc else 'N/A'
+            
+            email_body = f"""
+Nuevo registro web pendiente de aprobación
+
+ID Registro: {registro.reg_codi}
+
+Nombre: {registro.reg_nomb}
+Apellido: {registro.reg_apel}
+Documento: {registro.reg_doc}
+Email: {registro.reg_emai}
+Fecha de Registro: {fecha_registro}
+
+Este registro está pendiente de aprobación.
+Revisa el panel de administración para procesar esta solicitud.
+
+Saludos,
+Sistema Ferreterería Debandi
+            """
+            
+            # Enviar el correo
+            send_mail(
+                subject='Nuevo registro web pendiente de aprobación',
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=['soporte@ferreteradebandi.online'],
+                fail_silently=False,
+            )
+            
+            logger.info(f"Correo de notificación enviado para el registro {registro.reg_codi}")
+        
+        except Exception as e:
+            # Capturar excepción pero NO cancelar el registro
+            logger.error(
+                f"Error al enviar correo de notificación para registro {registro.reg_codi}: {str(e)}",
+                exc_info=True
+            )
+        
+        # Responder con HTTP 201 independientemente del resultado del correo
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
