@@ -256,7 +256,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
             {/* Logo */}
             <Link href="/" className="flex-shrink-0">
               <Image
-                src="/logo_debandi_v2.png"
+                /* src="/logo_debandi_v2.png"*/
+                src={currentTheme === "dark" ? "/logo_oscuro.png" : "/nuevo_logo_v5.png"}
                 alt="Debandi"
                 width={200}
                 height={45}

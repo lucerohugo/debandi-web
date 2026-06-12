@@ -16,6 +16,7 @@ export default function NavigationBar() {
   const [rubros, setRubros] = useState<Rubro[]>([])
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [hasBanner, setHasBanner] = useState(false)
 
   useEffect(() => {
     const fetchRubros = async () => {
@@ -39,9 +40,44 @@ export default function NavigationBar() {
     fetchRubros()
   }, [])
 
+  // Detectar si hay banner de supervisor
+  useEffect(() => {
+    const checkBanner = () => {
+      if (typeof window === 'undefined') return
+      
+      const savedImpersonation = localStorage.getItem('impersonation_state')
+      
+      if (savedImpersonation) {
+        try {
+          const parsed = JSON.parse(savedImpersonation)
+          setHasBanner(parsed.isImpersonating || false)
+        } catch {
+          setHasBanner(false)
+        }
+      } else {
+        setHasBanner(false)
+      }
+    }
+
+    checkBanner()
+
+    // Escuchar cambios en localStorage
+    window.addEventListener('storage', checkBanner)
+    window.addEventListener('impersonation-started', checkBanner)
+    window.addEventListener('impersonation-stopped', checkBanner)
+
+    return () => {
+      window.removeEventListener('storage', checkBanner)
+      window.removeEventListener('impersonation-started', checkBanner)
+      window.removeEventListener('impersonation-stopped', checkBanner)
+    }
+  }, [])
+
   const isActive = (path: string) => {
     return pathname === path
   }
+
+  const overlayTopPosition = hasBanner ? 'calc(40px + 170px)' : '170px'
 
   return (
     <nav className="bg-background border-b border-border">
@@ -79,9 +115,10 @@ export default function NavigationBar() {
             {/* Dropdown Catálogos */}
             {showCatalogDropdown && (
               <>
-                {/* Overlay backdrop con desenfoque - Comienza después del navbar */}
+                {/* Overlay backdrop con desenfoque - Ajusta posición si hay banner */}
                 <div
-                  className="fixed top-[150px] left-0 right-0 bottom-0 backdrop-blur z-40"
+                  style={{ top: overlayTopPosition }}
+                  className="fixed left-0 right-0 bottom-0 backdrop-blur z-40"
                   onClick={() => setShowCatalogDropdown(false)}
                 />
                 <div className="absolute left-0 mt-0 w-48 bg-background border border-input rounded-lg shadow-lg z-50">
