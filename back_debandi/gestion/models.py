@@ -261,7 +261,7 @@ class Clientes(models.Model):
     cli_precs1 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio sugerido (%)")
     cli_precs2 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio venta (%)")
     cli_acti = models.BooleanField(default=True, help_text="Cliente activo/de baja",null=True)
-    cli_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
+    
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
