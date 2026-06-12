@@ -577,6 +577,21 @@ Ferretería Debandi
                     f"(Registro {instance.reg_codi}): {str(e)}",
                     exc_info=True
                 )
+            
+            # ================================================================
+            # 6. ELIMINAR REGISTRO APROBADO
+            # ================================================================
+            
+            try:
+                instance.delete()
+                logger.info(
+                    f"Registro {instance.reg_codi} eliminado (cliente {cliente.cli_codi} creado exitosamente)"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error al eliminar registro {instance.reg_codi} después de aprobar: {str(e)}",
+                    exc_info=True
+                )
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
