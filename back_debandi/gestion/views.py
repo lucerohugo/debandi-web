@@ -414,6 +414,172 @@ Sistema Ferreterería Debandi
         # Responder con HTTP 201 independientemente del resultado del correo
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        """
+        PUT /registros/{id}/ - Actualizar registro completo
+        Detecta cuando reg_clie cambia de False a True y crea automáticamente un Cliente
+        """
+        return self._handle_registro_update(
+            request,
+            partial=False,
+            *args,
+            **kwargs
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH /registros/{id}/ - Actualizar registro parcialmente
+        Detecta cuando reg_clie cambia de False a True y crea automáticamente un Cliente
+        """
+        return self._handle_registro_update(
+            request,
+            partial=True,
+            *args,
+            **kwargs
+        )
+
+    def _handle_registro_update(self, request, partial, *args, **kwargs):
+        """
+        Lógica compartida para update y partial_update
+        Maneja la aprobación de registros y creación automática de Clientes
+        """
+        # Obtener el registro actual antes de actualizar
+        registro_anterior = self.get_object()
+        reg_clie_anterior = registro_anterior.reg_clie
+        
+        # Proceder con la actualización normal
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        # Refresco desde BD para obtener valores actuales
+        instance.refresh_from_db()
+        reg_clie_actual = instance.reg_clie
+        
+        # ================================================================
+        # DETECTAR TRANSICIÓN False -> True EN reg_clie
+        # ================================================================
+        
+        # Solo procesar si el cambio es específicamente False -> True
+        if reg_clie_anterior is False and reg_clie_actual is True:
+            logger.info(f"Registro {instance.reg_codi} aprobado. Procesando creación de Cliente...")
+            
+            # ================================================================
+            # 1. OBTENER LOCALIDAD POR DEFECTO
+            # ================================================================
+            
+            try:
+                default_localidad = Localidad.objects.first()
+                if not default_localidad:
+                    logger.error(
+                        f"No hay localidades configuradas. No se puede crear Cliente para registro {instance.reg_codi}"
+                    )
+                    # No romper la actualización, solo registrar error
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.error(
+                    f"Error al obtener localidad por defecto para registro {instance.reg_codi}: {str(e)}",
+                    exc_info=True
+                )
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            # ================================================================
+            # 2. VERIFICAR QUE NO EXISTA CLIENTE CON EL MISMO EMAIL
+            # ================================================================
+            
+            if Clientes.objects.filter(cli_emai=instance.reg_emai).exists():
+                logger.warning(
+                    f"Cliente con email {instance.reg_emai} ya existe. No se creará duplicado para registro {instance.reg_codi}"
+                )
+                # No crear duplicado, pero no romper la actualización
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            # ================================================================
+            # 3. GENERAR cli_codi AUTOMÁTICAMENTE
+            # ================================================================
+            
+            try:
+                last_cliente = Clientes.objects.all().order_by('-cli_codi').first()
+                next_cli_codi = (last_cliente.cli_codi + 1) if last_cliente else 1
+            except Exception as e:
+                logger.error(
+                    f"Error al generar cli_codi para registro {instance.reg_codi}: {str(e)}",
+                    exc_info=True
+                )
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            # ================================================================
+            # 4. CREAR CLIENTE AUTOMÁTICAMENTE
+            # ================================================================
+            
+            try:
+                cliente = Clientes.objects.create(
+                    cli_codi=next_cli_codi,
+                    cli_nomb=f"{instance.reg_nomb} {instance.reg_apel}",
+                    cli_ndoc=instance.reg_doc,
+                    cli_emai=instance.reg_emai,
+                    cli_clav=instance.reg_clav,  # Copiar hash directamente, NO re-hashear
+                    loc_codi=default_localidad
+                )
+                
+                logger.info(
+                    f"Cliente {cliente.cli_codi} creado automáticamente para registro {instance.reg_codi}"
+                )
+                
+            except Exception as e:
+                logger.error(
+                    f"Error al crear Cliente para registro {instance.reg_codi}: {str(e)}",
+                    exc_info=True
+                )
+                # No romper la actualización si falla la creación
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            # ================================================================
+            # 5. ENVIAR CORREO DE BIENVENIDA
+            # ================================================================
+            
+            try:
+                email_body = f"""
+Hola {instance.reg_nomb} {instance.reg_apel},
+
+Le informamos que su solicitud de registro ha sido aprobada.
+
+Ya puede acceder a su cuenta desde:
+
+https://ferreteradebandi.online
+
+Email:
+{instance.reg_emai}
+
+Si tiene inconvenientes para ingresar, comuníquese con nuestro equipo.
+
+Saludos cordiales,
+Ferretería Debandi
+                """
+                
+                send_mail(
+                    subject='Su cuenta ha sido habilitada',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[instance.reg_emai],
+                    fail_silently=False,
+                )
+                
+                logger.info(
+                    f"Correo de bienvenida enviado a {instance.reg_emai} (Registro {instance.reg_codi})"
+                )
+            
+            except Exception as e:
+                # NO romper si falla el correo
+                logger.error(
+                    f"Error al enviar correo de bienvenida a {instance.reg_emai} "
+                    f"(Registro {instance.reg_codi}): {str(e)}",
+                    exc_info=True
+                )
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     """Clientes compradores"""
