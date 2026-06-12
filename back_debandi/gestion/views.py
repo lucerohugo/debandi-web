@@ -387,7 +387,7 @@ Email: {registro.reg_emai}
 Fecha de Registro: {fecha_registro}
 
 Este registro está pendiente de aprobación.
-Revisa el panel de administración para procesar esta solicitud.
+Revisa en el sistema para procesar esta solicitud.
 
 Saludos,
 Sistema Ferreterería Debandi
