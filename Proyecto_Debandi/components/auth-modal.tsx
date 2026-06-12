@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, UserCog, CheckCircle } from "lucide-react"
 import ForgotPasswordModal from "./forgot-password-modal"
+import RegisterSuccessModal from "./register-success-modal"
 import { RegistroService } from "@/services/registro.service"
 
 interface AuthModalProps {
@@ -28,7 +29,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [vendedorUsername, setVendedorUsername] = useState("")
   const [vendedorPassword, setVendedorPassword] = useState("")
-  const [registroSuccess, setRegistroSuccess] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [documentError, setDocumentError] = useState("")
 
   if (!isOpen) return null
@@ -71,7 +72,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     e.preventDefault()
     setError("")
     setDocumentError("")
-    setRegistroSuccess(false)
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
@@ -111,14 +111,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         reg_clav: password,
       })
       
-      setRegistroSuccess(true)
+      setShowSuccessModal(true)
       // Limpiar el formulario
       form.reset()
-      
-      // Cerrar modal en 3 segundos
-      setTimeout(() => {
-        onClose()
-      }, 3000)
     } catch (err: any) {
       setError(err.message || "Error al registrarse. Intenta de nuevo.")
     } finally {
@@ -161,15 +156,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </Alert>
               )}
 
-              {registroSuccess && (
-                <Alert className="mb-4 border-green-200 bg-green-50">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    ¡Registro exitoso! Tu solicitud está pendiente de aprobación. 
-                    Podrás iniciar sesión una vez que sea revisada.
-                  </AlertDescription>
-                </Alert>
-              )}
+
 
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -223,7 +210,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         name="firstName"
                         placeholder="Juan"
                         required
-                        disabled={loading || registroSuccess}
+                        disabled={loading}
                       />
                     </div>
                     <div className="space-y-2">
@@ -233,7 +220,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         name="lastName"
                         placeholder="Pérez"
                         required
-                        disabled={loading || registroSuccess}
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -247,9 +234,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       maxLength={8}
                       onChange={handleDocumentChange}
                       required
-                      disabled={loading || registroSuccess}
+                      disabled={loading}
                     />
-                    
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-email">Email</Label>
@@ -259,7 +245,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       type="email"
                       placeholder="tu@email.com"
                       required
-                      disabled={loading || registroSuccess}
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -270,7 +256,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       type="password"
                       placeholder="••••••••"
                       required
-                      disabled={loading || registroSuccess}
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -281,20 +267,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       type="password"
                       placeholder="••••••••"
                       required
-                      disabled={loading || registroSuccess}
+                      disabled={loading}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={loading || registroSuccess}>
+                    <Button type="submit" className="flex-1" disabled={loading}>
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Registrando...
-                        </>
-                      ) : registroSuccess ? (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          ¡Registrado!
                         </>
                       ) : (
                         "Registrarse"
@@ -363,6 +344,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <ForgotPasswordModal 
           onClose={onClose}
           onBack={() => setShowForgotPassword(false)}
+        />
+      )}
+
+      {showSuccessModal && (
+        <RegisterSuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false)
+            onClose()
+          }}
         />
       )}
     </div>

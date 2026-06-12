@@ -389,41 +389,6 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
         
         return queryset
 
-    @action(detail=False, methods=['post'])
-    def login(self, request):
-        """POST /clientes/login/ - Login de cliente"""
-        from django.contrib.auth.hashers import check_password
-        
-        email = request.data.get('email')
-        password = request.data.get('password')
-
-        if not email or not password:
-            return Response(
-                {'success': False, 'detail': 'Email y contraseña requeridos'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            cliente = Clientes.objects.get(cli_emai=email)
-        except Clientes.DoesNotExist:
-            return Response(
-                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        # Verificar contraseña
-        if not cliente.check_password(password):
-            return Response(
-                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        serializer = ClientesSerializer(cliente, context={'request': request})
-        return Response({
-            "success": True,
-            "cliente": serializer.data
-        }, status=status.HTTP_200_OK)
-
 
 class VendedorViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Vendedor.objects.all()
@@ -432,41 +397,6 @@ class VendedorViewSet(BulkCreateMixin, BaseViewSet):
     filterset_fields = ['ven_actv', 'loc_codi']
     search_fields = ['ven_nomb', 'ven_doc', 'ven_emai']
     ordering = ['ven_nomb']
-
-    @action(detail=False, methods=['post'])
-    def login(self, request):
-        """POST /vendedores/login/ - Login de vendedor"""
-        from django.contrib.auth.hashers import check_password
-        
-        username = request.data.get('username')
-        password = request.data.get('password')
-
-        if not username or not password:
-            return Response(
-                {'success': False, 'detail': 'Usuario y contraseña requeridos'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            vendedor = Vendedor.objects.get(ven_usua=username, ven_actv=1)
-        except Vendedor.DoesNotExist:
-            return Response(
-                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        # Verificar contraseña
-        if not vendedor.check_password(password):
-            return Response(
-                {'success': False, 'detail': 'Usuario o contraseña incorrectos'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        serializer = VendedorSerializer(vendedor, context={'request': request})
-        return Response({
-            "success": True,
-            "vendedor": serializer.data
-        }, status=status.HTTP_200_OK)
 
 
 # ================================================================
@@ -1096,7 +1026,7 @@ def vendedor_check_impersonation(request):
 
 
 # ================================================================
-# HEALTH CHECK & DEBUG
+# HEALTH CHECK & CSRF
 # ================================================================
 
 @api_view(['GET', 'OPTIONS'])
@@ -1128,15 +1058,9 @@ def get_csrf_token(request):
 
 
 # ================================================================
-# AUTENTICACIÓN CLIENTES Y VENDEDORES (CON CSRF EXEMPT)
+# AUTENTICACIÓN - CLIENTES Y VENDEDORES
 # ================================================================
 
-# ================================================================
-# AUTENTICACIÓN CLIENTES Y VENDEDORES (SIN CSRF)
-# ================================================================
-
-@csrf_exempt
-@require_http_methods(["POST", "OPTIONS"])
 @csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
 def cliente_login(request):
@@ -1364,7 +1288,6 @@ def cliente_update_password(request):
         )
 
 
-@csrf_exempt
 @csrf_exempt
 @require_http_methods(["POST", "PUT", "OPTIONS"])
 def cliente_update_parametros(request):
@@ -1775,7 +1698,12 @@ def carrito_manage(request):
 
 
 
-#probando2
+# ================================================================
+# IMPORTACIÓN BULK DE DATOS
+# ================================================================
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
 def importar_datos(request):
     """
     POST /importar_datos/
