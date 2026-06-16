@@ -35,7 +35,7 @@ export default function PromoBanner() {
     const fetchBanners = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-        const res = await fetch(`${apiUrl}/novedades/?limit=100`)
+        const res = await fetch(`${apiUrl}/novedades/?limit=100&nov_bann=true`)
         const data = await res.json()
         
         const today = new Date()

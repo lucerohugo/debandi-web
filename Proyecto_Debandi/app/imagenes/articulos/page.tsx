@@ -34,6 +34,8 @@ interface Novedad {
   nov_titl?: string | null
   nov_desc?: string | null
   nov_img_url?: string | null
+  nov_cate?: string
+  nov_acti?: boolean
   nov_bann: boolean
   nov_prodr: boolean
   nov_fechi?: string | null
@@ -83,6 +85,18 @@ export default function GestorImagenes() {
   const [totalRecomendados, setTotalRecomendados] = useState(0)
   const [loadingRecomendados, setLoadingRecomendados] = useState(false)
   const [articulosRecomendados, setArticulosRecomendados] = useState<Set<number>>(new Set())
+  
+  // Estados para Novedades
+  const [novedadNombre, setNovedadNombre] = useState("")
+  const [novedadTitulo, setNovedadTitulo] = useState("")
+  const [novedadDesc, setNovedadDesc] = useState("")
+  const [novedadFecha, setNovedadFecha] = useState("")
+  const [novedadCategoria, setNovedadCategoria] = useState("otro")
+  const [novedadImagen, setNovedadImagen] = useState<File | null>(null)
+  const [novedadActiva, setNovedadActiva] = useState(true)
+  const [novedades, setNovedades] = useState<Novedad[]>([])
+  const [loadingNovedades, setLoadingNovedades] = useState(false)
+  const [novedadEditando, setNovedadEditando] = useState<Novedad | null>(null)
 
   // Definir funciones ANTES de useEffect
   const getApiUrl = (): string => {
@@ -108,7 +122,7 @@ export default function GestorImagenes() {
     setLoadingArticulos(false)
   }
 
-  const cargarNovedades = async (pagina: number = 1, search: string = "") => {
+  const cargarNuevosProductos = async (pagina: number = 1, search: string = "") => {
     setLoadingNuevos(true)
     try {
       const apiUrl = getApiUrl()
@@ -204,7 +218,7 @@ export default function GestorImagenes() {
       })
       if (res.ok) {
         // Recargar la tabla para mostrar cambio
-        await cargarNovedades(paginaNuevos, searchNuevos)
+        await cargarNuevosProductos(paginaNuevos, searchNuevos)
         console.log(`Artículo ${artCodi} actualizado: art_carru=${!estaSeleccionado}`)
       } else {
         console.error("Error al guardar art_carru")
@@ -406,11 +420,127 @@ export default function GestorImagenes() {
     }
   }
 
+  // ===== FUNCIONES PARA NOVEDADES =====
+  const cargarNovedades = async () => {
+    setLoadingNovedades(true)
+    try {
+      const apiUrl = getApiUrl()
+      const res = await fetch(`${apiUrl}/novedades/?limit=1000`)
+      const data = await res.json()
+      // Filtrar novedades que NO sean banners (nov_bann=false)
+      const novedadesFiltered = (data.results || []).filter((n: any) => !n.nov_bann)
+      setNovedades(novedadesFiltered)
+    } catch (error) {
+      console.error("Error cargando novedades:", error)
+    }
+    setLoadingNovedades(false)
+  }
+
+  const guardarNovedad = async () => {
+    if (!novedadTitulo.trim()) {
+      alert("Por favor ingresa un título para la novedad")
+      return
+    }
+    
+    try {
+      const apiUrl = getApiUrl()
+      const method = novedadEditando ? "PATCH" : "POST"
+      const url = novedadEditando 
+        ? `${apiUrl}/novedades/${novedadEditando.nov_codi}/`
+        : `${apiUrl}/novedades/`
+
+      const body: any = {
+        nov_nomb: novedadTitulo,
+        nov_titl: novedadTitulo,
+        nov_desc: novedadDesc || null,
+        nov_cate: novedadCategoria,
+        nov_acti: novedadActiva,
+        nov_bann: false,
+        nov_prodr: false,
+      }
+      
+      if (novedadFecha) body.nov_fechi = novedadFecha
+
+      let fetchOptions: RequestInit = {
+        method,
+      }
+
+      if (novedadImagen) {
+        const formData = new FormData()
+        Object.keys(body).forEach(key => {
+          const value = body[key]
+          if (value !== null && value !== undefined) {
+            formData.append(key, String(value))
+          }
+        })
+        formData.append('nov_img', novedadImagen)
+        fetchOptions.body = formData
+      } else {
+        fetchOptions.headers = { "Content-Type": "application/json" }
+        fetchOptions.body = JSON.stringify(body)
+      }
+
+      const res = await fetch(url, fetchOptions)
+      
+      if (res.ok) {
+        limpiarFormularioNovedad()
+        await cargarNovedades()
+        alert(novedadEditando ? "Novedad actualizada exitosamente" : "Novedad creada exitosamente")
+      } else {
+        const errorText = await res.text()
+        console.error("Error del servidor:", errorText)
+        try {
+          const errorJson = JSON.parse(errorText)
+          alert("Error al guardar novedad: " + JSON.stringify(errorJson))
+        } catch {
+          alert("Error al guardar novedad: " + errorText.substring(0, 300))
+        }
+      }
+    } catch (error) {
+      console.error("Error guardando novedad:", error)
+      alert("Error al guardar novedad: " + String(error))
+    }
+  }
+
+  const editarNovedad = (novedad: Novedad) => {
+    setNovedadEditando(novedad)
+    setNovedadTitulo(novedad.nov_titl || "")
+    setNovedadDesc(novedad.nov_desc || "")
+    setNovedadFecha(novedad.nov_fechi || "")
+    setNovedadCategoria(novedad.nov_cate || "otro")
+    setNovedadActiva(novedad.nov_acti !== false)
+    setNovedadImagen(null)
+  }
+
+  const eliminarNovedad = async (novCodi: number) => {
+    if (!confirm("¿Eliminar esta novedad?")) return
+    try {
+      const apiUrl = getApiUrl()
+      const res = await fetch(`${apiUrl}/novedades/${novCodi}/`, { method: "DELETE" })
+      if (res.ok) {
+        await cargarNovedades()
+      }
+    } catch (error) {
+      console.error("Error eliminando novedad:", error)
+    }
+  }
+
+  const limpiarFormularioNovedad = () => {
+    setNovedadEditando(null)
+    setNovedadTitulo("")
+    setNovedadDesc("")
+    setNovedadFecha("")
+    setNovedadCategoria("otro")
+    setNovedadImagen(null)
+    setNovedadActiva(true)
+  }
+
   useEffect(() => {
     setMounted(true)
     if (isLoggedIn) {
       cargarArticulos(1, "")
-      cargarNovedades(1, "")
+      cargarNuevosProductos(1, "")
+      cargarNovedades()
       cargarRecomendados(1, "")
       cargarMarcadosNuevos()
       cargarMarcadosRecomendados()
@@ -482,7 +612,7 @@ export default function GestorImagenes() {
 
         {/* Tabs */}
         <Tabs defaultValue="articulos" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="articulos" className="flex items-center gap-2">
               <ImagePlus className="w-4 h-4" />
               Imágenes
@@ -498,6 +628,10 @@ export default function GestorImagenes() {
             <TabsTrigger value="banners" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
               Banners
+            </TabsTrigger>
+            <TabsTrigger value="novedades" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Novedades
             </TabsTrigger>
           </TabsList>
 
@@ -646,7 +780,7 @@ export default function GestorImagenes() {
                     value={searchNuevos}
                     onChange={(e) => {
                       setSearchNuevos(e.target.value)
-                      cargarNovedades(1, e.target.value)
+                      cargarNuevosProductos(1, e.target.value)
                     }}
                   />
                 </div>
@@ -719,7 +853,7 @@ export default function GestorImagenes() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => cargarNovedades(paginaNuevos - 1, searchNuevos)}
+                        onClick={() => cargarNuevosProductos(paginaNuevos - 1, searchNuevos)}
                         disabled={paginaNuevos === 1}
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -727,7 +861,7 @@ export default function GestorImagenes() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => cargarNovedades(paginaNuevos + 1, searchNuevos)}
+                        onClick={() => cargarNuevosProductos(paginaNuevos + 1, searchNuevos)}
                         disabled={paginaNuevos === totalPaginasNuevos}
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -1042,6 +1176,226 @@ export default function GestorImagenes() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Novedades */}
+          <TabsContent value="novedades" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestionar Novedades</CardTitle>
+                <CardDescription>Crea tarjetas de novedades, promociones y ofertas para la página /novedades</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-800">
+                    Las novedades activas aparecerán automáticamente en la página de Novedades del sitio.
+                  </p>
+                </div>
+                
+                {/* Formulario de Novedad */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
+                  <h3 className="font-semibold text-gray-900">
+                    {novedadEditando ? `Editar Novedad #${novedadEditando.nov_codi}` : "Crear Nueva Novedad"}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Título *</label>
+                      <Input
+                        placeholder="Ej: Nuevos Productos Fischer"
+                        value={novedadTitulo}
+                        onChange={(e) => setNovedadTitulo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Categoría</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={novedadCategoria}
+                        onChange={(e) => setNovedadCategoria(e.target.value)}
+                      >
+                        <option value="nuevos_ingresos">Nuevos Ingresos</option>
+                        <option value="promocion">Promoción</option>
+                        <option value="oferta">Oferta</option>
+                        <option value="destacado">Destacado</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Descripción</label>
+                    <textarea
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Ej: Descubre las últimas novedades en herramientas profesionales"
+                      value={novedadDesc}
+                      onChange={(e) => setNovedadDesc(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Fecha de Publicación</label>
+                      <Input
+                        type="date"
+                        value={novedadFecha}
+                        onChange={(e) => setNovedadFecha(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={novedadActiva}
+                          onChange={(e) => setNovedadActiva(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm font-medium">Novedad Activa (Visible)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Imagen de la Novedad (recomendado:458x757px o 274x485px o similar proporción)</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-primary transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) setNovedadImagen(file)
+                        }}
+                        className="w-full cursor-pointer"
+                      />
+                    </div>
+                    {novedadImagen && (
+                      <p className="text-sm text-green-600 mt-2">✓ Imagen seleccionada: {novedadImagen.name}</p>
+                    )}
+                    {!novedadImagen && novedadEditando?.nov_img_url && (
+                      <p className="text-sm text-gray-600 mt-2">Imagen actual de la novedad (cargada)</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={guardarNovedad}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-white"
+                    >
+                      {novedadEditando ? "Actualizar Novedad" : "Crear Novedad"}
+                    </Button>
+                    {novedadEditando && (
+                      <Button
+                        onClick={limpiarFormularioNovedad}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tabla de Novedades */}
+                <div className="overflow-x-auto mt-6">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-3 font-semibold">Código</th>
+                        <th className="text-left py-2 px-3 font-semibold">Título</th>
+                        <th className="text-left py-2 px-3 font-semibold">Categoría</th>
+                        <th className="text-left py-2 px-3 font-semibold">Imagen</th>
+                        <th className="text-left py-2 px-3 font-semibold">Estado</th>
+                        <th className="text-left py-2 px-3 font-semibold">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loadingNovedades ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
+                            Cargando...
+                          </td>
+                        </tr>
+                      ) : novedades.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
+                            No hay novedades creadas
+                          </td>
+                        </tr>
+                      ) : (
+                        novedades.map((nov) => {
+                          const CATEGORIA_LABELS: Record<string, string> = {
+                            nuevos_ingresos: "Nuevos Ingresos",
+                            promocion: "Promoción",
+                            oferta: "Oferta",
+                            destacado: "Destacado",
+                            otro: "Otro"
+                          }
+                          const CATEGORIA_COLORES: Record<string, string> = {
+                            nuevos_ingresos: "bg-blue-100 text-blue-800",
+                            promocion: "bg-purple-100 text-purple-800",
+                            oferta: "bg-red-100 text-red-800",
+                            destacado: "bg-yellow-100 text-yellow-800",
+                            otro: "bg-gray-100 text-gray-800"
+                          }
+                          return (
+                            <tr key={nov.nov_codi} className="border-b hover:bg-gray-50">
+                              <td className="py-2 px-3">{nov.nov_codi}</td>
+                              <td className="py-2 px-3 font-medium">{nov.nov_titl || nov.nov_nomb}</td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${CATEGORIA_COLORES[nov.nov_cate || 'otro']}`}>
+                                  {CATEGORIA_LABELS[nov.nov_cate || 'otro']}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3">
+                                {nov.nov_img_url ? (
+                                  <div className="w-12 h-12 relative bg-gray-100 rounded">
+                                    <Image
+                                      src={nov.nov_img_url}
+                                      alt="novedad"
+                                      fill
+                                      className="object-cover rounded"
+                                    />
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">Sin imagen</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3">
+                                {nov.nov_acti ? (
+                                  <span className="text-green-600 font-semibold">Activa</span>
+                                ) : (
+                                  <span className="text-gray-400">Inactiva</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3">
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => editarNovedad(nov)}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => eliminarNovedad(nov.nov_codi)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

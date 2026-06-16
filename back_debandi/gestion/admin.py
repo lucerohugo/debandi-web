@@ -341,27 +341,38 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Novedades)
 class NovedadesAdmin(admin.ModelAdmin):
-    list_display = ['nov_codi', 'nov_nomb', 'nov_titl', 'art_carru', 'nov_bann', 'nov_prodr']
-    list_filter = ['nov_bann', 'nov_prodr']
+    list_display = ['nov_codi', 'nov_nomb', 'nov_cate', 'nov_fechi', 'nov_acti', 'colored_status']
+    list_filter = ['nov_cate', 'nov_acti', 'nov_fechi']
     search_fields = ['nov_codi', 'nov_nomb', 'nov_titl']
     fieldsets = (
         ('Identificación', {
-            'fields': ('nov_codi', 'nov_nomb')
+            'fields': ('nov_codi', 'nov_nomb'),
+            'description': 'Código único y nombre de la novedad'
         }),
-        ('Banner - Contenido Visual', {
-            'fields': ('nov_titl', 'nov_desc', 'nov_img'),
-            'description': 'Configuración del banner que se muestra en la página de inicio'
+        (' Tarjeta de Novedad - Contenido Visual', {
+            'fields': ('nov_titl', 'nov_desc', 'nov_img', 'nov_cate'),
+            'description': 'Configuración de la tarjeta que aparecerá en la página de Novedades'
         }),
-        ('Banner - Fechas de Vigencia', {
-            'fields': ('nov_fechi', 'nov_fechf'),
-            'description': 'El banner solo se mostrará entre estas fechas (ambas opcionales)'
+        (' Fecha de Publicación', {
+            'fields': ('nov_fechi',),
+            'description': 'Fecha en que se publicó la novedad'
         }),
-        ('Artículo Destacado', {
-            'fields': ('art_carru',),
-            'description': 'Selecciona el artículo que aparecerá en el carrusel de Nuevos Productos'
+        (' Estado', {
+            'fields': ('nov_acti',),
+            'description': 'Activar/desactivar la visualización de esta novedad'
         }),
-        ('Configuración de Secciones', {
-            'fields': ('nov_bann', 'nov_prodr')
+        (' Configuración Avanzada (Opcional)', {
+            'fields': ('nov_fechf', 'art_carru', 'nov_bann', 'nov_prodr'),
+            'description': 'Campos adicionales para banners y artículos destacados',
+            'classes': ('collapse',)
         }),
     )
-    ordering = ['nov_nomb']
+    ordering = ['-nov_fechi']
+    
+    def colored_status(self, obj):
+        """Muestra estado con color"""
+        if obj.nov_acti:
+            return ' Activa'
+        else:
+            return ' Inactiva'
+    colored_status.short_description = 'Estado'

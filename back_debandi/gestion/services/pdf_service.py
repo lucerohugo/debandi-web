@@ -69,15 +69,12 @@ class PDFService:
         # Encabezados
         encabezados = [
             "Código",
-            "SKU",
             "Nombre",
             "Descripción",
             "Marca",
             "Rubro",
             "SubRubro",
             "Precio Final",
-            "Costo",
-            "Stock",
             "IVA (%)"
         ]
         
@@ -121,15 +118,12 @@ class PDFService:
         for articulo in articulos:
             fila = [
                 Paragraph(str(articulo.art_codi), center_style),
-                Paragraph(articulo.art_sku or "-", normal_style),
                 Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
                 Paragraph((articulo.art_desc or "-")[:80], normal_style),  # Limitar a 80 caracteres
                 Paragraph(articulo.mar_codi.mar_nomb if articulo.mar_codi else "-", normal_style),
                 Paragraph(articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else "-", normal_style),
                 Paragraph(articulo.sru_codi.sru_nomb if articulo.sru_codi else "-", normal_style),
                 Paragraph(f"${float(articulo.art_pfin):.2f}" if articulo.art_pfin else "$0.00", number_style),
-                Paragraph(f"${float(articulo.art_cost):.2f}" if articulo.art_cost else "$0.00", number_style),
-                Paragraph(str(articulo.art_stk or 0), center_style),
                 Paragraph(f"{float(articulo.art_tiva):.2f}%" if articulo.art_tiva else "0.00%", number_style),
             ]
             data.append(fila)
@@ -138,15 +132,12 @@ class PDFService:
         table_width = 10 * inch  # Ancho total disponible en landscape
         col_widths = [
             0.6*inch,  # Código
-            0.8*inch,  # SKU
             1.2*inch,  # Nombre
             1.5*inch,  # Descripción
             0.8*inch,  # Marca
             1.0*inch,  # Rubro
             1.0*inch,  # SubRubro
             0.9*inch,  # Precio Final
-            0.8*inch,  # Costo
-            0.5*inch,  # Stock
             0.6*inch,  # IVA
         ]
         
@@ -177,7 +168,7 @@ class PDFService:
             
             # Alineación de columnas numéricas
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Código
-            ('ALIGN', (7, 1), (10, -1), 'RIGHT'),  # Números
+            ('ALIGN', (6, 1), (7, -1), 'RIGHT'),  # Números (Precio Final, IVA)
             ('ALIGN', (9, 1), (9, -1), 'CENTER'),  # Stock
         ]))
         

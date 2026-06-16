@@ -136,7 +136,8 @@ class NovedadesSerializer(serializers.ModelSerializer):
         model = Novedades
         fields = [
             'nov_codi', 'nov_nomb', 'nov_titl', 'nov_desc', 'nov_img', 'nov_img_url',
-            'art_carru', 'articulo', 'nov_bann', 'nov_prodr', 'nov_fechi', 'nov_fechf'
+            'nov_cate', 'nov_acti', 'art_carru', 'articulo', 'nov_bann', 'nov_prodr', 
+            'nov_fechi', 'nov_fechf'
         ]
         read_only_fields = ['nov_codi', 'nov_img_url', 'articulo']
         extra_kwargs = {

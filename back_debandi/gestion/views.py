@@ -233,7 +233,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
             'max_price': float(precios['max_price'] or 0)
         })
 
-    @action(detail=False, methods=['get'], url_path='exportar-excel')
+    @action(detail=False, methods=['get'], url_path='exportar-excel', permission_classes=[AllowAny])
     def exportar_excel(self, request):
         """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel"""
         try:
@@ -253,7 +253,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'], url_path='exportar-pdf')
+    @action(detail=False, methods=['get'], url_path='exportar-pdf', permission_classes=[AllowAny])
     def exportar_pdf(self, request):
         """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF"""
         try:
@@ -286,13 +286,25 @@ class NovedadesViewSet(BaseViewSet):
     - GET /novedades/{id}/ - Obtener una novedad específica
     - PUT /novedades/{id}/ - Actualizar una novedad
     - DELETE /novedades/{id}/ - Eliminar una novedad
+    - GET /novedades/publicadas/ - Listar novedades activas (para frontend)
     """
-    queryset = Novedades.objects.all()
     serializer_class = NovedadesSerializer
     permission_classes = [AllowAny]
     search_fields = ['nov_nomb', 'nov_codi']
-    ordering_fields = ['nov_codi', 'nov_nomb']
-    filterset_fields = ['nov_bann', 'nov_prodr']
+    ordering_fields = ['nov_codi', 'nov_nomb', 'nov_fechi']
+    filterset_fields = ['nov_bann', 'nov_prodr', 'nov_cate', 'nov_acti']
+    
+    def get_queryset(self):
+        """Override queryset para filtrar por estado"""
+        # Obtener todas para admin
+        return Novedades.objects.all().order_by('-nov_fechi')
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='publicadas')
+    def publicadas(self, request):
+        """Retorna solo las novedades ACTIVAS (nov_acti=True, nov_bann=False) sin banners"""
+        novedades = Novedades.objects.filter(nov_acti=True, nov_bann=False).order_by('-nov_fechi')
+        serializer = self.get_serializer(novedades, many=True)
+        return Response(serializer.data)
     
     def create(self, request, *args, **kwargs):
         """Override create para devolver serializer correcto con nov_img_url"""

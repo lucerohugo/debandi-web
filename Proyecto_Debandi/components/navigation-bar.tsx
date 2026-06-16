@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronDown, Home, Sparkles, List, Layers } from "lucide-react"
+import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail } from "lucide-react"
 import { ConfigService } from "@/services/config.service"
+import { ExportUtils } from "@/lib/export-utils"
 
 interface Rubro {
   rub_codi: number
@@ -17,6 +18,8 @@ export default function NavigationBar() {
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
   const [hasBanner, setHasBanner] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [notification, setNotification] = useState<{ message: string; show: boolean }>({ message: '', show: false })
 
   useEffect(() => {
     const fetchRubros = async () => {
@@ -79,6 +82,38 @@ export default function NavigationBar() {
 
   const overlayTopPosition = hasBanner ? 'calc(40px + 170px)' : '170px'
 
+  const handleExportPDF = async () => {
+    setIsExporting(true)
+    try {
+      await ExportUtils.exportarPDF()
+      setNotification({ message: 'PDF descargado exitosamente', show: true })
+      setTimeout(() => setNotification({ message: '', show: false }), 3000)
+    } catch (error) {
+      console.error('Error al exportar PDF:', error)
+      setNotification({ message: 'Error al exportar PDF', show: true })
+      setTimeout(() => setNotification({ message: '', show: false }), 5000)
+    } finally {
+      setIsExporting(false)
+      setShowCatalogDropdown(false)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    setIsExporting(true)
+    try {
+      await ExportUtils.exportarExcel()
+      setNotification({ message: 'Excel descargado exitosamente', show: true })
+      setTimeout(() => setNotification({ message: '', show: false }), 3000)
+    } catch (error) {
+      console.error('Error al exportar Excel:', error)
+      setNotification({ message: 'Error al exportar Excel', show: true })
+      setTimeout(() => setNotification({ message: '', show: false }), 5000)
+    } finally {
+      setIsExporting(false)
+      setShowCatalogDropdown(false)
+    }
+  }
+
   return (
     <nav className="bg-background border-b border-border">
       <div className="container mx-auto px-4">
@@ -121,25 +156,28 @@ export default function NavigationBar() {
                   className="fixed left-0 right-0 bottom-0 backdrop-blur z-40"
                   onClick={() => setShowCatalogDropdown(false)}
                 />
-                <div className="absolute left-0 mt-0 w-48 bg-background border border-input rounded-lg shadow-lg z-50">
-                  {loading ? (
-                    <div className="px-4 py-3 text-sm text-muted-foreground">Cargando...</div>
-                  ) : rubros.length > 0 ? (
-                    <div className="divide-y divide-border py-2">
-                      {rubros.map((rubro) => (
-                        <Link
-                          key={rubro.rub_codi}
-                          href={`/listado?rubro=${rubro.rub_codi}`}
-                          onClick={() => setShowCatalogDropdown(false)}
-                          className="block px-4 py-2 text-sm hover:bg-accent transition-colors"
-                        >
-                          {rubro.rub_nomb}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-muted-foreground">Sin catálogos disponibles</div>
-                  )}
+                <div className="absolute left-0 mt-0 w-56 bg-background border border-input rounded-lg shadow-lg z-50">
+                  <div className="divide-y divide-border py-2">
+                    {/* Opción: Exportar PDF */}
+                    <button
+                      onClick={handleExportPDF}
+                      disabled={isExporting}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Exportar PDF
+                    </button>
+
+                    {/* Opción: Exportar Excel */}
+                    <button
+                      onClick={handleExportExcel}
+                      disabled={isExporting}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Exportar Excel
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -161,19 +199,41 @@ export default function NavigationBar() {
 
           {/* Novedades */}
           <Link
-            href="/listado?novedades=true"
+            href="/novedades"
             className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors relative group ${
-              pathname.includes("novedades") 
+              pathname === "/novedades" 
                 ? "text-primary" 
                 : "text-foreground hover:text-primary"
             }`}
           >
             <Sparkles className="w-4 h-4" />
             Novedades
-            {pathname.includes("novedades") && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
+            {pathname === "/novedades" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
+          </Link>
+
+          {/* Contacto */}
+          <Link
+            href="/contacto"
+            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors relative group ${
+              pathname === "/contacto" 
+                ? "text-primary" 
+                : "text-foreground hover:text-primary"
+            }`}
+          >
+            <Mail className="w-4 h-4" />
+            Contacto
+            {pathname === "/contacto" && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
           </Link>
         </div>
       </div>
+
+      {/* Notificación de exportación */}
+      {notification.show && (
+        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center gap-2">
+          <FileDown className="w-4 h-4" />
+          {notification.message}
+        </div>
+      )}
     </nav>
   )
 }

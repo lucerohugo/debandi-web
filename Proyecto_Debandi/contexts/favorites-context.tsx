@@ -50,7 +50,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       setFavoritesList([])
       cacheManager.invalidate(FAVORITES_CACHE_KEY)
     }
-  }, [user])
+  }, [user?.cli_codi])
 
   const loadFavoritesFromBackend = async () => {
     try {

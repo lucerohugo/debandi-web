@@ -31,15 +31,12 @@ class ExcelService:
         # Definir encabezados
         encabezados = [
             "Código",
-            "SKU",
             "Nombre",
             "Descripción",
             "Marca",
             "Rubro",
             "SubRubro",
             "Precio Final",
-            "Costo",
-            "Stock",
             "IVA (%)"
         ]
         
@@ -56,15 +53,12 @@ class ExcelService:
         for row_num, articulo in enumerate(articulos, 2):
             fila_datos = [
                 articulo.art_codi,
-                articulo.art_sku or "",
                 articulo.art_nomb,
                 articulo.art_desc or "",
                 articulo.mar_codi.mar_nomb if articulo.mar_codi else "",
                 articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else "",
                 articulo.sru_codi.sru_nomb if articulo.sru_codi else "",
                 float(articulo.art_pfin) if articulo.art_pfin else 0,
-                float(articulo.art_cost) if articulo.art_cost else 0,
-                articulo.art_stk or 0,
                 float(articulo.art_tiva) if articulo.art_tiva else 0,
             ]
             
@@ -72,9 +66,9 @@ class ExcelService:
                 cell = ws.cell(row=row_num, column=col_num)
                 cell.value = valor
                 # Alineación y formato
-                if col_num in [8, 9, 11]:  # Columnas numéricas (Precio Final, Costo, IVA)
+                if col_num in [7, 8]:  # Columnas numéricas (Precio Final, IVA)
                     cell.alignment = Alignment(horizontal="right")
-                    if col_num in [8, 9]:  # Precios - formato moneda
+                    if col_num == 7:  # Precio - formato moneda
                         cell.number_format = '$#,##0.00'
                     else:  # IVA - formato decimal
                         cell.number_format = '0.00'

@@ -21,7 +21,10 @@ export const metadata: Metadata = {
   title: "Ferretera Debandi",
   description: "Tu tienda online",
   keywords: "productos",
-    generator: ''
+  generator: '',
+  icons: {
+    icon: '/logo-web3.png',
+  }
 }
 
 export default function RootLayout({

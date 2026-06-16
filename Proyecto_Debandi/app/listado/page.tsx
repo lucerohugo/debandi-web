@@ -236,7 +236,7 @@ export default function ListadoProductos() {
     if (itemsPerPage > 0) {
       fetchProducts()
     }
-  }, [currentPage, itemsPerPage, user])  // Agregar user para actualizar cuando el cliente logueado cambie
+  }, [currentPage, itemsPerPage, user?.cli_codi])  // Usar cli_codi en lugar de objeto user para evitar infinite loop
 
   // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {

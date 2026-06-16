@@ -11,7 +11,7 @@ export class ExportUtils {
   static async exportarExcel(): Promise<void> {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-excel/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`,
         {
           method: 'GET',
           headers: {
@@ -51,7 +51,7 @@ export class ExportUtils {
   static async exportarPDF(): Promise<void> {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-pdf/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`,
         {
           method: 'GET',
           headers: {
@@ -101,8 +101,8 @@ export class ExportUtils {
 
       const queryString = queryParams.toString();
       const url = queryString
-        ? `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-excel/?${queryString}`
-        : `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-excel/`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/?${queryString}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -149,8 +149,8 @@ export class ExportUtils {
 
       const queryString = queryParams.toString();
       const url = queryString
-        ? `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-pdf/?${queryString}`
-        : `${process.env.NEXT_PUBLIC_API_URL}articulos/exportar-pdf/`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/?${queryString}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`;
 
       const response = await fetch(url, {
         method: 'GET',

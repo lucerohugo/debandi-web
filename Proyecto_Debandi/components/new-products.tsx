@@ -108,7 +108,7 @@ export default function NewProducts() {
           {products.map((product) => (
             <div
               key={product.art_codi}
-              className="flex-shrink-0 w-44 snap-start group"
+              className="flex-shrink-0 w-44 snap-start group flex flex-col"
             >
               <div
                 onClick={() => {
@@ -136,7 +136,7 @@ export default function NewProducts() {
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="flex flex-col flex-grow space-y-1">
                 {product.mar_nomb && (
                   <p className="text-xs text-muted-foreground uppercase font-semibold">
                     {product.mar_nomb}
@@ -152,7 +152,7 @@ export default function NewProducts() {
                 ) : (
                   <Button
                     onClick={() => setShowAuthModal(true)}
-                    className="w-full bg-primary hover:bg-primary/90 text-white text-sm h-9"
+                    className="w-full bg-primary hover:bg-primary/90 text-white text-sm h-9 mt-auto"
                   >
                     Consultar
                   </Button>

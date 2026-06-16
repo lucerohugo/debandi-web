@@ -185,22 +185,32 @@ class Articulo(models.Model):
 # ================================================================
 
 class Novedades(models.Model):
-    """Configuración de secciones de novedades y ofertas"""
+    """Configuración de secciones de novedades y ofertas + Tarjetas de novedades publicadas"""
+    CATEGORIAS = [
+        ('nuevos_ingresos', 'Nuevos Ingresos'),
+        ('promocion', 'Promoción'),
+        ('oferta', 'Oferta'),
+        ('destacado', 'Destacado'),
+        ('otro', 'Otro'),
+    ]
+    
     nov_codi = models.IntegerField(primary_key=True, editable=True)
     nov_nomb = models.CharField(max_length=100, help_text="Nombre de la sección de novedades")
     nov_titl = models.CharField(max_length=255, blank=True, null=True, help_text="Título del banner")
     nov_desc = models.TextField(blank=True, null=True, help_text="Descripción del banner")
     nov_img = models.ImageField(upload_to='banners/', blank=True, null=True, help_text="Imagen del banner")
+    nov_cate = models.CharField(max_length=50, choices=CATEGORIAS, default='otro', help_text="Categoría de la novedad")
     nov_bann = models.BooleanField(default=False, help_text="Mostrar banners de ofertas")
     art_carru = models.ForeignKey(Articulo, on_delete=models.SET_NULL, null=True, blank=True, related_name="en_novedades", help_text="Artículo destacado en carrusel de nuevos productos")
     nov_prodr = models.BooleanField(default=False, help_text="Mostrar productos recomendados")
     nov_fechi = models.DateField(blank=True, null=True, help_text="Fecha de inicio banner")
     nov_fechf = models.DateField(blank=True, null=True, help_text="Fecha de final banner")
+    nov_acti = models.BooleanField(default=True, help_text="¿Mostrar esta novedad?")
 
     class Meta:
         verbose_name = "Novedad"
         verbose_name_plural = "Novedades"
-        ordering = ["nov_nomb"]
+        ordering = ["-nov_fechi"]
 
     def __str__(self):
         return self.nov_nomb

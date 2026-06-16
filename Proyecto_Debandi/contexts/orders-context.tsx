@@ -51,7 +51,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       setOrders([])
       cacheManager.invalidate(ORDERS_CACHE_KEY)
     }
-  }, [user])
+  }, [user?.cli_codi])
 
   const loadOrders = async () => {
     try {
