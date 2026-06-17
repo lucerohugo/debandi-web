@@ -222,8 +222,7 @@ class Novedades(models.Model):
 class Registro(models.Model):
     """Registros pendientes de aprobación para convertirse en clientes"""
     reg_codi = models.AutoField(primary_key=True)
-    reg_nomb = models.CharField(max_length=150, help_text="Nombre")
-    reg_apel = models.CharField(max_length=150, help_text="Apellido", null=True)
+    reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido")
     reg_doc = models.IntegerField(help_text="Documento")
     reg_emai = models.EmailField(unique=True, help_text="Email")
     reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)")
@@ -238,7 +237,7 @@ class Registro(models.Model):
         ordering = ["-reg_fchc"]
     
     def __str__(self):
-        return f"{self.reg_nomb} {self.reg_apel} ({self.reg_emai})"
+        return f"{self.reg_nomb} ({self.reg_emai})"
     
     def set_password(self, raw_password):
         """Hashear contraseña"""

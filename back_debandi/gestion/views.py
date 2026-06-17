@@ -343,7 +343,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = RegistroSerializer
     lookup_field_name = "reg_codi"
     filterset_fields = ['reg_clie']
-    search_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai']
+    search_fields = ['reg_nomb', 'reg_doc', 'reg_emai']
     ordering = ['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
     authentication_classes = []
@@ -353,7 +353,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
         
         # Validar campos requeridos
-        required_fields = ['reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai', 'reg_clav']
+        required_fields = ['reg_nomb', 'reg_doc', 'reg_emai', 'reg_clav']
         for field in required_fields:
             if not data.get(field):
                 return Response(
@@ -393,7 +393,7 @@ Nuevo registro web pendiente de aprobación
 ID Registro: {registro.reg_codi}
 
 Nombre: {registro.reg_nomb}
-Apellido: {registro.reg_apel}
+
 Documento: {registro.reg_doc}
 Email: {registro.reg_emai}
 Fecha de Registro: {fecha_registro}
@@ -528,7 +528,7 @@ Sistema Ferreterería Debandi
             try:
                 cliente = Clientes.objects.create(
                     cli_codi=next_cli_codi,
-                    cli_nomb=f"{instance.reg_nomb} {instance.reg_apel}",
+                    cli_nomb=instance.reg_nomb,
                     cli_ndoc=instance.reg_doc,
                     cli_emai=instance.reg_emai,
                     cli_clav=instance.reg_clav,  # Copiar hash directamente, NO re-hashear
@@ -553,7 +553,7 @@ Sistema Ferreterería Debandi
             
             try:
                 email_body = f"""
-Hola {instance.reg_nomb} {instance.reg_apel},
+Hola {instance.reg_nomb},
 
 Le informamos que su solicitud de registro ha sido aprobada.
 

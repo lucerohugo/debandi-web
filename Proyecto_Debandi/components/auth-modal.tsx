@@ -78,8 +78,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirmPassword") as string
-    const firstName = formData.get("firstName") as string
-    const lastName = formData.get("lastName") as string
+    const nombre = formData.get("nombre") as string
     const document = formData.get("document") as string
 
     if (password !== confirmPassword) {
@@ -104,8 +103,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       const form = e.currentTarget
       await RegistroService.crearRegistro({
-        reg_nomb: firstName,
-        reg_apel: lastName,
+        reg_nomb: nombre,
         reg_doc: document,
         reg_emai: email,
         reg_clav: password,
@@ -202,27 +200,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
               <TabsContent value="register">
                 <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">Nombre</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        placeholder="Juan"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Apellido</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        placeholder="Pérez"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nombre">Nombre y Apellido</Label>
+                    <Input
+                      id="nombre"
+                      name="nombre"
+                      placeholder="Juan Pérez"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="document">Documento</Label>

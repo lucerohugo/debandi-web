@@ -180,7 +180,7 @@ class RegistroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Registro
         fields = [
-            'reg_codi', 'reg_nomb', 'reg_apel', 'reg_doc', 'reg_emai', 'reg_clav',
+            'reg_codi', 'reg_nomb', 'reg_doc', 'reg_emai', 'reg_clav',
             'reg_clie', 'reg_fchc', 'reg_fmod'
         ]
         read_only_fields = ['reg_codi', 'reg_fchc', 'reg_fmod']
