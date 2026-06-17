@@ -532,7 +532,8 @@ Sistema Ferreterería Debandi
                     cli_ndoc=instance.reg_doc,
                     cli_emai=instance.reg_emai,
                     cli_clav=instance.reg_clav,  # Copiar hash directamente, NO re-hashear
-                    loc_codi=default_localidad
+                    loc_codi=default_localidad,
+                    cli_acti=False  # Crear inactivo, se activa cuando admin cambia cli_acti a True
                 )
                 
                 logger.info(
@@ -548,7 +549,7 @@ Sistema Ferreterería Debandi
                 return Response(serializer.data, status=status.HTTP_200_OK)
             
             # ================================================================
-            # 5. ENVIAR CORREO DE BIENVENIDA
+            # 5. ENVIAR CORREO DE APROBACIÓN (pendiente activación)
             # ================================================================
             
             try:
@@ -557,21 +558,19 @@ Hola {instance.reg_nomb},
 
 Le informamos que su solicitud de registro ha sido aprobada.
 
-Ya puede acceder a su cuenta desde:
-
-https://ferreteradebandi.online
+Su cuenta será activada pronto por nuestro equipo. Una vez que sea activada, recibirá un correo de confirmación.
 
 Email:
 {instance.reg_emai}
 
-Si tiene inconvenientes para ingresar, comuníquese con nuestro equipo.
+Si tiene inconvenientes, comuníquese con nuestro equipo.
 
 Saludos cordiales,
 Ferretería Debandi
                 """
                 
                 send_mail(
-                    subject='Su cuenta ha sido habilitada',
+                    subject='Solicitud de registro aprobada',
                     message=email_body,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[instance.reg_emai],
@@ -579,7 +578,7 @@ Ferretería Debandi
                 )
                 
                 logger.info(
-                    f"Correo de bienvenida enviado a {instance.reg_emai} (Registro {instance.reg_codi})"
+                    f"Correo de aprobación enviado a {instance.reg_emai} (Registro {instance.reg_codi})"
                 )
             
             except Exception as e:
@@ -634,6 +633,100 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
                 pass
         
         return queryset
+
+    def update(self, request, *args, **kwargs):
+        """
+        PUT /clientes/{id}/ - Actualizar cliente
+        Detecta cuando cli_acti cambia de False a True y envía email
+        """
+        return self._handle_cliente_update(
+            request,
+            partial=False,
+            *args,
+            **kwargs
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH /clientes/{id}/ - Actualizar cliente parcialmente
+        Detecta cuando cli_acti cambia de False a True y envía email
+        """
+        return self._handle_cliente_update(
+            request,
+            partial=True,
+            *args,
+            **kwargs
+        )
+
+    def _handle_cliente_update(self, request, partial, *args, **kwargs):
+        """
+        Lógica compartida para update y partial_update
+        Maneja la activación de clientes y envío de email
+        """
+        # Obtener el cliente actual antes de actualizar
+        cliente_anterior = self.get_object()
+        cli_acti_anterior = cliente_anterior.cli_acti
+        
+        # Proceder con la actualización normal
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        # Refresco desde BD para obtener valores actuales
+        instance.refresh_from_db()
+        cli_acti_actual = instance.cli_acti
+        
+        # ================================================================
+        # DETECTAR TRANSICIÓN False -> True EN cli_acti
+        # ================================================================
+        
+        # Solo procesar si el cambio es específicamente False -> True
+        if cli_acti_anterior is False and cli_acti_actual is True:
+            logger.info(f"Cliente {instance.cli_codi} activado. Enviando correo de activación...")
+            
+            # ================================================================
+            # ENVIAR CORREO DE ACTIVACIÓN
+            # ================================================================
+            
+            try:
+                email_body = f"""
+Hola {instance.cli_nomb},
+
+¡Excelente! Tu cuenta ha sido activada exitosamente.
+
+Ya puedes acceder desde:
+https://ferreteradebandi.online
+
+Email: {instance.cli_emai}
+
+Si tienes inconvenientes, no dudes en contactarnos.
+
+Saludos cordiales,
+Ferretería Debandi
+                """
+                
+                send_mail(
+                    subject='Tu cuenta ha sido activada',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[instance.cli_emai],
+                    fail_silently=False,
+                )
+                
+                logger.info(
+                    f"Correo de activación enviado a {instance.cli_emai} (Cliente {instance.cli_codi})"
+                )
+            
+            except Exception as e:
+                # NO romper si falla el correo
+                logger.error(
+                    f"Error al enviar correo de activación a {instance.cli_emai} "
+                    f"(Cliente {instance.cli_codi}): {str(e)}",
+                    exc_info=True
+                )
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class VendedorViewSet(BulkCreateMixin, BaseViewSet):
@@ -1351,12 +1444,27 @@ def cliente_login(request):
                 status=400
             )
 
-        # Buscar cliente por email
+        # Buscar en Clientes primero
         try:
             cliente = Clientes.objects.get(cli_emai=email)
         except Clientes.DoesNotExist:
+            # Si no existe en Clientes, buscar en Registro
+            try:
+                registro = Registro.objects.get(reg_emai=email)
+                return JsonResponse(
+                    {'success': False, 'detail': 'Tu cuenta está pendiente de aprobación. Por favor, espera a que sea aprobada.'}, 
+                    status=401
+                )
+            except Registro.DoesNotExist:
+                return JsonResponse(
+                    {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                    status=401
+                )
+        
+        # Verificar que cliente esté activo
+        if not cliente.cli_acti:
             return JsonResponse(
-                {'success': False, 'detail': 'Email o contraseña incorrectos'}, 
+                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada por nuestro equipo.'}, 
                 status=401
             )
 

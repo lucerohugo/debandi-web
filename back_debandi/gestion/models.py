@@ -221,7 +221,7 @@ class Novedades(models.Model):
 
 class Registro(models.Model):
     """Registros pendientes de aprobación para convertirse en clientes"""
-    reg_codi = models.AutoField(primary_key=True)
+    reg_codi = models.IntegerField(primary_key=True, editable= True)
     reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido")
     reg_doc = models.IntegerField(help_text="Documento")
     reg_emai = models.EmailField(unique=True, help_text="Email")
@@ -269,7 +269,7 @@ class Clientes(models.Model):
     cli_desc = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Descuento cliente (%)")
     cli_precs1 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio sugerido (%)")
     cli_precs2 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio venta (%)")
-    cli_acti = models.BooleanField(default=True, help_text="Cliente activo/de baja",null=True)
+    cli_acti = models.BooleanField(default=False, help_text="Cliente activo (requerido para iniciar sesión)",null=True)
     
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
