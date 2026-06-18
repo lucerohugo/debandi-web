@@ -62,7 +62,7 @@ export default function RegisterSuccessModal({ isOpen, onClose }: RegisterSucces
 
           {/* Contador de cierre automático (opcional, para feedback visual) */}
           <p className="text-xs text-gray-400 mt-4">
-            Se cerrará automáticamente en 10 segundos
+            Se cerrará automáticamente en 15 segundos
           </p>
         </div>
       </Card>

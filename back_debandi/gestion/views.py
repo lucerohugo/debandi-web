@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -361,33 +362,40 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        # Verificar email único
+        # Verificar email único en Registros
         if Registro.objects.filter(reg_emai=data.get('reg_emai')).exists():
             return Response(
-                {'error': 'El email ya está registrado'},
+                {'error': 'El email ya está registrado en el sistema'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar que el email no exista en Clientes (evitar duplicados)
+        if Clientes.objects.filter(cli_emai=data.get('reg_emai')).exists():
+            return Response(
+                {'error': 'El email ya existe como cliente en el sistema'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         
-        # Hashear contraseña
+        # Crear y guardar registro (serializer.create() ya hashea la contraseña)
         registro = serializer.save()
-        registro.set_password(data.get('reg_clav'))
-        registro.save()
         
         # Re-serializar para obtener los datos exactos guardados
         response_serializer = self.get_serializer(registro)
         
         # ================================================================
-        # ENVIAR NOTIFICACIÓN POR EMAIL
+        # ENVIAR NOTIFICACIÓN POR EMAIL (en thread separado)
         # ================================================================
         
-        try:
-            # Construir el cuerpo del email
-            fecha_registro = registro.reg_fchc.strftime('%d/%m/%Y %H:%M') if registro.reg_fchc else 'N/A'
-            
-            email_body = f"""
+        def send_registration_email():
+            """Enviar email de notificación de registro en background"""
+            try:
+                # Construir el cuerpo del email
+                fecha_registro = registro.reg_fchc.strftime('%d/%m/%Y %H:%M') if registro.reg_fchc else 'N/A'
+                
+                email_body = f"""
 Nuevo registro web pendiente de aprobación
 
 ID Registro: {registro.reg_codi}
@@ -403,27 +411,31 @@ Revisa en el sistema para procesar esta solicitud.
 
 Saludos,
 Sistema Ferreterería Debandi
-            """
+                """
+                
+                # Enviar el correo con fail_silently=True para no lanzar excepciones
+                send_mail(
+                    subject='Nuevo registro web pendiente de aprobación',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=['soporte@ferreteradebandi.online'],
+                    fail_silently=True,  # No lanza excepciones si falla
+                )
+                
+                logger.info(f"✓ Email de notificación enviado para registro {registro.reg_codi}")
             
-            # Enviar el correo
-            send_mail(
-                subject='Nuevo registro web pendiente de aprobación',
-                message=email_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=['soporte@ferreteradebandi.online'],
-                fail_silently=False,
-            )
-            
-            logger.info(f"Correo de notificación enviado para el registro {registro.reg_codi}")
+            except Exception as e:
+                # Capturar cualquier error no previsto
+                logger.error(
+                    f"✗ Error enviando email para registro {registro.reg_codi}: {str(e)}",
+                    exc_info=True
+                )
         
-        except Exception as e:
-            # Capturar excepción pero NO cancelar el registro
-            logger.error(
-                f"Error al enviar correo de notificación para registro {registro.reg_codi}: {str(e)}",
-                exc_info=True
-            )
+        # Iniciar thread para enviar email sin bloquear respuesta
+        email_thread = threading.Thread(target=send_registration_email, daemon=True)
+        email_thread.start()
         
-        # Responder con HTTP 201 independientemente del resultado del correo
+        # Responder inmediatamente con HTTP 201 (registro ya guardado)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -501,11 +513,20 @@ Sistema Ferreterería Debandi
             # ================================================================
             
             if Clientes.objects.filter(cli_emai=instance.reg_emai).exists():
+                existing_cliente = Clientes.objects.get(cli_emai=instance.reg_emai)
                 logger.warning(
-                    f"Cliente con email {instance.reg_emai} ya existe. No se creará duplicado para registro {instance.reg_codi}"
+                    f"⚠️ No se puede crear Cliente duplicado: "
+                    f"Email {instance.reg_emai} ya existe en Cliente {existing_cliente.cli_codi} ({existing_cliente.cli_nomb}). "
+                    f"Registro {instance.reg_codi} aprobado pero sin crear duplicado."
                 )
                 # No crear duplicado, pero no romper la actualización
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(
+                    {
+                        **serializer.data, 
+                        'warning': f'Email ya existe en Cliente {existing_cliente.cli_codi}. No se creó duplicado.'
+                    }, 
+                    status=status.HTTP_200_OK
+                )
             
             # ================================================================
             # 3. GENERAR cli_codi AUTOMÁTICAMENTE
