@@ -10,7 +10,7 @@ import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
 import ProductPreviewModal from "./product-preview-modal"
-import StockIndicator from "./stock-indicator"
+//import StockIndicator from "./stock-indicator"
 import { Button } from "./ui/button"
 
 interface Product {
@@ -153,7 +153,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           {/* Indicador de Stock */}
           {user && (
             <div className="mb-3">
-              <StockIndicator stock={product.art_stk} maxStock={100} />
+              {/* <StockIndicator stock={product.art_stk} maxStock={100} /> */}
             </div>
           )}
 

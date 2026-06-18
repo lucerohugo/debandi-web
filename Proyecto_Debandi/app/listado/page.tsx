@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/auth-context"
 import AuthModal from "@/components/auth-modal"
 import NotificationToast from "@/components/notification-toast"
 import ProductPreviewModal from "@/components/product-preview-modal"
-import StockIndicator from "@/components/stock-indicator"
+//import StockIndicator from "@/components/stock-indicator"
 //import { exportToPDF, exportToExcel } from "@/lib/export-utils" lo borro ya que no me sirve 
 import { ExportUtils } from "@/lib/export-utils"
 import { ApiService } from "@/services/api.service"
@@ -609,7 +609,7 @@ export default function ListadoProductos() {
                             {Number(user?.cli_precs2 || 0) > 0 && (
                               <th className="text-center py-3 px-4">Precio Sugerido 2</th>
                             )}
-                            <th className="text-center py-3 px-4">Stock</th>
+                            {/* <th className="text-center py-3 px-4">Stock</th> */}
                             <th className="text-center py-3 px-4">Pedir</th>
                           </>
                         )}
@@ -644,9 +644,9 @@ export default function ListadoProductos() {
                               {Number(user?.cli_precs2 || 0) > 0 && (
                                 <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
                               )}
-                              <td className="py-3 px-4 text-center min-w-[150px]">
+                              {/* <td className="py-3 px-4 text-center min-w-[150px]">
                                 <StockIndicator stock={product.art_stk} maxStock={100} showLabel={false} />
-                              </td>
+                              </td> */}
                               <td className="py-3 px-4">
                                 <div className="flex items-center justify-center gap-2">
                                   <input

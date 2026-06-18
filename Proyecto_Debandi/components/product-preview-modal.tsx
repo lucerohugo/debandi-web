@@ -8,7 +8,7 @@ import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
-import StockIndicator from "./stock-indicator"
+//import StockIndicator from "./stock-indicator"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 
@@ -188,9 +188,9 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
             {user ? (
               <div className="space-y-4">
                 {/* Indicador de Stock */}
-                <div className="bg-muted p-4 rounded-lg">
+                {/* <div className="bg-muted p-4 rounded-lg">
                   <StockIndicator stock={product.art_stk} maxStock={100} />
-                </div>
+                </div> */}
 
                 <div>
                   <label className="text-sm font-semibold mb-2 block">Cantidad</label>
