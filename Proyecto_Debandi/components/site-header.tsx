@@ -403,7 +403,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                           <FileText className="w-4 h-4 inline mr-3" />
                           Exportar Facturas PDF
                         </button>
-                        <button
+                        {/* <button
                           onClick={() => {
                             setShowChangePassword(true)
                             setShowUserMenu(false)
@@ -412,7 +412,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                         >
                           <Key className="w-4 h-4 inline mr-3" />
                           Cambiar Contraseña
-                        </button>
+                        </button> */}
                         {!bannerData?.isImpersonating && (
                           <button
                             onClick={handleLogout}
