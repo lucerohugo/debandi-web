@@ -145,7 +145,7 @@ export default function GestorImagenes() {
     setLoadingBanners(true)
     try {
       const apiUrl = getApiUrl()
-      const res = await fetch(`${apiUrl}/novedades/?limit=1000`)
+      const res = await fetch(`${apiUrl}/novedades/?limit=1000&nov_bann=true`)
       const data = await res.json()
       setBanners(data.results || [])
     } catch (error) {
@@ -425,11 +425,9 @@ export default function GestorImagenes() {
     setLoadingNovedades(true)
     try {
       const apiUrl = getApiUrl()
-      const res = await fetch(`${apiUrl}/novedades/?limit=1000`)
+      const res = await fetch(`${apiUrl}/novedades/?limit=1000&nov_bann=false`)
       const data = await res.json()
-      // Filtrar novedades que NO sean banners (nov_bann=false)
-      const novedadesFiltered = (data.results || []).filter((n: any) => !n.nov_bann)
-      setNovedades(novedadesFiltered)
+      setNovedades(data.results || [])
     } catch (error) {
       console.error("Error cargando novedades:", error)
     }
