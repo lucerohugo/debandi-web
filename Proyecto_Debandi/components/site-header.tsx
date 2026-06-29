@@ -251,16 +251,17 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       
       {/* Header Principal */}
       <header className={`bg-background border-b border-border sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50`}>
-        <div className="container mx-auto px-4 py-4">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <Link href="/" className="flex-shrink-0">
+            <Link href="/" className="flex-shrink-0 ml-8">
               <Image
                 /* src="/logo_debandi_v2.png"*/
-                src={currentTheme === "dark" ? "/logo_oscuro.png" : "/nuevo_logo_v5.png"}
+                /* "/logo_oscuro.png"   / oscuro */
+                src={"/logo-def3.png"} /* /nuevo_logo_v5.png */
                 alt="Debandi"
-                width={200}
-                height={45}
+                width={140}
+                height={32}
                 priority
                 className="rounded-lg"
               />
@@ -431,7 +432,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                 <Button
                   onClick={() => setShowAuthModal(true)}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  style={{ backgroundColor: '#0A53BF', color: 'white' }}
+                  style={{ backgroundColor: '#028EF9', color: 'white' }}
                 >
                   Iniciar Sesión
                 </Button>

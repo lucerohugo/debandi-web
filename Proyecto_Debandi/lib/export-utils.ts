@@ -245,7 +245,7 @@ export class ExportUtils {
           cellPadding: 4,
         },
         headStyles: {
-          fillColor: [54, 96, 146], // Azul #366092
+          fillColor: [2, 142, 249], // Azul #028EF9
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           halign: 'center',
@@ -352,7 +352,7 @@ export class ExportUtils {
           cellPadding: 4,
         },
         headStyles: {
-          fillColor: [54, 96, 146], // Azul #366092
+          fillColor: [2, 142, 249], // Azul #028EF9
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           halign: 'center',
@@ -447,7 +447,7 @@ export class ExportUtils {
 
       // Estilos para encabezados (si XLSX lo soporta)
       const headerStyle = {
-        fill: { fgColor: { rgb: '366092' } },
+        fill: { fgColor: { rgb: '028EF9' } },
         font: { bold: true, color: { rgb: 'FFFFFF' } },
         alignment: { horizontal: 'center', vertical: 'center' },
       };

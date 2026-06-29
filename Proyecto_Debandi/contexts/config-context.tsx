@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: Config = {
   gen_dire: '',
   gen_tele: '',
   gen_emai: 'soporte@ferreteradebandi.online',
-  gen_colo: '#0A53BF',
+  gen_colo: '#028EF9',
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined)
