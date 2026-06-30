@@ -87,12 +87,24 @@ export default function ContactPage() {
               <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <Phone className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">Teléfono</h3>
-                <a
-                  href="tel:+5493584110859"
-                  className="text-primary hover:underline text-xs sm:text-sm"
-                >
-                  +54 9 3584 11-0859
-                </a>
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="tel:+5493584110859"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs sm:text-sm"
+                  >
+                    358-4110859 (Administracion)
+                  </a>
+                  <a
+                    href="tel:+5493584286771"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs sm:text-sm"
+                  >
+                    358-4286771 (Depósito y Logística)
+                  </a>
+                </div> 
               </div>
 
               {/* Email */}
@@ -101,7 +113,7 @@ export default function ContactPage() {
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">Email</h3>
                 <a
                   href="mailto:debandidistribuciones@hotmail.com"
-                  className="text-primary hover:underline text-xs sm:text-sm break-all"
+                  className="block text-center text-primary hover:underline text-xs sm:text-sm -ml-2"
                 >
                   debandidistribuciones@hotmail.com
                 </a>
@@ -120,14 +132,24 @@ export default function ContactPage() {
               <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <MessageCircle className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">WhatsApp</h3>
-                <a
-                  href="https://wa.me/5493584110859"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline text-xs sm:text-sm"
-                >
-                  3584110859
-                </a>
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="https://wa.me/5493584110859"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs sm:text-sm"
+                  >
+                    358-4110859 (Administracion)
+                  </a>
+                  <a
+                    href="https://wa.me/5493584286771"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs sm:text-sm"
+                  >
+                    358-4286771 (Depósito y Logística)
+                  </a>
+                </div>  
               </div>
             </div>
           </div>
@@ -202,38 +224,24 @@ export default function ContactPage() {
           </div>
         </section>
 
-        {/* Sección de horarios (opcional) */}
+        {/* Sección de horarios */}
         <section className="py-8 sm:py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col items-center gap-8 sm:gap-12">
+            <div className="flex flex-col items-center gap-8">
               <div className="text-center">
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-light text-foreground mb-2">Horarios de Atención</h2>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-light text-foreground mb-2">
+                  Horarios de Atención
+                </h2>
                 <div className="w-12 h-1 bg-primary mx-auto mt-4"></div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 w-full max-w-3xl">
-                <div className="flex flex-col items-center text-center">
-                  <h3 className="font-light text-base sm:text-lg text-foreground mb-2 sm:mb-3">Lunes a Viernes</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground font-light">9:00 AM - 6:00 PM</p>
-                </div>
-                
-                <div className="hidden md:flex items-center justify-center">
-                  <div className="w-px h-12 bg-border"></div>
-                </div>
-                
-                <div className="flex flex-col items-center text-center">
-                  <h3 className="font-light text-base sm:text-lg text-foreground mb-2 sm:mb-3">Sábado</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground font-light">9:00 AM - 1:00 PM</p>
-                </div>
-                
-                <div className="hidden md:flex items-center justify-center">
-                  <div className="w-px h-12 bg-border"></div>
-                </div>
-                
-                <div className="flex flex-col items-center text-center">
-                  <h3 className="font-light text-base sm:text-lg text-foreground mb-2 sm:mb-3">Domingo</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground font-light">Cerrado</p>
-                </div>
+
+              <div className="flex flex-col items-center text-center">
+                <h3 className="font-light text-lg sm:text-xl text-foreground mb-3">
+                  Lunes a Viernes
+                </h3>
+                <p className="text-sm sm:text-base text-muted-foreground font-light">
+                  8:00 hs - 17:00 hs
+                </p>
               </div>
             </div>
           </div>
