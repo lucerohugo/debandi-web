@@ -233,11 +233,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
         setProductsTabla(enrichedProducts)
         setTotalCount(totalFromBackend)
         
-        console.log(`Página ${currentPage} cargada:`, {
-          itemsEnPagina: productsList.length,
-          totalDelBackend: totalFromBackend,
-          search: search,
-        })
+        
       } catch (error) {
         console.error('Error cargando productos:', error)
       } finally {

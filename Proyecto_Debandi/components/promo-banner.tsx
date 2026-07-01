@@ -41,7 +41,7 @@ export default function PromoBanner() {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
-        console.log("Banners desde API:", data.results) // Debug
+        
 
         const activeBanners = (data.results || [])
           .filter((banner: Novedad) => {
@@ -55,7 +55,7 @@ export default function PromoBanner() {
             return banner.nov_img_url && banner.nov_titl // Solo si tiene imagen y título
           })
           .map((banner: Novedad, index: number) => {
-            console.log("Banner activo mapeado:", banner) // Debug
+            
             return {
               id: banner.nov_codi,
               title: banner.nov_titl || "Oferta Especial",
@@ -72,7 +72,6 @@ export default function PromoBanner() {
           console.log("No hay banners activos")
           setSlides([])
         } else {
-          console.log("Banners activos encontrados:", activeBanners.length)
           setSlides(activeBanners)
         }
       } catch (error) {
