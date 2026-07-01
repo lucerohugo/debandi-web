@@ -126,27 +126,9 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
     return () => window.removeEventListener("cart-updated", handleCartUpdated)
   }, [])
 
-  // Búsqueda global
-  const handleGlobalSearch = async (value: string) => {
+  // Búsqueda global - Solo guarda el valor, sin abrir dropdown
+  const handleGlobalSearch = (value: string) => {
     setGlobalSearchValue(value)
-    
-    if (!value.trim()) {
-      setGlobalSearchResults([])
-      setShowSearchDropdown(false)
-      return
-    }
-
-    setSearchingGlobal(true)
-    try {
-      const results = await SearchService.searchArticulos(value, 10)
-      setGlobalSearchResults(results || [])
-      setShowSearchDropdown(true)
-    } catch (error) {
-      console.error("Search error:", error)
-      setGlobalSearchResults([])
-    } finally {
-      setSearchingGlobal(false)
-    }
   }
 
   const handleProductClick = (product: any) => {
@@ -254,34 +236,38 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
         <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <Link href="/" className="flex-shrink-0 ml-8">
+            <Link href="/" className="flex-shrink-0 ml-8 flex items-center">
               <Image
                 /* src="/logo_debandi_v2.png"*/
                 /* "/logo_oscuro.png"   / oscuro */
                 src={"/logo-def3.png"} /* /nuevo_logo_v5.png */
                 alt="Debandi"
-                width={140}
-                height={32}
+                width={145}
+                height={38}
                 priority
-                className="rounded-lg"
+                className="rounded-lg scale-150 origin-left"
               />
             </Link>
 
             {/* Buscador Centrado - Más largo */}
             <div className="flex-1 max-w-4xl mx-4 relative">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   placeholder="Buscador..."
                   value={globalSearchValue}
                   onChange={(e) => handleGlobalSearch(e.target.value)}
-                  onFocus={() => globalSearchValue.trim().length > 0 && setShowSearchDropdown(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && globalSearchValue.trim().length > 0) {
+                      router.push(`/listado?search=${encodeURIComponent(globalSearchValue.trim())}`)
+                    }
+                  }}
                   className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
 
-                {/* Dropdown de búsqueda */}
+                {/* COMENTADO: Dropdown de búsqueda - Se elimina para que no aparezca
                 {showSearchDropdown && (
                   <div
                     ref={searchDropdownRef}
@@ -320,6 +306,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                     )}
                   </div>
                 )}
+                */}
               </div>
             </div>
 
@@ -364,7 +351,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                     <>
                       {/* Overlay backdrop con desenfoque - Solo debajo del header */}
                       <div
-                        className={`fixed left-0 right-0 bottom-0 backdrop-blur z-40 ${bannerData?.isImpersonating ? 'top-[140px]' : 'top-[90px]'}`}
+                        className={`fixed left-0 right-0 bottom-0 backdrop-blur z-40 ${bannerData?.isImpersonating ? 'top-[140px]' : 'top-[102px]'}`}
                         onClick={() => setShowUserMenu(false)}
                       />
                       <div className={`absolute right-0 w-72 bg-white/80 dark:bg-slate-900/90 backdrop-blur-md border-2 border-white/60 dark:border-white/40 rounded-lg shadow-2xl z-50 divide-y divide-white/20 ${bannerData?.isImpersonating ? 'top-full mt-2' : 'top-full mt-2'}`}>

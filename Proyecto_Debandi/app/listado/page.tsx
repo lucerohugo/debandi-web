@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ShoppingCart, Eye, Search, X } from "lucide-react"
 import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
@@ -36,6 +36,7 @@ interface Product {
   art_ubul: number
   art_tiva: string
   art_img?: string
+  art_cn?: string
   mar_codi?: number
   mar_nomb?: string
   sub_codi?: number
@@ -94,11 +95,24 @@ export default function ListadoProductos() {
   const [allProductsCache, setAllProductsCache] = useState<Map<number, Product>>(new Map()) // Caché de todos los productos cargados
   const [mostrarIVA, setMostrarIVA] = useState(true) // Preferencia de mostrar IVA (por defecto true)
   const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map()) // Cantidades para cada producto en la tabla
+  const [isSearchFromURL, setIsSearchFromURL] = useState(false) // Flag para saber si buscamos desde URL
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Ref para rastrear si el valor de búsqueda global realmente cambió
   const prevGlobalRef = useRef("")
+
+  // Capturar parámetro de búsqueda desde la URL
+  useEffect(() => {
+    const urlSearch = searchParams.get("search")
+    if (urlSearch) {
+      setSearchQuery(urlSearch)  // Usar searchQuery para que aparezca en el input
+      setGlobalSearchValue(urlSearch)
+      setIsSearchFromURL(true)
+      setCurrentPage(1) // Resetear a primera página
+    }
+  }, [searchParams])
 
   // Leer preferencia de mostrar IVA desde localStorage
   useEffect(() => {
@@ -193,8 +207,28 @@ export default function ListadoProductos() {
     const fetchProducts = async () => {
       try {
         setLoading(true)
-        // Usar paginación real: solo traer los items de esa página
-        const response = await ApiService.get<any>(`/articulos/?page=${currentPage}&page_size=${itemsPerPage}`)
+        
+        let response: any
+        
+        // Prioridad de búsqueda:
+        // 1. searchQuery (input local del listado)
+        // 2. URL search param
+        // 3. globalSearchValue (del navbar)
+        const urlSearch = searchParams.get("search")
+        const searchValue = searchQuery || urlSearch || globalSearchValue
+        
+        // Si hay búsqueda (desde URL, input local o navbar), usar búsqueda paginada
+        const hasSearch = searchValue.trim().length > 0
+        if (hasSearch) {
+          response = await SearchService.searchArticulosPaginados(
+            searchValue.trim(),
+            currentPage,
+            itemsPerPage
+          )
+        } else {
+          // Si no hay búsqueda, traer todos los productos paginados
+          response = await ApiService.get<any>(`/articulos/?page=${currentPage}&page_size=${itemsPerPage}`)
+        }
         
         // DRF devuelve {count, next, previous, results}
         const productsList = response.results || response.data || []
@@ -223,7 +257,12 @@ export default function ListadoProductos() {
         
         console.log(` Página ${currentPage} cargada:`, {
           itemsEnPagina: productsList.length,
-          totalDelBackend: totalFromBackend
+          totalDelBackend: totalFromBackend,
+          hasSearch: hasSearch,
+          searchValue: searchValue,
+          searchQuery: searchQuery,
+          urlSearch: urlSearch,
+          globalSearchValue: globalSearchValue
         })
       } catch (error) {
         console.error(' Error cargando productos:', error)
@@ -236,7 +275,7 @@ export default function ListadoProductos() {
     if (itemsPerPage > 0) {
       fetchProducts()
     }
-  }, [currentPage, itemsPerPage, user?.cli_codi])  // Usar cli_codi en lugar de objeto user para evitar infinite loop
+  }, [currentPage, itemsPerPage, user?.cli_codi, globalSearchValue, searchParams, searchQuery])
 
   // Resetear página cuando cambia la búsqueda (pero solo si hay texto real)
   useEffect(() => {
@@ -245,6 +284,18 @@ export default function ListadoProductos() {
       setCurrentPage(1)
     }
   }, [searchQuery])
+
+  // Resetear página cuando cambia la búsqueda global (del input superior)
+  useEffect(() => {
+    // Considerar tanto globalSearchValue como searchParams
+    const urlSearch = searchParams.get("search")
+    const searchValue = urlSearch || globalSearchValue
+    
+    // Solo resetear si la búsqueda tiene más de 1 carácter (para evitar resets al borrar)
+    if (searchValue.trim().length > 1) {
+      setCurrentPage(1)
+    }
+  }, [globalSearchValue, searchParams])
 
   // Búsqueda GLOBAL en el buscador superior (trae todos los productos)
   useEffect(() => {
@@ -273,38 +324,22 @@ export default function ListadoProductos() {
     return () => clearTimeout(timeout)
   }, [globalSearchValue])
 
-  // Filtrar productos por búsqueda
+  // Filtrar productos por búsqueda (solo del input local, no del backend)
   const filteredProducts = products.filter((product) =>
     (product.art_nomb || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     (product.mar_nomb || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     (product.rub_nomb || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Filtrar tabla de productos por búsqueda
+  // Filtrar tabla de productos por búsqueda (solo del input local, no del backend)
   const filteredProductsTabla = productsTabla.filter((product) =>
     product.art_nomb.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Calcular paginación
-  // Nota: Cuando hay búsqueda, solo filtramos los 15 items de la página actual
-  // Para búsqueda en TODOS los productos, usar SearchService.searchArticulos()
-  const hasSearchQuery = searchQuery.trim().length > 0
-  
-  let totalPages = 0
-  let paginatedProducts: ProductTabla[] = []
-  
-  if (hasSearchQuery) {
-    // Búsqueda activa: paginar localmente sobre los 15 items de esta página
-    // (no es búsqueda global, solo en los items actuales)
-    totalPages = Math.ceil(filteredProductsTabla.length / itemsPerPage)
-    paginatedProducts = filteredProductsTabla
-    
-  } else {
-    // Sin búsqueda: usar count del backend
-    totalPages = Math.ceil(totalCount / itemsPerPage)
-    paginatedProducts = productsTabla
-    
-  }
+  // Calcular paginación - siempre usar resulados del backend
+  // El backend ya los filtró si hay búsqueda
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+  const paginatedProducts = productsTabla
 
   const handleSelectProduct = (product: Product) => {
     const newSelected = new Map(selectedProducts)
@@ -487,18 +522,16 @@ export default function ListadoProductos() {
                 <Input
                   type="text"
                   placeholder="Buscar por nombre, marca o categoría..."
-                  value={globalSearchValue}
+                  value={searchQuery}
                   onChange={(e) => {
-                    setGlobalSearchValue(e.target.value)
-                    setShowSearchDropdown(true)
+                    setSearchQuery(e.target.value)
                   }}
-                  onFocus={() => globalSearchValue.trim().length > 1 && setShowSearchDropdown(true)}
                   className="w-full pl-10 pr-4"
                 />
-                {globalSearchValue && (
+                {searchQuery && (
                   <button
                     onClick={() => {
-                      setGlobalSearchValue("")
+                      setSearchQuery("")
                       setGlobalSearchResults([])
                       setShowSearchDropdown(false)
                     }}
@@ -509,7 +542,7 @@ export default function ListadoProductos() {
                 )}
               </div>
 
-              {/* Dropdown de resultados globales */}
+              {/* COMENTADO: Dropdown de resultados globales - Se muestra grilla directamente
               {showSearchDropdown && globalSearchValue.trim().length > 1 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
                   {searchingGlobal ? (
@@ -583,6 +616,7 @@ export default function ListadoProductos() {
                   )}
                 </div>
               )}
+              */}
             </div>
 
             {loading ? (

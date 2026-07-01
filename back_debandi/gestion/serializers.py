@@ -76,7 +76,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
     class Meta:
         model = Articulo
         fields = [
-            'art_codi', 'art_nomb', 'art_desc', 'art_palac',
+            'art_codi', 'art_nomb', 'art_desc', 'art_palac', 'art_cn',
             'art_pnet', 'art_pfin', 'art_cost',
             'art_stk', 'art_descu',
             'art_xbul', 'art_ubul',

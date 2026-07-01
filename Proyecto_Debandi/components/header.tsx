@@ -114,31 +114,30 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
     return () => clearTimeout(timeout)
   }, [searchValue, onSearch])
 
-  // Búsqueda GLOBAL (dropdown) - independiente de Inicio
-  // No afecta a la paginación de Inicio
-  useEffect(() => {
-    if (globalSearchValue.length < 2) {
-      setGlobalSearchResults([])
-      setShowSearchDropdown(false)
-      return
-    }
+  // COMENTADO: Búsqueda GLOBAL (dropdown) - Ahora el buscador solo navega al listado
+  // useEffect(() => {
+  //   if (globalSearchValue.length < 2) {
+  //     setGlobalSearchResults([])
+  //     setShowSearchDropdown(false)
+  //     return
+  //   }
 
-    const timeout = setTimeout(async () => {
-      try {
-        setSearchingGlobal(true)
-        const results = await SearchService.searchArticulos(globalSearchValue, 10)
-        setGlobalSearchResults(results)
-        setShowSearchDropdown(true)
-      } catch (err) {
-        console.error('Error en búsqueda global:', err)
-        setGlobalSearchResults([])
-      } finally {
-        setSearchingGlobal(false)
-      }
-    }, 300)
+  //   const timeout = setTimeout(async () => {
+  //     try {
+  //       setSearchingGlobal(true)
+  //       const results = await SearchService.searchArticulos(globalSearchValue, 10)
+  //       setGlobalSearchResults(results)
+  //       setShowSearchDropdown(true)
+  //     } catch (err) {
+  //       console.error('Error en búsqueda global:', err)
+  //       setGlobalSearchResults([])
+  //     } finally {
+  //       setSearchingGlobal(false)
+  //     }
+  //   }, 300)
 
-    return () => clearTimeout(timeout)
-  }, [globalSearchValue])
+  //   return () => clearTimeout(timeout)
+  // }, [globalSearchValue])
 
   const handleStopImpersonation = async () => {
     setStoppingImpersonation(true)
@@ -285,85 +284,32 @@ export default function Header({ onSearch, onSearchClick }: HeaderProps) {
 
           <div className="hidden md:flex items-center gap-4 flex-shrink-0 ml-auto">
             <div className="relative w-72">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
               <input
                 type="text"
                 placeholder="Buscar productos..."
                 value={globalSearchValue}
                 onChange={(e) => setGlobalSearchValue(e.target.value)}
-                onFocus={() => globalSearchValue.length >= 2 && setShowSearchDropdown(true)}
-                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                className="bg-gradient-to-r from-white to-gray-50 text-foreground pl-12 pr-5 py-2.5 rounded-full w-72 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 border border-gray-200 hover:border-gray-300 transition-all placeholder:text-gray-400 shadow-sm hover:shadow-md"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && globalSearchValue.trim().length > 0) {
+                    router.push(`/listado?search=${encodeURIComponent(globalSearchValue.trim())}`)
+                    setGlobalSearchValue("")
+                  }
+                }}
+                className="bg-gradient-to-r from-white to-gray-50 text-foreground pl-12 pr-12 py-2.5 rounded-full w-72 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 border border-gray-200 hover:border-gray-300 transition-all placeholder:text-gray-400 shadow-sm hover:shadow-md"
               />
-              
-              {/* Dropdown de resultados de búsqueda global */}
-              {showSearchDropdown && globalSearchValue.length >= 2 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                  {searchingGlobal ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      Buscando...
-                    </div>
-                  ) : globalSearchResults.length > 0 ? (
-                    <>
-                      {globalSearchResults.map((product: any) => (
-                        <div
-                          key={product.art_codi}
-                          className="px-4 py-3 hover:bg-primary/10 border-b last:border-b-0 transition-colors flex items-center justify-between gap-3"
-                        >
-                          <div 
-                            className="flex-1 cursor-pointer"
-                            onClick={() => {
-                              setSelectedProduct(product)
-                              setShowPreviewModal(true)
-                              setGlobalSearchValue("")
-                              setShowSearchDropdown(false)
-                            }}
-                          >
-                            <p className="font-medium text-sm">{product.art_nomb}</p>
-                            <p className="text-xs text-muted-foreground">{product.mar_nomb || 'Sin marca'}</p>
-                            {/* Mostrar precio solo si está autenticado */}
-                            {user && (
-                              <p className="text-sm font-semibold text-primary mt-1">{formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}</p>
-                            )}\n                          </div>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (!user) {
-                                setShowAuthModal(true)
-                                return
-                              }
-                              try {
-                                await CartService.addToCart(product.art_codi, 1, {
-                                  art_nomb: product.art_nomb,
-                                  art_pnet: product.art_pnet,
-                                  art_pfin: product.art_pfin,
-                                  art_stk: product.art_stk || 0,
-                                  art_img: product.art_img,
-                                  mar_nomb: product.mar_nomb,
-                                  rub_nomb: product.rub_nomb,
-                                  quantity: 1
-                                })
-                                // Disparar evento para actualizar carrito
-                                window.dispatchEvent(new Event("cart-updated"))
-                              } catch (err) {
-                                console.error('Error agregando al carrito:', err)
-                              }
-                            }}
-                            className="flex-shrink-0 p-2 hover:bg-primary/20 rounded-full transition-colors"
-                            title="Agregar al carrito"
-                          >
-                            <ShoppingCart className="w-5 h-5 text-primary" />
-                          </button>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="p-4 text-center text-muted-foreground text-sm">
-                      No se encontraron productos
-                    </div>
-                  )}
-                </div>
-              )}
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
+              <button
+                onClick={() => {
+                  if (globalSearchValue.trim().length > 0) {
+                    router.push(`/listado?search=${encodeURIComponent(globalSearchValue.trim())}`)
+                    setGlobalSearchValue("")
+                  }
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-primary/10 rounded-full transition-colors"
+                title="Buscar"
+              >
+                <Search className="w-5 h-5 text-gray-600 hover:text-primary" />
+              </button>
             </div>
             <button 
               onClick={() => {

@@ -25,6 +25,7 @@ interface Product {
   sru_nomb?: string
   rub_nomb?: string
   art_acti?: boolean
+  art_cn?: string
 }
 
 interface ProductPreviewModalProps {
@@ -163,6 +164,14 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
           {/* Detalles */}
           <div className="flex flex-col gap-6">
+            {/* Código Numérico */}
+            {product.art_cn && (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Código</p>
+                <p className="text-2xl font-bold text-primary">{product.art_cn}</p>
+              </div>
+            )}
+
             {/* Marca y Categoría */}
             <div>
               <p className="text-sm text-muted-foreground uppercase tracking-wide mb-1">{product.mar_nomb}</p>

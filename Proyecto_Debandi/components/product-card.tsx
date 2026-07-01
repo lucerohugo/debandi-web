@@ -20,6 +20,7 @@ interface Product {
   art_pfin: number
   art_stk: number
   art_img?: string
+  art_cn?: string
   mar_nomb?: string
   rub_nomb?: string
   grupo?: string

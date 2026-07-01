@@ -80,7 +80,7 @@ export default function NavigationBar() {
     return pathname === path
   }
 
-  const overlayTopPosition = hasBanner ? 'calc(40px + 170px)' : '170px'
+  const overlayTopPosition = hasBanner ? 'calc(40px + 162px)' : '162px'
 
   const handleExportPDF = async () => {
     setIsExporting(true)

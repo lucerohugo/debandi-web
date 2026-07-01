@@ -94,6 +94,35 @@ export class SearchService {
   }
 
   /**
+   * Buscar artículos paginados (trae todos los resultados con paginación)
+   * Útil para búsquedas donde necesitas todos los resultados con navegación
+   * @param query - Texto a buscar
+   * @param page - Número de página (default: 1)
+   * @param pageSize - Items por página (default: 15)
+   * @returns Response con count, next, previous, results
+   */
+  static async searchArticulosPaginados(
+    query: string,
+    page: number = 1,
+    pageSize: number = 15
+  ): Promise<SearchResponse> {
+    try {
+      if (!query || query.trim().length === 0) {
+        return { count: 0, next: null, previous: null, results: [] }
+      }
+
+      const response = await ApiService.get<SearchResponse>(
+        `/articulos/?search=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}`
+      )
+
+      return response || { count: 0, next: null, previous: null, results: [] }
+    } catch (error) {
+      console.error('Error en búsqueda paginada:', error)
+      return { count: 0, next: null, previous: null, results: [] }
+    }
+  }
+
+  /**
    * Obtener todos los artículos (para búsqueda local cuando se necesite)
    * ⚠️ DESHABILITADO por performance - usar getArticulosPaginados() en su lugar
    * @returns Array vacío (para evitar cargar 5000 registros)

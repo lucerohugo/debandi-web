@@ -107,6 +107,7 @@ class Articulo(models.Model):
     """Artículos/Productos"""
     art_codi = models.IntegerField(primary_key=True, editable=True)
     art_sku = models.CharField(max_length=100, blank=True, null=True, help_text="SKU")
+    art_cn = models.CharField(max_length=20, blank=True, null=True, help_text="Codigo Numerico") #nuevo codigo numerico
     art_nomb = models.CharField(max_length=255)
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
     art_palac = models.CharField(max_length=255, blank=True, null=True, help_text="Palabras clave para búsqueda si es complejo el art_nomb")
@@ -155,7 +156,21 @@ class Articulo(models.Model):
         """Obtiene el IVA del artículo"""
         return float(self.art_tiva) if self.art_tiva else 21
 
+    def clean(self):
+        """Validar datos del artículo"""
+        from django.core.exceptions import ValidationError
+        # Validar que el formato de art_cn sea correcto
+        expected_cn = f"DD{str(self.art_codi).zfill(5)}"
+        if self.art_cn and self.art_cn != expected_cn:
+            raise ValidationError(
+                f'art_cn debe ser {expected_cn}. Se genera automáticamente basado en art_codi.'
+            )
+
     def save(self, *args, **kwargs):
+        # Generar art_cn automáticamente basado en art_codi (SIEMPRE)
+        # Esto asegura que siempre sea consistente: DD + 5 dígitos del art_codi
+        self.art_cn = f"DD{str(self.art_codi).zfill(5)}"
+        
         iva_rate = Decimal(str(self.get_iva_rate()))
         # Solo recalcular art_pfin si es 0 o None (no ha sido editado manualmente)
         if not self.art_pfin or self.art_pfin == 0:
