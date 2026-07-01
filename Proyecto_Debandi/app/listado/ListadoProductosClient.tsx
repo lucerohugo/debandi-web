@@ -424,7 +424,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                   }}
                   className="w-full pl-10 pr-4"
                 />
-                {searchQuery && (
+                {/* {searchQuery && (
                   <button
                     onClick={() => {
                       setSearchQuery("")
@@ -435,8 +435,8 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                )}
-              </div>
+                )} */}
+              </div>    
             </div>
 
             {loading ? (

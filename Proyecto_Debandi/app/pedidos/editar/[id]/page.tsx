@@ -94,7 +94,8 @@ export default function EditOrderPage() {
       try {
         setLoadingProducts(true)
         // Usar SearchService para buscar en TODOS los productos del backend
-        const results = await SearchService.searchArticulos(searchQuery, 20)
+        // pageSize: 1000 para traer todos los resultados sin paginación
+        const results = await SearchService.searchArticulos(searchQuery, 1000)
         
         // Filtrar productos ya agregados al pedido y mapear al tipo Product
         const filtered = results
