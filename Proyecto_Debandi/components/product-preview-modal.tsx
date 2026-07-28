@@ -1,7 +1,7 @@
 ﻿"use client"
 
-import { useState } from "react"
-import { X, ShoppingCart, Heart, Minus, Plus } from "lucide-react"
+import { useEffect, useState } from "react"
+import { X, ShoppingCart, Heart, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
@@ -20,6 +20,12 @@ interface Product {
   art_stk: number
   art_img?: string
   art_img_url?: string
+  art_img1?: string
+  art_img1_url?: string
+  art_img2?: string
+  art_img2_url?: string
+  art_img3?: string
+  art_img3_url?: string
   art_desc?: string
   mar_nomb?: string
   sru_nomb?: string
@@ -40,10 +46,35 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState("")
   const [notificationType, setNotificationType] = useState<"success" | "error">("success")
-  
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
   const { user } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
   const favorite = isFavorite(product.art_codi)
+
+  // Imágenes disponibles: art_img1 es la principal, art_img2 y art_img3 solo si están cargadas
+  const images = [
+    product.art_img1_url || product.art_img1,
+    product.art_img2_url || product.art_img2,
+    product.art_img3_url || product.art_img3,
+  ].filter((url): url is string => Boolean(url))
+
+  // Compatibilidad con productos que todavía solo traen el campo de imagen único
+  if (images.length === 0 && (product.art_img_url || product.art_img)) {
+    images.push((product.art_img_url || product.art_img) as string)
+  }
+
+  useEffect(() => {
+    setCurrentImageIndex(0)
+  }, [product.art_codi])
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+  }
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+  }
 
   const finalPrice = user ? applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0) : product.art_pfin
 
@@ -79,7 +110,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         art_pnet: product.art_pnet,
         art_pfin: product.art_pfin,
         art_stk: product.art_stk,
-        art_img: product.art_img_url || product.art_img,
+        art_img: images[0] || product.art_img_url || product.art_img,
         mar_nomb: product.mar_nomb,
         rub_nomb: product.rub_nomb
       })
@@ -146,12 +177,43 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Imagen */}
           <div className="flex flex-col gap-4">
-            <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+            <div className="relative aspect-square bg-white rounded-lg overflow-hidden group flex items-center justify-center">
               <img
-                src={product.art_img_url || product.art_img || "/placeholder.svg"}
+                src={images[currentImageIndex] || "/placeholder.svg"}
                 alt={product.art_nomb}
-                className="w-full h-full object-cover"
+                className="max-w-full max-h-full w-auto h-auto object-contain"
               />
+
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrevImage}
+                    aria-label="Imagen anterior"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-sm transition opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    aria-label="Imagen siguiente"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background rounded-full p-2 shadow-sm transition opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {images.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentImageIndex(index)}
+                        aria-label={`Ver imagen ${index + 1}`}
+                        className={`w-2 h-2 rounded-full transition ${
+                          index === currentImageIndex ? "bg-primary" : "bg-background/70"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <button
               onClick={toggleFavorite}

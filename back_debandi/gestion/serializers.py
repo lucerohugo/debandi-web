@@ -6,6 +6,15 @@ from .models import (
 )
 
 
+def build_media_url(request, image_field):
+    """Retorna la URL absoluta de un ImageField, o None si está vacío"""
+    if not image_field:
+        return None
+    if request:
+        return request.build_absolute_uri(image_field.url)
+    return f"/media/{image_field.name}"
+
+
 # ================================================================
 # UBICACIONES GEOGRÁFICAS
 # ================================================================
@@ -71,7 +80,9 @@ class ArticuloSerializer(serializers.ModelSerializer):
     mar_nomb = serializers.CharField(source='mar_codi.mar_nomb', read_only=True, allow_null=True)
     sru_nomb = serializers.CharField(source='sru_codi.sru_nomb', read_only=True, allow_null=True)
     rub_nomb = serializers.CharField(source='sru_codi.rub_codi.rub_nomb', read_only=True, allow_null=True)
-    art_img_url = serializers.SerializerMethodField()
+    art_img1_url = serializers.SerializerMethodField()
+    art_img2_url = serializers.SerializerMethodField()
+    art_img3_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Articulo
@@ -82,19 +93,21 @@ class ArticuloSerializer(serializers.ModelSerializer):
             'art_xbul', 'art_ubul',
             'mar_codi', 'mar_nomb', 'sru_codi', 'sru_nomb', 'rub_nomb',
             'art_tiva', 'art_depo', 'art_mext',
-            'art_acti', 'art_visw', 'art_carru', 'art_prodr', 'art_img', 'art_img_url',
+            'art_acti', 'art_visw', 'art_carru', 'art_prodr',
+            'art_img1', 'art_img2', 'art_img3',
+            'art_img1_url', 'art_img2_url', 'art_img3_url',
             'art_fchc', 'art_fmod'
         ]
         read_only_fields = ['art_codi', 'art_fchc', 'art_fmod', 'art_pfin']
 
-    def get_art_img_url(self, obj):
-        """Retorna URL completa de la imagen del artículo"""
-        if obj.art_img:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.art_img.url)
-            return f"/media/{obj.art_img.name}"
-        return None
+    def get_art_img1_url(self, obj):
+        return build_media_url(self.context.get('request'), obj.art_img1)
+
+    def get_art_img2_url(self, obj):
+        return build_media_url(self.context.get('request'), obj.art_img2)
+
+    def get_art_img3_url(self, obj):
+        return build_media_url(self.context.get('request'), obj.art_img3)
 
 
 class ArticuloFrontendSerializer(serializers.ModelSerializer):
@@ -106,21 +119,28 @@ class ArticuloFrontendSerializer(serializers.ModelSerializer):
     precioNeto = serializers.DecimalField(source='art_pnet', max_digits=12, decimal_places=2)
     precioFinal = serializers.DecimalField(source='art_pfin', max_digits=12, decimal_places=2)
     imagen = serializers.SerializerMethodField()
+    imagenes = serializers.SerializerMethodField()
 
     class Meta:
         model = Articulo
         fields = [
             'codigoArticulo', 'descripcion', 'palabrasClaves', 'marca',
-            'precioNeto', 'precioFinal', 'imagen'
+            'precioNeto', 'precioFinal', 'imagen', 'imagenes'
         ]
 
     def get_imagen(self, obj):
-        if obj.art_img:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.art_img.url)
-            return f"/media/{obj.art_img.name}"
-        return None
+        """Imagen principal (compatibilidad hacia atrás)"""
+        return build_media_url(self.context.get('request'), obj.art_img1)
+
+    def get_imagenes(self, obj):
+        """Lista de todas las imágenes del artículo (sin las vacías)"""
+        request = self.context.get('request')
+        urls = [
+            build_media_url(request, obj.art_img1),
+            build_media_url(request, obj.art_img2),
+            build_media_url(request, obj.art_img3),
+        ]
+        return [url for url in urls if url]
 
 
 # ================================================================
@@ -238,12 +258,7 @@ class FavoritosSerializer(serializers.ModelSerializer):
         read_only_fields = ['fav_codi', 'fav_fecha']
 
     def get_art_img_url(self, obj):
-        if obj.art_codi.art_img:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.art_codi.art_img.url)
-            return f"/media/{obj.art_codi.art_img.name}"
-        return None
+        return build_media_url(self.context.get('request'), obj.art_codi.art_img1)
 
 
 class CarritoItemSerializer(serializers.ModelSerializer):
@@ -271,12 +286,7 @@ class CarritoItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['carr_codi', 'carr_fech', 'carr_fmod']
 
     def get_art_img(self, obj):
-        if obj.art_codi.art_img:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.art_codi.art_img.url)
-            return f"/media/{obj.art_codi.art_img.name}"
-        return None
+        return build_media_url(self.context.get('request'), obj.art_codi.art_img1)
 
     def get_subtotal(self, obj):
         # Usar carr_pfin si está disponible, sino usar art_pfin del artículo

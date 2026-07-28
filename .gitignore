@@ -32,7 +32,8 @@ out/
 build-output.log
 
 # Media y archivos estáticos (generados)
-media/
+back_debandi/media/*
+!back_debandi/media/imagenes_articulos/
 staticfiles/
 
 # Variables de entorno

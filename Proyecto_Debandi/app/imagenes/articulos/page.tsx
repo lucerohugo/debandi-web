@@ -16,10 +16,17 @@ interface Articulo {
   art_nomb: string
   mar_nomb?: string
   art_pfin: number
-  art_img?: string | null
+  art_img1?: string | null
+  art_img1_url?: string | null
+  art_img2?: string | null
+  art_img2_url?: string | null
+  art_img3?: string | null
+  art_img3_url?: string | null
   art_carru?: boolean  // Para Nuevos Productos
   art_prodr?: boolean  // Para Productos Recomendados
 }
+
+type CampoImagen = "art_img1" | "art_img2" | "art_img3"
 
 interface ArticulosResponse {
   count: number
@@ -375,7 +382,7 @@ export default function GestorImagenes() {
     }
   }
 
-  const cargarImagenArticulo = async (artCodi: number) => {
+  const cargarImagenArticulo = async (artCodi: number, campo: CampoImagen) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
@@ -384,7 +391,7 @@ export default function GestorImagenes() {
       if (!file) return
 
       const formData = new FormData()
-      formData.append('art_img', file)
+      formData.append(campo, file)
 
       try {
         const apiUrl = getApiUrl()
@@ -403,14 +410,14 @@ export default function GestorImagenes() {
     input.click()
   }
 
-  const eliminarImagenArticulo = async (artCodi: number) => {
-    if (!confirm("¿Eliminar la imagen de este artículo?")) return
+  const eliminarImagenArticulo = async (artCodi: number, campo: CampoImagen) => {
+    if (!confirm("¿Eliminar esta imagen del artículo?")) return
     try {
       const apiUrl = getApiUrl()
       const res = await fetch(`${apiUrl}/articulos/${artCodi}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ art_img: null }),
+        body: JSON.stringify({ [campo]: null }),
       })
       if (res.ok) {
         await cargarArticulos(paginaArticulos, searchArticulos)
@@ -638,7 +645,7 @@ export default function GestorImagenes() {
             <Card>
               <CardHeader>
                 <CardTitle>Cargar Imágenes a Artículos</CardTitle>
-                <CardDescription>Selecciona un artículo y carga su imagen principal</CardDescription>
+                <CardDescription>Selecciona un artículo y carga su o sus imagenes.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
@@ -665,20 +672,21 @@ export default function GestorImagenes() {
                         <th className="text-left py-2 px-3 font-semibold">Código</th>
                         <th className="text-left py-2 px-3 font-semibold">Nombre</th>
                         <th className="text-left py-2 px-3 font-semibold">Marca</th>
-                        <th className="text-left py-2 px-3 font-semibold">Imagen</th>
-                        <th className="text-left py-2 px-3 font-semibold">Acción</th>
+                        <th className="text-left py-2 px-3 font-semibold">Imagen 1(principal)</th>
+                        <th className="text-left py-2 px-3 font-semibold">Imagen 2</th>
+                        <th className="text-left py-2 px-3 font-semibold">Imagen 3</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loadingArticulos ? (
                         <tr>
-                          <td colSpan={5} className="text-center py-4 text-gray-500">
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
                             Cargando...
                           </td>
                         </tr>
                       ) : articulos.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center py-4 text-gray-500">
+                          <td colSpan={6} className="text-center py-4 text-gray-500">
                             No hay artículos
                           </td>
                         </tr>
@@ -688,39 +696,47 @@ export default function GestorImagenes() {
                             <td className="py-2 px-3">{art.art_codi}</td>
                             <td className="py-2 px-3">{art.art_nomb}</td>
                             <td className="py-2 px-3">{art.mar_nomb || "-"}</td>
-                            <td className="py-2 px-3">
-                              {art.art_img ? (
-                                <div className="w-12 h-12 relative rounded border border-gray-200 overflow-hidden bg-gray-100">
-                                  <Image
-                                    src={art.art_img}
-                                    alt={art.art_nomb}
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                </div>
-                              ) : (
-                                <span className="text-gray-500 text-xs">Sin imagen</span>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 flex gap-2">
-                              <Button 
-                                size="sm" 
-                                className="bg-primary hover:bg-primary/90 text-white"
-                                onClick={() => cargarImagenArticulo(art.art_codi)}
-                              >
-                                Cargar
-                              </Button>
-                              {art.art_img && (
-                                <Button 
-                                  size="sm" 
-                                  variant="destructive"
-                                  onClick={() => eliminarImagenArticulo(art.art_codi)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </td>
+                            {(["art_img1", "art_img2", "art_img3"] as CampoImagen[]).map((campo) => {
+                              const url = art[`${campo}_url` as const] || art[campo]
+                              return (
+                                <td key={campo} className="py-2 px-3">
+                                  <div className="flex flex-col items-start gap-1.5">
+                                    {url ? (
+                                      <div className="w-12 h-12 relative rounded border border-gray-200 overflow-hidden bg-gray-100">
+                                        <Image
+                                          src={url}
+                                          alt={art.art_nomb}
+                                          fill
+                                          className="object-cover"
+                                          unoptimized
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-500 text-xs">Sin imagen</span>
+                                    )}
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="sm"
+                                        className="bg-primary hover:bg-primary/90 text-white h-7 px-2 text-xs"
+                                        onClick={() => cargarImagenArticulo(art.art_codi, campo)}
+                                      >
+                                        Cargar
+                                      </Button>
+                                      {url && (
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          className="h-7 px-2"
+                                          onClick={() => eliminarImagenArticulo(art.art_codi, campo)}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              )
+                            })}
                           </tr>
                         ))
                       )}
@@ -813,10 +829,10 @@ export default function GestorImagenes() {
                             <td className="py-2 px-3">{art.art_nomb}</td>
                             <td className="py-2 px-3">{art.mar_nomb || "-"}</td>
                             <td className="py-2 px-3">
-                              {art.art_img ? (
+                              {(art.art_img1_url || art.art_img1) ? (
                                 <div className="w-12 h-12 relative rounded border border-gray-200 overflow-hidden bg-gray-100">
                                   <Image
-                                    src={art.art_img}
+                                    src={(art.art_img1_url || art.art_img1) as string}
                                     alt={art.art_nomb}
                                     fill
                                     className="object-cover"
@@ -1120,10 +1136,10 @@ export default function GestorImagenes() {
                             <td className="py-2 px-3">{art.art_nomb}</td>
                             <td className="py-2 px-3">{art.mar_nomb || "-"}</td>
                             <td className="py-2 px-3">
-                              {art.art_img ? (
+                              {(art.art_img1_url || art.art_img1) ? (
                                 <div className="w-12 h-12 relative rounded border border-gray-200 overflow-hidden bg-gray-100">
                                   <Image
-                                    src={art.art_img}
+                                    src={(art.art_img1_url || art.art_img1) as string}
                                     alt={art.art_nomb}
                                     fill
                                     className="object-cover"

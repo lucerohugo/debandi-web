@@ -18,6 +18,8 @@ interface Product {
   art_pnet?: number
   art_img?: string
   art_img_url?: string
+  art_img1?: string
+  art_img1_url?: string
   art_stk?: number
   art_desc?: string
   mar_nomb?: string
@@ -105,7 +107,9 @@ export default function NewProducts() {
           onScroll={handleScroll}
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide"
         >
-          {products.map((product) => (
+          {products.map((product) => {
+            const imageUrl = product.art_img1_url || product.art_img1 || product.art_img_url || product.art_img
+            return (
             <div
               key={product.art_codi}
               className="flex-shrink-0 w-44 snap-start group flex flex-col"
@@ -117,13 +121,13 @@ export default function NewProducts() {
                 }}
                 className="cursor-pointer"
               >
-                <div className="relative aspect-square mb-3 rounded-lg overflow-hidden bg-muted">
-                  {product.art_img ? (
+                <div className={`relative aspect-square mb-3 rounded-lg overflow-hidden ${imageUrl ? "bg-white" : "bg-muted"}`}>
+                  {imageUrl ? (
                     <Image
-                      src={product.art_img}
+                      src={imageUrl}
                       alt={product.art_nomb}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-contain p-2"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -159,7 +163,8 @@ export default function NewProducts() {
                 )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Botón scroll derecha */}

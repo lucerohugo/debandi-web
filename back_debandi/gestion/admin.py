@@ -85,8 +85,11 @@ class ArticuloAdmin(admin.ModelAdmin):
         ('Clasificación', {
             'fields': ('mar_codi', 'sru_codi')
         }),
+        ('Imágenes', {
+            'fields': ('art_img1', 'art_img2', 'art_img3')
+        }),
         ('Configuración', {
-            'fields': ('art_depo', 'art_acti', 'art_visw', 'art_carru', 'art_img')
+            'fields': ('art_depo', 'art_acti', 'art_visw', 'art_carru')
         }),
         ('Control', {
             'fields': ('art_fchc', 'art_fmod', 'art_org', 'art_exp', 'art_fexp')
