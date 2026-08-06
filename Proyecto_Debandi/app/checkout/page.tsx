@@ -284,9 +284,9 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <p className="text-sm text-muted-foreground">
+              {/* <p className="text-sm text-muted-foreground">
                 Recibirás un email de confirmación pronto con los detalles de tu pedido.
-              </p>
+              </p> */}
 
               <Button
                 onClick={handleContinue}
