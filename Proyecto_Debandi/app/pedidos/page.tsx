@@ -119,12 +119,12 @@ export default function OrdersPage() {
 
   const handleExportOrderToPDF = async (order: Order) => {
     try {
-      // Preparar datos del pedido para exportar
+      // Preparar datos del pedido para exportar (aplicando el descuento del cliente)
       const pedidoItems = order.items.map((item) => ({
         art_codi: item.art_codi,
         art_nomb: item.art_nomb,
         quantity: item.quantity,
-        price: item.price,
+        price: applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0),
       }));
       
       // Exportar PDF del pedido específico

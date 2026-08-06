@@ -84,7 +84,7 @@ export default function ContactPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {/* Teléfono */}
-              <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <Phone className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">Teléfono</h3>
                 <div className="flex flex-col gap-1">
@@ -108,7 +108,7 @@ export default function ContactPage() {
               </div>
 
               {/* Email */}
-              <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <Mail className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">Email</h3>
                 <a
@@ -120,7 +120,7 @@ export default function ContactPage() {
               </div>
 
               {/* Ubicación */}
-              <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <MapPin className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">Ubicación</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -129,7 +129,7 @@ export default function ContactPage() {
               </div>
 
               {/* WhatsApp */}
-              <div className="bg-white border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
+              <div className="bg-card border border-border rounded-lg p-4 sm:p-6 text-center hover:shadow-lg transition">
                 <MessageCircle className="w-6 sm:w-8 h-6 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
                 <h3 className="font-semibold text-foreground mb-2 text-sm sm:text-base">WhatsApp</h3>
                 <div className="flex flex-col gap-1">
@@ -225,7 +225,7 @@ export default function ContactPage() {
         </section>
 
         {/* Sección de horarios */}
-        <section className="py-8 sm:py-16 bg-white">
+        <section className="py-8 sm:py-16 border-t border-border">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex flex-col items-center gap-8">
               <div className="text-center">
@@ -258,7 +258,7 @@ export default function ContactPage() {
       </main>
 
       {/* Sección de características/beneficios */}
-      <section className="bg-gradient-to-b from-white to-muted/30 py-8 sm:py-16">
+      <section className="py-8 sm:py-16 border-t border-border">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {/* Envíos a Domicilio */}

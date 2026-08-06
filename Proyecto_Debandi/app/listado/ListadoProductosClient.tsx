@@ -36,6 +36,9 @@ interface Product {
   art_ubul: number
   art_tiva: string
   art_img?: string
+  art_img_url?: string
+  art_img1?: string
+  art_img1_url?: string
   art_cn?: string
   mar_codi?: number
   mar_nomb?: string
@@ -58,6 +61,9 @@ interface ProductTabla {
   art_ubul?: number
   art_tiva: string
   art_img?: string
+  art_img_url?: string
+  art_img1?: string
+  art_img1_url?: string
   art_acti?: boolean
   cli_desc?: number | string
   cli_precs1?: number | string
@@ -467,10 +473,11 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                     <tbody>
                       {productsTabla.map((product) => {
                       const quantity = cartQuantities.get(product.art_codi) || 0
+                      const imageUrl = product.art_img1_url || product.art_img1 || product.art_img_url || product.art_img
                       return (
                         <tr key={product.art_codi} className="border-b hover:bg-muted/50">
                           <td className="py-3 px-4 font-medium">{product.art_codi}</td>
-                          <td 
+                          <td
                             className="py-3 px-4 cursor-pointer transition-colors duration-200 hover:text-blue-600 group"
                             onClick={() => {
                               const fullProduct = allProductsCache.get(product.art_codi)
@@ -479,7 +486,18 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                               }
                             }}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 shrink-0 rounded border bg-white overflow-hidden flex items-center justify-center">
+                                {imageUrl ? (
+                                  <img
+                                    src={imageUrl}
+                                    alt={product.art_nomb}
+                                    className="w-full h-full object-contain"
+                                  />
+                                ) : (
+                                  <span className="text-[9px] text-muted-foreground text-center leading-tight">Sin img.</span>
+                                )}
+                              </div>
                               <span className="text-base group-hover:underline">{product.art_nomb}</span>
                               <Eye className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
