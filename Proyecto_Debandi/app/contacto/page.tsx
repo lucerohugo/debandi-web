@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { Phone, Mail, MapPin, MessageCircle, Truck, Users, Headphones, CreditCard } from "lucide-react"
 import NotificationToast from "@/components/notification-toast"
+import { ApiService } from "@/services/api.service"
 
 export default function ContactPage() {
   const { user } = useAuth()
@@ -50,12 +51,13 @@ export default function ContactPage() {
     }
 
     setLoading(true)
-    
-    // Simular envío (en producción sería una API real)
-    setTimeout(() => {
+
+    try {
+      await ApiService.post("/contacto-enviar/", formData)
+
       setNotificationMessage("¡Tu mensaje ha sido enviado correctamente! Te contactaremos pronto.")
       setShowNotification(true)
-      
+
       // Limpiar formulario
       setFormData({
         nombre: "",
@@ -63,9 +65,12 @@ export default function ContactPage() {
         telefono: "",
         mensaje: "",
       })
-      
+    } catch (error) {
+      setNotificationMessage("Ocurrió un error al enviar tu consulta. Por favor intenta nuevamente.")
+      setShowNotification(true)
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
   return (

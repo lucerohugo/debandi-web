@@ -1608,9 +1608,77 @@ def cliente_register(request):
         import traceback
         traceback.print_exc()
         return JsonResponse(
-            {'success': False, 'detail': str(e)}, 
+            {'success': False, 'detail': str(e)},
             status=500
         )
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def contacto_enviar(request):
+    """
+    POST /contacto-enviar/
+    Recibe la consulta del formulario de contacto y la envía por email a soporte.
+    Body: {"nombre": "...", "email": "...", "telefono": "...", "mensaje": "..."}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+
+    nombre = (data.get('nombre') or '').strip()
+    email = (data.get('email') or '').strip()
+    telefono = (data.get('telefono') or '').strip()
+    mensaje = (data.get('mensaje') or '').strip()
+
+    if not all([nombre, email, mensaje]):
+        return JsonResponse(
+            {'success': False, 'detail': 'Nombre, email y mensaje son requeridos'},
+            status=400
+        )
+
+    def send_contacto_email():
+        try:
+            email_body = f"""
+Nueva consulta desde el formulario de contacto del sitio web
+
+Nombre: {nombre}
+Email: {email}
+Teléfono: {telefono or 'No informado'}
+
+Mensaje:
+{mensaje}
+
+Saludos,
+Sistema Ferretería Debandi
+            """
+
+            send_mail(
+                subject=f'Nueva consulta de contacto - {nombre}',
+                message=email_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=['soporte@ferreteradebandi.online'],
+                fail_silently=True,
+            )
+
+            logger.info(f"✓ Email de consulta de contacto enviado (de {email})")
+
+        except Exception as e:
+            logger.error(
+                f"✗ Error enviando email de consulta de contacto (de {email}): {str(e)}",
+                exc_info=True
+            )
+
+    email_thread = threading.Thread(target=send_contacto_email, daemon=True)
+    email_thread.start()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Tu mensaje ha sido enviado correctamente'
+    }, status=200)
 
 
 @csrf_exempt

@@ -9,7 +9,7 @@ from .views import (
     GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login, 
     importar_datos, cliente_login, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
-    crear_pedido_desde_carrito
+    crear_pedido_desde_carrito, contacto_enviar
 )
 
 # 👇 CLAVE: agregar trailing_slash opcional
@@ -56,6 +56,7 @@ urlpatterns = [
     path('cliente-register/', cliente_register, name='cliente-register'),
     path('cliente-update-password/', cliente_update_password, name='cliente-update-password'),
     path('cliente-update-parametros/', cliente_update_parametros, name='cliente-update-parametros'),
+    path('contacto-enviar/', contacto_enviar, name='contacto-enviar'),
     path('favoritos-manage/', favoritos_manage, name='favoritos-manage'),
     path('carrito-manage/', carrito_manage, name='carrito-manage'),
     path('pedidos-crear-desde-carrito/', crear_pedido_desde_carrito, name='crear-pedido-desde-carrito'),
