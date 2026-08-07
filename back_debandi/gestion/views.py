@@ -1652,12 +1652,11 @@ Teléfono: {telefono or 'No informado'}
 Mensaje:
 {mensaje}
 
-Saludos,
-Sistema Ferretería Debandi
+
             """
 
             send_mail(
-                subject=f'Nueva consulta de contacto - {nombre}',
+                subject=f'Consulta web de - {nombre}',
                 message=email_body,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=['soporte@ferreteradebandi.online'],
