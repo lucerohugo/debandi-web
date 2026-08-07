@@ -68,7 +68,7 @@ class SubrubroAdmin(admin.ModelAdmin):
 
 @admin.register(Articulo)
 class ArticuloAdmin(admin.ModelAdmin):
-    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_stk', 'mar_codi', 'art_acti']
+    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost', 'mar_codi', 'art_acti']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw', 'art_carru']
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'art_cn']
     readonly_fields = ['art_fchc', 'art_fmod']
