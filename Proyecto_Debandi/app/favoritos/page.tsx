@@ -104,11 +104,11 @@ export default function FavoritesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {favoritesList.map((product: any) => (
               <Card key={product.art_codi} className="overflow-hidden hover:shadow-lg transition">
-                <div className="relative aspect-square bg-gray-100 overflow-hidden group">
+                <div className="relative aspect-square bg-white overflow-hidden group flex items-center justify-center">
                   <img
                     src={product.art_img_url || '/placeholder.jpg'}
                     alt={product.art_nomb}
-                    className="w-full h-full object-cover group-hover:scale-105 transition"
+                    className="max-w-full max-h-full w-auto h-auto object-contain group-hover:scale-105 transition"
                   />
                   <button
                     onClick={() => removeFavorite(product.art_codi)}

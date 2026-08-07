@@ -148,19 +148,24 @@ export default function OrdersPage() {
 
   const handleRepeatOrder = async (order: Order) => {
     try {
-      // Agregar los items del pedido anterior al carrito
+      // Agregar los items del pedido anterior al carrito, con el precio ACTUAL del artículo
+      // (el pedido puede tener el precio congelado si ya fue procesado)
       const { CartService } = await import('@/services/cart.service')
+      const { ApiService } = await import('@/services/api.service')
       let totalUnitsAdded = 0
       let failedItems: string[] = []
-      
+
       for (const item of order.items) {
         try {
+          // Consultar el precio vigente del artículo en lugar de usar el del pedido histórico
+          const articuloActual = await ApiService.get<any>(`/articulos/${item.art_codi}/`)
+
           // Pasar el objeto completo del producto al carrito
           await CartService.addToCart(item.art_codi, item.quantity, {
-            art_nomb: item.art_nomb,
-            art_pnet: item.art_pnet,
-            art_pfin: item.art_pfin,
-            art_stk: 0, // No tenemos stock info, pero pasamos el objeto
+            art_nomb: articuloActual.art_nomb ?? item.art_nomb,
+            art_pnet: articuloActual.art_pnet,
+            art_pfin: articuloActual.art_pfin,
+            art_stk: articuloActual.art_stk ?? 0,
             art_img: undefined,
             mar_nomb: undefined,
             rub_nomb: undefined,

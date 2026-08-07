@@ -996,14 +996,12 @@ class PedidosViewSet(BaseViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        updated_count = Pedidos.objects.filter(
-            ped_codi__in=ped_codis,
-            ped_exp=False
-        ).update(
-            ped_exp=True,
-            ped_fexp=timezone.now()
-        )
-        
+        pedidos_a_procesar = Pedidos.objects.filter(ped_codi__in=ped_codis, ped_exp=False)
+        updated_count = 0
+        for pedido in pedidos_a_procesar:
+            pedido.marcar_como_procesado()
+            updated_count += 1
+
         return Response({
             'success': True,
             'message': f'{updated_count} pedidos marcados como exportados',

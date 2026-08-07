@@ -115,7 +115,7 @@ class Articulo(models.Model):
     art_pnet = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Precio neto")
     art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=True, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
-    art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos", null=True)
+    art_stk = models.PositiveIntegerField(default=0, help_text="Stock de artículos", null=True, blank=True)
     art_xbul = models.BooleanField(default=False, help_text="Por bulto/pack", null=True)
     art_ubul = models.PositiveIntegerField(default=1, help_text="Unidades por bulto", null=True)
     art_img1 = models.ImageField(upload_to='articulos/', blank=True, null=True)
@@ -416,27 +416,42 @@ class Pedidos(models.Model):
         verbose_name_plural = "Pedidos"
         ordering = ['-ped_codi']
 
+    def save(self, *args, **kwargs):
+        """Al pasar de Pendiente a Procesado, congela el precio de cada detalle"""
+        became_procesado = False
+        if self.pk:
+            previo = Pedidos.objects.filter(pk=self.pk).values_list('ped_exp', flat=True).first()
+            if previo is not None and not previo and self.ped_exp:
+                became_procesado = True
+        super().save(*args, **kwargs)
+        if became_procesado:
+            self._congelar_precios()
+
+    def _congelar_precios(self):
+        """Fija dpe_pfin de cada detalle con el precio actual del artículo, para que
+        cambios futuros en art_pfin no alteren pedidos ya procesados"""
+        for detalle in self.detalles.select_related('art_codi').all():
+            if detalle.dpe_pfin is None:
+                detalle.dpe_pfin = detalle.art_codi.art_pfin
+                detalle.save(update_fields=['dpe_pfin'])
+        self.actualizar_total()
+
     def actualizar_total(self):
-        """Calcula el total como suma de (dpe_cant * art_pfin) de todos los detalles"""
-        from django.db.models import F, Sum, DecimalField, ExpressionWrapper
-        
-        total = self.detalles.aggregate(
-            total=Sum(
-                ExpressionWrapper(
-                    F('dpe_cant') * F('art_codi__art_pfin'),
-                    output_field=DecimalField()
-                )
-            )
-        )['total'] or Decimal('0')
+        """Calcula el total como suma de (dpe_cant * precio_final) de todos los detalles.
+        Usa el precio congelado del detalle si el pedido ya fue procesado, sino el precio actual del artículo"""
+        total = sum(
+            (detalle.dpe_cant * detalle.precio_final for detalle in self.detalles.select_related('art_codi').all()),
+            Decimal('0')
+        )
         self.ped_tota = total
         self.save(update_fields=['ped_tota'])
 
     def puede_modificarse(self):
         """Retorna True si el pedido puede editarse (ped_exp = False = Pendiente)"""
         return not self.ped_exp
-    
+
     def marcar_como_procesado(self):
-        """Marca el pedido como procesado (ped_exp = True)"""
+        """Marca el pedido como procesado (ped_exp = True) y congela los precios de sus detalles"""
         from django.utils import timezone
         self.ped_exp = True
         self.ped_fexp = timezone.now()
@@ -455,12 +470,21 @@ class DetallePedido(models.Model):
     ped_codi = models.ForeignKey(Pedidos, on_delete=models.CASCADE, related_name='detalles')
     art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='en_pedidos')
     dpe_cant = models.PositiveIntegerField(default=1, help_text="Cantidad pedida")
+    dpe_pfin = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Precio final congelado al procesar el pedido. Null mientras el pedido está pendiente (usa el precio actual del artículo)"
+    )
 
     class Meta:
         verbose_name = "Detalle Pedido"
         verbose_name_plural = "Detalles Pedidos"
         ordering = ['ped_codi', 'dpe_codi']
         unique_together = ('ped_codi', 'art_codi')  # No repetir artículos en un pedido
+
+    @property
+    def precio_final(self):
+        """Precio congelado si el pedido ya fue procesado, sino el precio actual del artículo"""
+        return self.dpe_pfin if self.dpe_pfin is not None else self.art_codi.art_pfin
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

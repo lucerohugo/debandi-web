@@ -309,12 +309,7 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True
     )
-    art_pfin = serializers.DecimalField(
-        source='art_codi.art_pfin', 
-        max_digits=12, 
-        decimal_places=2, 
-        read_only=True
-    )
+    art_pfin = serializers.SerializerMethodField()
     art_descu = serializers.DecimalField(
         source='art_codi.art_descu',
         max_digits=12,
@@ -329,10 +324,13 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = DetallePedido
         fields = [
-            'dpe_codi', 'ped_codi', 'art_codi', 'art_nomb', 'dpe_cant', 
+            'dpe_codi', 'ped_codi', 'art_codi', 'art_nomb', 'dpe_cant',
             'art_pnet', 'art_pfin', 'art_descu', 'art_stk'
         ]
         read_only_fields = ['dpe_codi', 'ped_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_descu', 'art_stk']
+
+    def get_art_pfin(self, obj):
+        return obj.precio_final
 
 
 class DetallePedidoWriteSerializer(serializers.ModelSerializer):

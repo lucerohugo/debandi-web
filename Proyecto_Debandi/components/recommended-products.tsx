@@ -127,7 +127,7 @@ export default function RecommendedProducts() {
                       src={imageUrl}
                       alt={product.art_nomb}
                       fill
-                      className="object-contain p-2"
+                      className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
