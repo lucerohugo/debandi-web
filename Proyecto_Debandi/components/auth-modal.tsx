@@ -194,13 +194,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
                       className="text-sm text-primary hover:underline"
                     >
                       ¿Olvidaste tu contraseña?
-                    </button>
+                    </button> */}
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1" disabled={loading}>

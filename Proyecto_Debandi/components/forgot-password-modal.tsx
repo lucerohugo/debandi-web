@@ -91,9 +91,9 @@ export default function ForgotPasswordModal({ onClose, onBack }: ForgotPasswordM
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
+            {/* <div>
               <CardTitle>¿Olvidaste tu Contraseña?</CardTitle>
-            </div>
+            </div> */}
           </CardHeader>
 
           <CardContent>
