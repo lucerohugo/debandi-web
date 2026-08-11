@@ -320,17 +320,21 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
         source='art_codi.art_stk',
         read_only=True
     )
+    art_img1_url = serializers.SerializerMethodField()
 
     class Meta:
         model = DetallePedido
         fields = [
             'dpe_codi', 'ped_codi', 'art_codi', 'art_nomb', 'dpe_cant',
-            'art_pnet', 'art_pfin', 'art_descu', 'art_stk'
+            'art_pnet', 'art_pfin', 'art_descu', 'art_stk', 'art_img1_url'
         ]
-        read_only_fields = ['dpe_codi', 'ped_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_descu', 'art_stk']
+        read_only_fields = ['dpe_codi', 'ped_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_descu', 'art_stk', 'art_img1_url']
 
     def get_art_pfin(self, obj):
         return obj.precio_final
+
+    def get_art_img1_url(self, obj):
+        return build_media_url(self.context.get('request'), obj.art_codi.art_img1)
 
 
 class DetallePedidoWriteSerializer(serializers.ModelSerializer):

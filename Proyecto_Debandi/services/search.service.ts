@@ -8,6 +8,7 @@ interface SearchResult {
   art_pfin: number
   art_stk: number
   art_img_url?: string
+  art_img1_url?: string
   mar_nomb?: string
   art_acti?: boolean
 }

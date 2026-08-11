@@ -23,6 +23,7 @@ interface Product {
   art_stk: number
   art_cint?: string
   mar_nomb?: string
+  art_img1_url?: string
 }
 
 interface OrderItem {
@@ -32,6 +33,7 @@ interface OrderItem {
   art_pfin: number
   art_stk: number
   art_cint?: string  // Código interno del artículo
+  art_img1_url?: string
   dpe_cant: number
   dpe_prec: number
   dpe_subt: number
@@ -106,7 +108,8 @@ export default function EditOrderPage() {
             art_pnet: p.art_pnet,
             art_pfin: p.art_pfin,
             art_stk: p.art_stk,  // Stock del artículo
-            mar_nomb: p.mar_nomb
+            mar_nomb: p.mar_nomb,
+            art_img1_url: p.art_img1_url || p.art_img_url
           } as Product))
         
         setSearchResults(filtered)
@@ -156,6 +159,7 @@ export default function EditOrderPage() {
         art_pfin: det.art_pfin,
         art_stk: det.art_stk,
         art_cint: det.art_cint || '',
+        art_img1_url: det.art_img1_url,
         dpe_cant: det.dpe_cant,
         dpe_prec: det.art_pfin,  // Usar art_pfin directamente
         dpe_subt: det.dpe_cant * det.art_pfin,  // Calcular el subtotal
@@ -219,6 +223,7 @@ export default function EditOrderPage() {
         art_pfin: product.art_pfin,
         art_stk: product.art_stk,
         art_cint: product.art_cint || '',
+        art_img1_url: product.art_img1_url,
         dpe_cant: 1,
         dpe_prec: product.art_pfin,
         dpe_subt: product.art_pfin,
@@ -474,15 +479,20 @@ export default function EditOrderPage() {
                       <button
                         key={product.art_codi}
                         onClick={() => addProductToOrder(product)}
-                        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors"
+                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 border-b last:border-b-0 text-left transition-colors"
                       >
-                        <div>
-                          <p className="font-medium text-foreground">{product.art_nomb}</p>
+                        <img
+                          src={product.art_img1_url || "/placeholder.svg"}
+                          alt={product.art_nomb}
+                          className="w-10 h-10 object-cover rounded border flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground truncate">{product.art_nomb}</p>
                           <p className="text-sm text-muted-foreground">
                             Cód: {product.art_codi} {product.mar_nomb && `• ${product.mar_nomb}`}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <p className="font-semibold text-primary">{formatCurrencySpanish(product.art_pfin)}</p>
                         </div>
                       </button>
@@ -516,6 +526,11 @@ export default function EditOrderPage() {
                         : 'bg-white'
                   }`}
                 >
+                  <img
+                    src={item.art_img1_url || "/placeholder.svg"}
+                    alt={item.art_nomb}
+                    className="w-14 h-14 object-cover rounded border flex-shrink-0"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className={`font-medium ${item.removed ? 'line-through text-red-600' : 'text-foreground'}`}>

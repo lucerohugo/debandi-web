@@ -1483,7 +1483,7 @@ def cliente_login(request):
         # Verificar que cliente esté activo
         if not cliente.cli_acti:
             return JsonResponse(
-                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada por nuestro equipo.'}, 
+                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada.'}, 
                 status=401
             )
 

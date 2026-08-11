@@ -13,6 +13,7 @@ interface OrderDetail {
   art_pfin: number
   art_descu: number
   art_stk?: number
+  art_img1_url?: string
 }
 
 interface Order {

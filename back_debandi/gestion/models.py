@@ -239,11 +239,11 @@ class Novedades(models.Model):
 class Registro(models.Model):
     """Registros pendientes de aprobación para convertirse en clientes"""
     reg_codi = models.IntegerField(primary_key=True, editable= True)
-    reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido")
-    reg_doc = models.IntegerField(help_text="Documento")
-    reg_emai = models.EmailField(unique=True, help_text="Email")
-    reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)")
-    reg_clie = models.BooleanField(default=False, help_text="Aprobado/NO aprobado por debandi")
+    reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido", blank=True, null=True)
+    reg_doc = models.IntegerField(help_text="Documento", blank=True, null=True)
+    reg_emai = models.EmailField(unique=True, help_text="Email", blank=True, null=True)
+    reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)", blank=True, null=True)
+    reg_clie = models.BooleanField(default=False, help_text="Aprobado/NO aprobado por debandi",blank=True, null=True)
     reg_fchc = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
     reg_fmod = models.DateTimeField(auto_now=True, help_text="Fecha de modificación")
     reg_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
