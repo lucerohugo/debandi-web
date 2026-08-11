@@ -21,6 +21,7 @@ interface OrderItem {
   art_pfin: number
   quantity: number
   price: number
+  image?: string
 }
 
 interface Order {
@@ -65,7 +66,8 @@ export default function OrdersPage() {
           art_pnet: det.art_pfin,  // Usar art_pfin como pnet para cálculos
           art_pfin: det.art_pfin,
           quantity: det.dpe_cant,  // Usar dpe_cant (cantidad pedida)
-          price: det.art_pfin  // Usar art_pfin como precio
+          price: det.art_pfin,  // Usar art_pfin como precio
+          image: det.art_img1_url
         }))
       }))
       
@@ -346,12 +348,12 @@ export default function OrdersPage() {
                             key={index}
                             className="flex gap-4 pb-4 border-b last:border-b-0 last:pb-0"
                           >
-                            <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                            <div className={`w-20 h-20 rounded overflow-hidden flex-shrink-0 ${item.image ? 'bg-white border' : 'bg-gray-100'}`}>
                               {item.image ? (
                                 <img
                                   src={item.image}
                                   alt={item.art_nomb}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain p-1"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-gray-200">
