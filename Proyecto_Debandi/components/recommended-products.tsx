@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ApiService } from "@/services/api.service"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { useAuth } from "@/contexts/auth-context"
@@ -166,6 +166,17 @@ export default function RecommendedProducts() {
             )
           })}
         </div>
+
+        {/* Botón scroll izquierda */}
+        {canScrollLeft && (
+          <button
+            onClick={() => scroll("left")}
+            className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-primary hover:bg-primary/90 text-primary-foreground p-2 rounded-full shadow-lg transition-colors"
+            aria-label="Anterior"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Botón scroll derecha */}
         {canScrollRight && (
