@@ -53,6 +53,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   }
 
+  const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo permitir números, máximo 11 dígitos (formato CUIT XX-XXXXXXXX-X)
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
+    let formatted = digits
+    if (digits.length > 10) {
+      formatted = `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
+    } else if (digits.length > 2) {
+      formatted = `${digits.slice(0, 2)}-${digits.slice(2)}`
+    }
+    e.target.value = formatted
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo permitir números, respetando el largo máximo del modelo (reg_celu, max_length=20)
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 20)
+  }
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
@@ -84,6 +101,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const confirmPassword = formData.get("confirmPassword") as string
     const nombre = formData.get("nombre") as string
     const document = formData.get("document") as string
+    const cuit = formData.get("cuit") as string
+    const celular = formData.get("celular") as string
 
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden")
@@ -109,7 +128,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await RegistroService.crearRegistro({
         reg_nomb: nombre,
         reg_doc: document,
+        reg_cuit: cuit,
         reg_emai: email,
+        reg_celu: celular,
         reg_clav: password,
       })
       
@@ -239,12 +260,39 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="cuit">CUIT</Label>
+                    <Input
+                      id="cuit"
+                      name="cuit"
+                      inputMode="numeric"
+                      placeholder="20-12345678-9"
+                      maxLength={13}
+                      onChange={handleCuitChange}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="register-email">Email</Label>
                     <Input
                       id="register-email"
                       name="email"
                       type="email"
                       placeholder="tu@email.com"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="celular">Teléfono</Label>
+                    <Input
+                      id="celular"
+                      name="celular"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="3511234567"
+                      maxLength={20}
+                      onChange={handlePhoneChange}
                       required
                       disabled={loading}
                     />

@@ -344,7 +344,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = RegistroSerializer
     lookup_field_name = "reg_codi"
     filterset_fields = ['reg_clie']
-    search_fields = ['reg_nomb', 'reg_doc', 'reg_emai']
+    search_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
     ordering = ['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
     authentication_classes = []
@@ -354,7 +354,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
         
         # Validar campos requeridos
-        required_fields = ['reg_nomb', 'reg_doc', 'reg_emai', 'reg_clav']
+        required_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav']
         for field in required_fields:
             if not data.get(field):
                 return Response(
@@ -403,7 +403,9 @@ ID Registro: {registro.reg_codi}
 Nombre: {registro.reg_nomb}
 
 Documento: {registro.reg_doc}
+CUIT: {registro.reg_cuit}
 Email: {registro.reg_emai}
+Teléfono: {registro.reg_celu}
 Fecha de Registro: {fecha_registro}
 
 Este registro está pendiente de aprobación.
@@ -551,7 +553,9 @@ Sistema Ferreterería Debandi
                     cli_codi=next_cli_codi,
                     cli_nomb=instance.reg_nomb,
                     cli_ndoc=instance.reg_doc,
+                    cli_cuit=instance.reg_cuit,
                     cli_emai=instance.reg_emai,
+                    cli_celu=instance.reg_celu,
                     cli_clav=instance.reg_clav,  # Copiar hash directamente, NO re-hashear
                     loc_codi=default_localidad,
                     cli_acti=False  # Crear inactivo, se activa cuando admin cambia cli_acti a True

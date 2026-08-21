@@ -104,16 +104,16 @@ class ArticuloAdmin(admin.ModelAdmin):
 
 @admin.register(Registro)
 class RegistroAdmin(admin.ModelAdmin):
-    list_display = ['reg_codi', 'reg_nomb', 'reg_emai', 'reg_clie', 'reg_fchc', 'reg_exp']
+    list_display = ['reg_codi', 'reg_nomb', 'reg_emai', 'reg_celu', 'reg_clie', 'reg_fchc', 'reg_exp']
     list_filter = ['reg_clie', 'reg_fchc']
-    search_fields = ['reg_codi', 'reg_nomb', 'reg_doc', 'reg_emai']
+    search_fields = ['reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
     readonly_fields = ['reg_codi', 'reg_fchc', 'reg_fmod', 'reg_clav']
     fieldsets = (
         ('Datos Personales', {
-            'fields': ('reg_codi', 'reg_nomb', 'reg_doc')
+            'fields': ('reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit')
         }),
         ('Contacto', {
-            'fields': ('reg_emai',)
+            'fields': ('reg_emai', 'reg_celu')
         }),
         ('Autenticación', {
             'fields': ('reg_clav',),
