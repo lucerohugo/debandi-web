@@ -78,6 +78,33 @@ const getHeaders = (additionalHeaders: Record<string, string> = {}): Record<stri
 }
 
 /**
+ * Extraer un mensaje de error legible del cuerpo de la respuesta.
+ * Soporta el formato { error: "..." } usado por el backend, así como
+ * { detail: "..." }, { message: "..." } y errores de campo de DRF.
+ */
+const parseErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const data = await response.json()
+
+    if (typeof data === 'string') return data
+    if (data?.error) return data.error
+    if (data?.detail) return data.detail
+    if (data?.message) return data.message
+
+    const firstKey = Object.keys(data || {})[0]
+    if (firstKey) {
+      const value = data[firstKey]
+      if (Array.isArray(value)) return value[0]
+      if (typeof value === 'string') return value
+    }
+  } catch {
+    // El cuerpo no era JSON o estaba vacío
+  }
+
+  return `Error: ${response.status}`
+}
+
+/**
  * Decodificar JWT sin validar firma (solo para leer payload)
  * Retorna el payload decodificado o null si es inválido
  */
@@ -122,8 +149,8 @@ export class ApiService {
       credentials: 'include',
       headers: getHeaders(),
     })
-    
-    if (!response.ok) throw new Error(`Error: ${response.status}`)
+
+    if (!response.ok) throw new Error(await parseErrorMessage(response))
     return response.json()
   }
 
@@ -134,8 +161,8 @@ export class ApiService {
       headers: getHeaders(),
       body: JSON.stringify(data),
     })
-    
-    if (!response.ok) throw new Error(`Error: ${response.status}`)
+
+    if (!response.ok) throw new Error(await parseErrorMessage(response))
     return response.json()
   }
 
@@ -146,8 +173,8 @@ export class ApiService {
       headers: getHeaders(),
       body: JSON.stringify(data),
     })
-    
-    if (!response.ok) throw new Error(`Error: ${response.status}`)
+
+    if (!response.ok) throw new Error(await parseErrorMessage(response))
     return response.json()
   }
 
@@ -158,8 +185,8 @@ export class ApiService {
       headers: getHeaders(),
       body: JSON.stringify(data),
     })
-    
-    if (!response.ok) throw new Error(`Error: ${response.status}`)
+
+    if (!response.ok) throw new Error(await parseErrorMessage(response))
     return response.json()
   }
 
@@ -169,14 +196,14 @@ export class ApiService {
       credentials: 'include',
       headers: getHeaders(),
     }
-    
+
     if (data) {
       fetchOptions.body = JSON.stringify(data)
     }
-    
+
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), fetchOptions)
-    
-    if (!response.ok) throw new Error(`Error: ${response.status}`)
+
+    if (!response.ok) throw new Error(await parseErrorMessage(response))
     return response.json()
   }
 

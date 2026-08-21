@@ -91,8 +91,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return
     }
 
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres")
+    if (password.length < 3) {
+      setError("La contraseña debe tener al menos 3 caracteres")
       setLoading(false)
       return
     }

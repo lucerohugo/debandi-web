@@ -513,7 +513,7 @@ Sistema Ferreterería Debandi
             # ================================================================
             
             if Clientes.objects.filter(cli_emai=instance.reg_emai).exists():
-                existing_cliente = Clientes.objects.get(cli_emai=instance.reg_emai)
+                existing_cliente = Clientes.objects.filter(cli_emai=instance.reg_emai).first()
                 logger.warning(
                     f"⚠️ No se puede crear Cliente duplicado: "
                     f"Email {instance.reg_emai} ya existe en Cliente {existing_cliente.cli_codi} ({existing_cliente.cli_nomb}). "
@@ -1376,6 +1376,16 @@ def cliente_login(request):
         # Buscar en Clientes primero
         try:
             cliente = Clientes.objects.get(cli_emai=email)
+        except Clientes.MultipleObjectsReturned:
+            cantidad = Clientes.objects.filter(cli_emai=email).count()
+            return JsonResponse(
+                {
+                    'success': False,
+                    'detail': f'Hay {cantidad} cuentas registradas con este email. '
+                               f'Por favor contactate con soporte para resolverlo.'
+                },
+                status=409
+            )
         except Clientes.DoesNotExist:
             # Si no existe en Clientes, buscar en Registro
             try:
@@ -1619,16 +1629,26 @@ def cliente_update_password(request):
         cliente = Clientes.objects.get(cli_emai=email)
         cliente.set_password(password)
         cliente.save()
-        
+
         return JsonResponse({
             "success": True,
             "message": f"Contraseña actualizada para {email}",
             "cli_codi": cliente.cli_codi
         }, status=200)
-    
+
+    except Clientes.MultipleObjectsReturned:
+        cantidad = Clientes.objects.filter(cli_emai=email).count()
+        return JsonResponse(
+            {
+                'success': False,
+                'detail': f'Hay {cantidad} cuentas registradas con este email. '
+                           f'Por favor contactate con soporte para resolverlo.'
+            },
+            status=409
+        )
     except Clientes.DoesNotExist:
         return JsonResponse(
-            {'success': False, 'detail': 'Cliente no encontrado'}, 
+            {'success': False, 'detail': 'Cliente no encontrado'},
             status=404
         )
     except Exception as e:

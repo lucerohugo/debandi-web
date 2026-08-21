@@ -79,7 +79,7 @@ function ResetPasswordContent() {
     }
 
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres")
+      setError("La contraseña debe tener al menos 3 caracteres")
       setLoading(false)
       return
     }
