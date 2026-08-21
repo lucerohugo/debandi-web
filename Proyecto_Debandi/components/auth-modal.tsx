@@ -128,7 +128,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await RegistroService.crearRegistro({
         reg_nomb: nombre,
         reg_doc: document,
-        reg_cuit: cuit,
+        reg_cuit: cuit.replace(/\D/g, ''),
         reg_emai: email,
         reg_celu: celular,
         reg_clav: password,
