@@ -20,9 +20,41 @@ export default function NotificationToast({
   duration = 3000,
 }: NotificationToastProps) {
   const [mounted, setMounted] = useState(false)
+  const [isImpersonating, setIsImpersonating] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const checkImpersonation = () => {
+      if (typeof window === 'undefined') return
+      const savedImpersonation = localStorage.getItem('impersonation_state')
+      if (savedImpersonation) {
+        try {
+          const parsed = JSON.parse(savedImpersonation)
+          setIsImpersonating(!!parsed?.isImpersonating)
+        } catch {
+          setIsImpersonating(false)
+        }
+      } else {
+        setIsImpersonating(false)
+      }
+    }
+
+    checkImpersonation()
+
+    window.addEventListener('storage', checkImpersonation)
+    window.addEventListener('storage-updated', checkImpersonation)
+    window.addEventListener('impersonation-started', checkImpersonation)
+    window.addEventListener('impersonation-stopped', checkImpersonation)
+
+    return () => {
+      window.removeEventListener('storage', checkImpersonation)
+      window.removeEventListener('storage-updated', checkImpersonation)
+      window.removeEventListener('impersonation-started', checkImpersonation)
+      window.removeEventListener('impersonation-stopped', checkImpersonation)
+    }
   }, [])
 
   useEffect(() => {
@@ -42,7 +74,11 @@ export default function NotificationToast({
   const Icon = type === "success" ? Check : Trash2
 
   return (
-    <div className="fixed top-24 right-4 z-40 animate-in slide-in-from-top-2 fade-in duration-300">
+    <div
+      className={`fixed right-4 z-40 animate-in slide-in-from-top-2 fade-in duration-300 ${
+        isImpersonating ? 'top-[151px]' : 'top-24'
+      }`}
+    >
       <div
         className={`${bgColor} border rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-sm backdrop-blur-sm`}
       >

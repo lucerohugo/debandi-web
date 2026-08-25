@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -8,10 +9,27 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
 from gestion.models import Articulo
 
+LOGO_PATH = os.path.join(os.path.dirname(__file__), '..', 'static', 'gestion', 'images', 'logo-def3.png')
+
 
 class PDFService:
     """Servicio para exportar artículos a PDF"""
-    
+
+    @staticmethod
+    def _dibujar_logo(canvas, doc):
+        """Dibuja el logo en la esquina superior derecha de la primera página"""
+        if not os.path.exists(LOGO_PATH):
+            return
+        logo_width = 1.1 * inch
+        logo_height = logo_width * (430 / 915)  # relación de aspecto del logo
+        x = doc.pagesize[0] - doc.rightMargin - logo_width
+        y = doc.pagesize[1] - doc.topMargin + 0.1 * inch
+        canvas.drawImage(
+            LOGO_PATH, x, y,
+            width=logo_width, height=logo_height,
+            preserveAspectRatio=True, mask='auto'
+        )
+
     @staticmethod
     def generar_pdf():
         """
@@ -22,7 +40,6 @@ class PDFService:
         
         # Obtener artículos con select_related para evitar N+1
         articulos = Articulo.objects.select_related(
-            'mar_codi',
             'sru_codi',
             'sru_codi__rub_codi'
         ).all()
@@ -70,8 +87,6 @@ class PDFService:
         encabezados = [
             "Código",
             "Nombre",
-            "Descripción",
-            "Marca",
             "Rubro",
             "SubRubro",
             "Precio Final",
@@ -119,26 +134,22 @@ class PDFService:
             fila = [
                 Paragraph(str(articulo.art_codi), center_style),
                 Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
-                Paragraph((articulo.art_desc or "-")[:80], normal_style),  # Limitar a 80 caracteres
-                Paragraph(articulo.mar_codi.mar_nomb if articulo.mar_codi else "-", normal_style),
                 Paragraph(articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else "-", normal_style),
                 Paragraph(articulo.sru_codi.sru_nomb if articulo.sru_codi else "-", normal_style),
                 Paragraph(f"${float(articulo.art_pfin):.2f}" if articulo.art_pfin else "$0.00", number_style),
                 Paragraph(f"{float(articulo.art_tiva):.2f}%" if articulo.art_tiva else "0.00%", number_style),
             ]
             data.append(fila)
-        
+
         # Crear tabla con ancho dinámico
         table_width = 10 * inch  # Ancho total disponible en landscape
         col_widths = [
-            0.6*inch,  # Código
-            1.2*inch,  # Nombre
-            1.5*inch,  # Descripción
-            0.8*inch,  # Marca
-            1.0*inch,  # Rubro
-            1.0*inch,  # SubRubro
-            0.9*inch,  # Precio Final
-            0.6*inch,  # IVA
+            0.8*inch,  # Código
+            3.4*inch,  # Nombre
+            1.8*inch,  # Rubro
+            1.8*inch,  # SubRubro
+            1.3*inch,  # Precio Final
+            0.9*inch,  # IVA
         ]
         
         table = Table(data, colWidths=col_widths)
@@ -168,14 +179,13 @@ class PDFService:
             
             # Alineación de columnas numéricas
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Código
-            ('ALIGN', (6, 1), (7, -1), 'RIGHT'),  # Números (Precio Final, IVA)
-            ('ALIGN', (9, 1), (9, -1), 'CENTER'),  # Stock
+            ('ALIGN', (4, 1), (5, -1), 'RIGHT'),  # Números (Precio Final, IVA)
         ]))
         
         elements.append(table)
         
         # Construir PDF
-        doc.build(elements)
+        doc.build(elements, onFirstPage=PDFService._dibujar_logo, onLaterPages=PDFService._dibujar_logo)
         output.seek(0)
         
         return output

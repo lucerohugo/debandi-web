@@ -62,9 +62,9 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#" className="hover:opacity-75 transition">
+                {/* <Link href="#" className="hover:opacity-75 transition">
                   Otro
-                </Link>
+                </Link> */}
               </li>
             </ul>
           </div>

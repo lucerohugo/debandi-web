@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: Config = {
   gen_razon: '',
   gen_dire: '',
   gen_tele: '',
-  gen_emai: 'soporte@ferreteradebandi.online',
+  gen_emai: 'debandidistribuciones@hotmail.com', //aca cmabiar y poner el del backend de la general 
   gen_colo: '#028EF9',
 }
 

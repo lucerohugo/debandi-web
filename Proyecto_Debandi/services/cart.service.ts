@@ -172,7 +172,7 @@ class CartServiceClass {
         carr_cant: cantidad
       }
 
-      console.log(`📍 Actualizando carrito:`, payload)
+      console.log(``, payload)
 
       if (cantidad <= 0) {
         // Eliminar del carrito
