@@ -345,7 +345,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     lookup_field_name = "reg_codi"
     filterset_fields = ['reg_clie']
     search_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
-    ordering = ['-reg_fchc']
+    ordering = ['reg_codi'] #['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
     authentication_classes = []
 
