@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail } from "lucide-react"
+import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail, Loader2 } from "lucide-react"
 import { ConfigService } from "@/services/config.service"
 import { ExportUtils } from "@/lib/export-utils"
+import { useAuth } from "@/contexts/auth-context"
 
 interface Rubro {
   rub_codi: number
@@ -14,6 +15,7 @@ interface Rubro {
 
 export default function NavigationBar() {
   const pathname = usePathname()
+  const { user } = useAuth()
   const [rubros, setRubros] = useState<Rubro[]>([])
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -84,6 +86,8 @@ export default function NavigationBar() {
 
   const handleExportPDF = async () => {
     setIsExporting(true)
+    setShowCatalogDropdown(false)
+    setNotification({ message: 'Descargando PDF, espere...', show: true })
     try {
       await ExportUtils.exportarPDF()
       setNotification({ message: 'PDF descargado exitosamente', show: true })
@@ -94,12 +98,13 @@ export default function NavigationBar() {
       setTimeout(() => setNotification({ message: '', show: false }), 5000)
     } finally {
       setIsExporting(false)
-      setShowCatalogDropdown(false)
     }
   }
 
   const handleExportExcel = async () => {
     setIsExporting(true)
+    setShowCatalogDropdown(false)
+    setNotification({ message: 'Descargando Excel, espere...', show: true })
     try {
       await ExportUtils.exportarExcel()
       setNotification({ message: 'Excel descargado exitosamente', show: true })
@@ -110,12 +115,11 @@ export default function NavigationBar() {
       setTimeout(() => setNotification({ message: '', show: false }), 5000)
     } finally {
       setIsExporting(false)
-      setShowCatalogDropdown(false)
     }
   }
 
   return (
-    <nav className="bg-background border-b border-border">
+    <nav id="main-navigation" className="bg-background border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center gap-8 py-3">
           {/* Inicio */}
@@ -132,7 +136,8 @@ export default function NavigationBar() {
             {isActive("/") && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
           </Link>
 
-          {/* Catálogos (Rubros) */}
+          {/* Catálogos (Rubros) - Solo visible si el usuario inició sesión */}
+          {user && (
           <div className="relative group">
             <button
               onClick={() => setShowCatalogDropdown(!showCatalogDropdown)}
@@ -182,6 +187,7 @@ export default function NavigationBar() {
               </>
             )}
           </div>
+          )}
 
           {/* Listado de Productos */}
           <Link
@@ -230,7 +236,11 @@ export default function NavigationBar() {
       {/* Notificación de exportación */}
       {notification.show && (
         <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center gap-2">
-          <FileDown className="w-4 h-4" />
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileDown className="w-4 h-4" />
+          )}
           {notification.message}
         </div>
       )}

@@ -1,15 +1,20 @@
 import os
 from io import BytesIO
+from PIL import Image as PILImage
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
 from gestion.models import Articulo
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), '..', 'static', 'gestion', 'images', 'logo-def3.png')
+
+IMG_CELL_SIZE = 0.6 * inch
+IMG_THUMB_PX = 140  # resolución del thumbnail embebido (evita PDFs enormes/lentos con fotos a resolución original)
+IMG_JPEG_QUALITY = 80
 
 
 class PDFService:
@@ -31,6 +36,31 @@ class PDFService:
         )
 
     @staticmethod
+    def _imagen_articulo(articulo):
+        """Devuelve un flowable Image con la foto principal (art_img1) del artículo, o None"""
+        campo = articulo.art_img1
+        if not campo:
+            return None
+        try:
+            if not os.path.exists(campo.path):
+                return None
+            with PILImage.open(campo.path) as img:
+                if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                    img = img.convert('RGBA')
+                    fondo = PILImage.new('RGB', img.size, (255, 255, 255))
+                    fondo.paste(img, mask=img.getchannel('A'))
+                    img = fondo
+                else:
+                    img = img.convert('RGB')
+                img.thumbnail((IMG_THUMB_PX, IMG_THUMB_PX))
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=IMG_JPEG_QUALITY)
+                buffer.seek(0)
+            return Image(buffer, width=IMG_CELL_SIZE, height=IMG_CELL_SIZE)
+        except (ValueError, OSError):
+            return None
+
+    @staticmethod
     def generar_pdf():
         """
         Genera un archivo PDF con todos los artículos en formato tabla.
@@ -38,11 +68,7 @@ class PDFService:
         Retorna: BytesIO con el contenido del archivo PDF
         """
         
-        # Obtener artículos con select_related para evitar N+1
-        articulos = Articulo.objects.select_related(
-            'sru_codi',
-            'sru_codi__rub_codi'
-        ).all()
+        articulos = Articulo.objects.all()
         
         # Crear BytesIO
         output = BytesIO()
@@ -86,11 +112,10 @@ class PDFService:
         # Encabezados
         encabezados = [
             "Código",
+            "Imagen",
             "Nombre",
-            "Rubro",
-            "SubRubro",
+            "Precio Neto",
             "Precio Final",
-            "IVA (%)"
         ]
         
         # Crear estilos para encabezados
@@ -131,25 +156,24 @@ class PDFService:
         
         # Agregar artículos
         for articulo in articulos:
+            imagen = PDFService._imagen_articulo(articulo)
             fila = [
                 Paragraph(str(articulo.art_codi), center_style),
+                imagen if imagen else Paragraph("-", center_style),
                 Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
-                Paragraph(articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else "-", normal_style),
-                Paragraph(articulo.sru_codi.sru_nomb if articulo.sru_codi else "-", normal_style),
+                Paragraph(f"${float(articulo.art_pnet):.2f}" if articulo.art_pnet else "$0.00", number_style),
                 Paragraph(f"${float(articulo.art_pfin):.2f}" if articulo.art_pfin else "$0.00", number_style),
-                Paragraph(f"{float(articulo.art_tiva):.2f}%" if articulo.art_tiva else "0.00%", number_style),
             ]
             data.append(fila)
 
         # Crear tabla con ancho dinámico
         table_width = 10 * inch  # Ancho total disponible en landscape
         col_widths = [
-            0.8*inch,  # Código
-            3.4*inch,  # Nombre
-            1.8*inch,  # Rubro
-            1.8*inch,  # SubRubro
-            1.3*inch,  # Precio Final
-            0.9*inch,  # IVA
+            0.7*inch,  # Código
+            0.8*inch,  # Imagen
+            4.8*inch,  # Nombre
+            1.6*inch,  # Precio Neto
+            1.6*inch,  # Precio Final
         ]
         
         table = Table(data, colWidths=col_widths)
@@ -179,7 +203,9 @@ class PDFService:
             
             # Alineación de columnas numéricas
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Código
-            ('ALIGN', (4, 1), (5, -1), 'RIGHT'),  # Números (Precio Final, IVA)
+            ('ALIGN', (1, 1), (1, -1), 'CENTER'),  # Imagen
+            ('ALIGN', (3, 1), (4, -1), 'RIGHT'),  # Números (Precio Neto, Precio Final)
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         
         elements.append(table)

@@ -44,9 +44,11 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   // Banner de supervisor - lee del localStorage directamente
   const [bannerData, setBannerData] = useState<{ isImpersonating: boolean; vendedor?: { ven_nomb: string } } | null>(null)
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
+  const [overlayTop, setOverlayTop] = useState<number | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDropdownRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -232,7 +234,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       )}
       
       {/* Header Principal */}
-      <header className={`bg-background border-b border-border sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50`}>
+      <header ref={headerRef} className={`bg-background border-b border-border sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50`}>
         <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
@@ -340,7 +342,16 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
               {user ? (
                 <div className="relative">
                   <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    onClick={() => {
+                      if (!showUserMenu) {
+                        const navEl = document.getElementById('main-navigation')
+                        const top = navEl
+                          ? navEl.getBoundingClientRect().top
+                          : headerRef.current?.getBoundingClientRect().bottom ?? null
+                        setOverlayTop(top)
+                      }
+                      setShowUserMenu(!showUserMenu)
+                    }}
                     className="flex items-center gap-2 px-3 py-2 hover:bg-accent rounded-lg transition-colors"
                   >
                     <User className="w-5 h-5" />
@@ -349,9 +360,10 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
 
                   {mounted && showUserMenu && (
                     <>
-                      {/* Overlay backdrop con desenfoque - Solo debajo del header */}
+                      {/* Overlay backdrop con desenfoque - Debajo de la barra de navegación (o del header si no hay barra) */}
                       <div
-                        className={`fixed left-0 right-0 bottom-0 backdrop-blur z-40 ${bannerData?.isImpersonating ? 'top-[140px]' : 'top-[102px]'}`}
+                        style={{ top: overlayTop ?? (bannerData?.isImpersonating ? 140 : 102) }}
+                        className="fixed left-0 right-0 bottom-0 backdrop-blur z-40"
                         onClick={() => setShowUserMenu(false)}
                       />
                       <div className={`absolute right-0 w-72 bg-white/80 dark:bg-slate-900/90 backdrop-blur-md border-2 border-white/60 dark:border-white/40 rounded-lg shadow-2xl z-50 divide-y divide-white/20 ${bannerData?.isImpersonating ? 'top-full mt-2' : 'top-full mt-2'}`}>

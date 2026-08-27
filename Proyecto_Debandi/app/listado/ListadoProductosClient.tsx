@@ -94,6 +94,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
   const [isExporting, setIsExporting] = useState(false)
   const [showNotification, setShowNotification] = useState(false)
   const [notificationMessage, setNotificationMessage] = useState("")
+  const [notificationType, setNotificationType] = useState<"success" | "error" | "loading">("success")
   const [selectedProductForPreview, setSelectedProductForPreview] = useState<Product | null>(null)
   const [itemsPerPage, setItemsPerPage] = useState(15)
   const [maxLimit, setMaxLimit] = useState(100)
@@ -120,15 +121,18 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
 
   const handleExportPDF = async () => {
     setIsExporting(true)
+    setNotificationType("loading")
+    setNotificationMessage("Descargando PDF, espere...")
+    setShowNotification(true)
     try {
       await ExportUtils.exportarPDF()
+      setNotificationType("success")
       setNotificationMessage("PDF descargado exitosamente")
-      setShowNotification(true)
       setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
       console.error("Error al exportar PDF:", error)
+      setNotificationType("error")
       setNotificationMessage("Error al exportar PDF")
-      setShowNotification(true)
       setTimeout(() => setShowNotification(false), 5000)
     } finally {
       setIsExporting(false)
@@ -137,15 +141,18 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
 
   const handleExportExcel = async () => {
     setIsExporting(true)
+    setNotificationType("loading")
+    setNotificationMessage("Descargando Excel, espere...")
+    setShowNotification(true)
     try {
       await ExportUtils.exportarExcel()
+      setNotificationType("success")
       setNotificationMessage("Excel descargado exitosamente")
-      setShowNotification(true)
       setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
       console.error("Error al exportar Excel:", error)
+      setNotificationType("error")
       setNotificationMessage("Error al exportar Excel")
-      setShowNotification(true)
       setTimeout(() => setShowNotification(false), 5000)
     } finally {
       setIsExporting(false)
@@ -661,7 +668,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
 
       <NotificationToast
         message={notificationMessage}
-        type="success"
+        type={notificationType}
         isOpen={showNotification}
         onClose={() => setShowNotification(false)}
         duration={3000}

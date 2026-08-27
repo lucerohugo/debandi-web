@@ -16,25 +16,19 @@ class ExcelService:
         Retorna: BytesIO con el contenido del archivo Excel
         """
         
-        # Obtener artículos con select_related para evitar N+1
-        articulos = Articulo.objects.select_related(
-            'sru_codi',
-            'sru_codi__rub_codi'
-        ).all()
-        
+        articulos = Articulo.objects.all()
+
         # Crear workbook
         wb = Workbook()
         ws = wb.active
         ws.title = "Artículos"
-        
+
         # Definir encabezados
         encabezados = [
             "Código",
             "Nombre",
-            "Rubro",
-            "SubRubro",
+            "Precio Neto",
             "Precio Final",
-            "IVA (%)"
         ]
         
         # Agregar encabezados a la primera fila
@@ -51,22 +45,17 @@ class ExcelService:
             fila_datos = [
                 articulo.art_codi,
                 articulo.art_nomb,
-                articulo.sru_codi.rub_codi.rub_nomb if articulo.sru_codi and articulo.sru_codi.rub_codi else "",
-                articulo.sru_codi.sru_nomb if articulo.sru_codi else "",
+                float(articulo.art_pnet) if articulo.art_pnet else 0,
                 float(articulo.art_pfin) if articulo.art_pfin else 0,
-                float(articulo.art_tiva) if articulo.art_tiva else 0,
             ]
 
             for col_num, valor in enumerate(fila_datos, 1):
                 cell = ws.cell(row=row_num, column=col_num)
                 cell.value = valor
                 # Alineación y formato
-                if col_num in [5, 6]:  # Columnas numéricas (Precio Final, IVA)
+                if col_num in [3, 4]:  # Columnas numéricas (Precio Neto, Precio Final)
                     cell.alignment = Alignment(horizontal="right")
-                    if col_num == 5:  # Precio - formato moneda
-                        cell.number_format = '$#,##0.00'
-                    else:  # IVA - formato decimal
-                        cell.number_format = '0.00'
+                    cell.number_format = '$#,##0.00'
                 else:
                     cell.alignment = Alignment(horizontal="left", wrap_text=True)
         

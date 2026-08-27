@@ -2,11 +2,11 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Check, Trash2, X } from "lucide-react"
+import { Check, Trash2, X, Loader2 } from "lucide-react"
 
 interface NotificationToastProps {
   message: string
-  type: "success" | "error"
+  type: "success" | "error" | "loading"
   isOpen: boolean
   onClose: () => void
   duration?: number
@@ -58,20 +58,30 @@ export default function NotificationToast({
   }, [])
 
   useEffect(() => {
-    if (isOpen) {
+    // El toast "loading" se mantiene visible hasta que el caller lo cierre manualmente
+    if (isOpen && type !== "loading") {
       const timer = setTimeout(() => {
         onClose()
       }, duration)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, onClose, duration])
+  }, [isOpen, onClose, duration, type])
 
   if (!mounted || !isOpen) return null
 
-  const bgColor = type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
-  const textColor = type === "success" ? "text-green-900" : "text-red-900"
-  const iconColor = type === "success" ? "text-green-600" : "text-red-600"
-  const Icon = type === "success" ? Check : Trash2
+  const bgColor =
+    type === "success" ? "bg-green-50 border-green-200" :
+    type === "loading" ? "bg-blue-50 border-blue-200" :
+    "bg-red-50 border-red-200"
+  const textColor =
+    type === "success" ? "text-green-900" :
+    type === "loading" ? "text-blue-900" :
+    "text-red-900"
+  const iconColor =
+    type === "success" ? "text-green-600" :
+    type === "loading" ? "text-blue-600" :
+    "text-red-600"
+  const Icon = type === "success" ? Check : type === "loading" ? Loader2 : Trash2
 
   return (
     <div
@@ -82,14 +92,16 @@ export default function NotificationToast({
       <div
         className={`${bgColor} border rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-sm backdrop-blur-sm`}
       >
-        <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
+        <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor} ${type === "loading" ? "animate-spin" : ""}`} />
         <p className={`text-sm font-medium ${textColor} flex-1`}>{message}</p>
-        <button
-          onClick={onClose}
-          className={`flex-shrink-0 ${iconColor} hover:opacity-70 transition-opacity`}
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {type !== "loading" && (
+          <button
+            onClick={onClose}
+            className={`flex-shrink-0 ${iconColor} hover:opacity-70 transition-opacity`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   )
