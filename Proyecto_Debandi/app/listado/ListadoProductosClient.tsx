@@ -408,7 +408,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
       <main className="flex-1 w-full px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Listado De Productos</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Listado De Productos</h1>
             <p className="text-muted-foreground">
               Selecciona los productos que deseas y agrega al carrito
             </p>
@@ -461,16 +461,16 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                   <table className="w-full">
                     <thead className="border-b bg-muted">
                       <tr>
-                        <th className="text-left py-3 px-4">Código</th>
+                        <th className="hidden md:table-cell text-left py-3 px-4">Código</th>
                         <th className="text-left py-3 px-4">Producto</th>
                         {user && (
                           <>
                             <th className="text-right py-3 px-4">Precio {mostrarIVA ? "C/ IVA" : "(sin IVA)"}</th>
                             {Number(user?.cli_precs1 || 0) > 0 && (
-                              <th className="text-center py-3 px-4">Precio Sugerido 1</th>
+                              <th className="hidden lg:table-cell text-center py-3 px-4">Precio Sugerido 1</th>
                             )}
                             {Number(user?.cli_precs2 || 0) > 0 && (
-                              <th className="text-center py-3 px-4">Precio Sugerido 2</th>
+                              <th className="hidden xl:table-cell text-center py-3 px-4">Precio Sugerido 2</th>
                             )}
                             <th className="text-center py-3 px-4">Pedir</th>
                           </>
@@ -483,7 +483,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                       const imageUrl = product.art_img1_url || product.art_img1 || product.art_img_url || product.art_img
                       return (
                         <tr key={product.art_codi} className="border-b hover:bg-muted/50">
-                          <td className="py-3 px-4 font-medium">{product.art_codi}</td>
+                          <td className="hidden md:table-cell py-3 px-4 font-medium">{product.art_codi}</td>
                           <td
                             className="py-3 px-4 cursor-pointer transition-colors duration-200 hover:text-blue-600 group"
                             onClick={() => {
@@ -513,10 +513,10 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                             <>
                               <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)))}</td>
                               {Number(user?.cli_precs1 || 0) > 0 && (
-                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
+                                <td className="hidden lg:table-cell py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
                               )}
                               {Number(user?.cli_precs2 || 0) > 0 && (
-                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
+                                <td className="hidden xl:table-cell py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
                               )}
                               <td className="py-3 px-4">
                                 <div className="flex items-center justify-center gap-2">

@@ -155,9 +155,9 @@ export default function AdminPage() {
                     <tr>
                       <th className="px-4 py-2 text-left font-semibold">Código</th>
                       <th className="px-4 py-2 text-left font-semibold">Nombre</th>
-                      <th className="px-4 py-2 text-left font-semibold">Marca</th>
-                      <th className="px-4 py-2 text-left font-semibold">Categoría</th>
-                      <th className="px-4 py-2 text-right font-semibold">Precio Neto</th>
+                      <th className="hidden md:table-cell px-4 py-2 text-left font-semibold">Marca</th>
+                      <th className="hidden lg:table-cell px-4 py-2 text-left font-semibold">Categoría</th>
+                      <th className="hidden lg:table-cell px-4 py-2 text-right font-semibold">Precio Neto</th>
                       <th className="px-4 py-2 text-right font-semibold">Precio Final</th>
                       <th className="px-4 py-2 text-right font-semibold">Stock</th>
                     </tr>
@@ -168,9 +168,9 @@ export default function AdminPage() {
                         <tr key={product.art_codi} className="border-b border-border hover:bg-muted/50 transition">
                           <td className="px-4 py-2 text-sm">{product.art_codi}</td>
                           <td className="px-4 py-2 text-sm">{product.art_nomb}</td>
-                          <td className="px-4 py-2 text-sm">{product.mar_nomb}</td>
-                          <td className="px-4 py-2 text-sm">{product.rub_nomb}</td>
-                          <td className="px-4 py-2 text-sm text-right">
+                          <td className="hidden md:table-cell px-4 py-2 text-sm">{product.mar_nomb}</td>
+                          <td className="hidden lg:table-cell px-4 py-2 text-sm">{product.rub_nomb}</td>
+                          <td className="hidden lg:table-cell px-4 py-2 text-sm text-right">
                             {formatCurrencySpanish(product.art_pnet)}
                           </td>
 
@@ -193,12 +193,12 @@ export default function AdminPage() {
             </div>
 
             {/* Paginación */}
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground text-center sm:text-left">
                 Mostrando {startIndex + 1} a {Math.min(startIndex + productsPerPage, filteredProducts.length)} de{" "}
                 {filteredProducts.length} productos
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   disabled={currentPage === 1}

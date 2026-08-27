@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail, Loader2 } from "lucide-react"
@@ -18,6 +18,8 @@ export default function NavigationBar() {
   const { user } = useAuth()
   const [rubros, setRubros] = useState<Rubro[]>([])
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const catalogBtnRef = useRef<HTMLButtonElement>(null)
   const [loading, setLoading] = useState(true)
   const [hasBanner, setHasBanner] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -120,8 +122,8 @@ export default function NavigationBar() {
 
   return (
     <nav id="main-navigation" className="bg-background border-b border-border">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center gap-8 py-3">
+      <div className="container mx-auto px-2 sm:px-4">
+        <div className="flex items-center gap-3 sm:gap-6 lg:gap-8 py-3 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* Inicio */}
           <Link
             href="/"
@@ -140,7 +142,14 @@ export default function NavigationBar() {
           {user && (
           <div className="relative group">
             <button
-              onClick={() => setShowCatalogDropdown(!showCatalogDropdown)}
+              ref={catalogBtnRef}
+              onClick={() => {
+                if (!showCatalogDropdown && catalogBtnRef.current) {
+                  const rect = catalogBtnRef.current.getBoundingClientRect()
+                  setDropdownPos({ top: rect.bottom, left: rect.left })
+                }
+                setShowCatalogDropdown(!showCatalogDropdown)
+              }}
               className={`flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors ${
                 pathname.includes("/listado") 
                   ? "text-primary" 
@@ -161,7 +170,10 @@ export default function NavigationBar() {
                   className="fixed left-0 right-0 bottom-0 backdrop-blur z-40"
                   onClick={() => setShowCatalogDropdown(false)}
                 />
-                <div className="absolute left-0 mt-0 w-56 bg-background border border-input rounded-lg shadow-lg z-50">
+                <div
+                  style={{ top: dropdownPos.top, left: dropdownPos.left }}
+                  className="fixed mt-1 w-56 max-w-[calc(100vw-2rem)] bg-background border border-input rounded-lg shadow-lg z-50"
+                >
                   <div className="divide-y divide-border py-2">
                     {/* Opción: Exportar PDF */}
                     <button

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useVendedor } from "@/contexts/vendedor-context"
@@ -43,6 +43,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showVendedorPassword, setShowVendedorPassword] = useState(false)
+
+  // Bloquear scroll del body mientras el modal está abierto (evita scroll-chaining en mobile)
+  useEffect(() => {
+    if (!isOpen) return
+    const original = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = original
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -177,15 +187,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="max-w-md w-full">
+    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="max-w-md w-full my-8 sm:my-0">
         <Tabs defaultValue="login" className="w-full">
           <Card>
             <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
-                <TabsTrigger value="register">Registrarse</TabsTrigger>
-                <TabsTrigger value="vendedores">Vendedores</TabsTrigger>
+                <TabsTrigger value="login" className="text-xs sm:text-sm px-1">Iniciar Sesión</TabsTrigger>
+                <TabsTrigger value="register" className="text-xs sm:text-sm px-1">Registrarse</TabsTrigger>
+                <TabsTrigger value="vendedores" className="text-xs sm:text-sm px-1">Vendedores</TabsTrigger>
               </TabsList>
             </CardHeader>
             <CardContent>

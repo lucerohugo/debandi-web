@@ -103,7 +103,7 @@ export default function PromoBanner() {
 
   if (loading) {
     return (
-      <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden">
+      <div className="relative w-full h-48 sm:h-64 md:h-80 bg-accent rounded-lg overflow-hidden">
         <div className="w-full h-full flex items-center justify-center bg-gray-200">
           <p className="text-gray-600">Cargando ofertas...</p>
         </div>
@@ -116,7 +116,7 @@ export default function PromoBanner() {
   }
 
   return (
-    <div className="relative w-full h-80 bg-accent rounded-lg overflow-hidden group -mx-[calc((100vw-100%)/2)]">
+    <div className="relative w-full h-48 sm:h-64 md:h-80 bg-accent rounded-lg overflow-hidden group -mx-[calc((100vw-100%)/2)]">
       {/* Slide actual */}
       <div className="relative w-full h-full bg-gradient-to-r from-slate-200 to-slate-100 flex items-center justify-center">
         {slides[currentSlide].image && (
@@ -131,11 +131,11 @@ export default function PromoBanner() {
 
         {/* Overlay gradiente - Negro oscuro a transparente para mejor contraste */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center">
-          <div className="p-6 sm:p-8 max-w-lg">
-            <h2 className="text-2xl sm:text-4xl font-bold text-white mb-2">
+          <div className="p-4 sm:p-6 md:p-8 max-w-lg">
+            <h2 className="text-lg sm:text-2xl md:text-4xl font-bold text-white mb-1 sm:mb-2 line-clamp-2">
               {slides[currentSlide].title}
             </h2>
-            <p className="text-sm sm:text-base text-gray-100 mb-4">
+            <p className="text-xs sm:text-sm md:text-base text-gray-100 mb-2 sm:mb-4 line-clamp-2 sm:line-clamp-3">
               {slides[currentSlide].description}
             </p>
             {slides[currentSlide].cta && (
@@ -157,7 +157,7 @@ export default function PromoBanner() {
       </button> */}
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-primary/80 hover:bg-primary text-primary-foreground p-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10"
         aria-label="Siguiente slide"
       >
         <ChevronRight className="w-5 h-5" />

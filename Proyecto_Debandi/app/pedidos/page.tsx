@@ -261,9 +261,9 @@ export default function OrdersPage() {
             <ArrowLeft className="w-4 h-4" />
             Volver al inicio
           </Link>
-          <div className="flex items-center gap-3 mb-4">
-            <Package className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Historial de Pedidos</h1>
+          <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-4">
+            <Package className="w-6 h-6 sm:w-8 sm:h-8 text-primary shrink-0 mt-1 sm:mt-0" />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Historial de Pedidos</h1>
           </div>
           <p className="text-muted-foreground">
             {orders.length} pedido{orders.length !== 1 ? "s" : ""} realizado{orders.length !== 1 ? "s" : ""}
@@ -300,14 +300,14 @@ export default function OrdersPage() {
                     className="w-full"
                   >
                     <CardHeader className="pb-3 hover:bg-muted/50 transition cursor-pointer">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center gap-3 mb-2">
-                            <CardTitle className="text-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex-1 text-left min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                            <CardTitle className="text-base sm:text-lg break-words">
                               PEDIDO #{order.orderNumber}
                             </CardTitle>
                             <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
+                              className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${getStatusColor(
                                 order.status
                               )}`}
                             >
@@ -318,20 +318,22 @@ export default function OrdersPage() {
                             {date} • {time}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xl font-bold text-primary">
-                            {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)} unidad{order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) !== 1 ? 'es' : ''}
-                          </p>
-                        </div>
-                        <div className="ml-4">
-                          {isExpanded ? (
-                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                          )}
+                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-4">
+                          <div className="text-left sm:text-right">
+                            <p className="text-lg sm:text-xl font-bold text-primary">
+                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)} unidad{order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) !== 1 ? 'es' : ''}
+                            </p>
+                          </div>
+                          <div className="shrink-0">
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
@@ -392,12 +394,12 @@ export default function OrdersPage() {
                           </p>
                         </div>
 
-                        <div className="pt-4 border-t flex gap-2">
+                        <div className="pt-4 border-t flex flex-wrap gap-2">
                           <Button
                             onClick={() => handleExportOrderToPDF(order)}
                             variant="outline"
                             size="sm"
-                            className="flex-1 flex items-center justify-center gap-2"
+                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
                           >
                             <Download className="w-4 h-4" />
                             Exportar PDF
@@ -406,7 +408,7 @@ export default function OrdersPage() {
                             onClick={() => handleRepeatOrder(order)}
                             variant="outline"
                             size="sm"
-                            className="flex-1 flex items-center justify-center gap-2"
+                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
                           >
                             <RotateCw className="w-4 h-4" />
                             Repetir Pedido
@@ -416,14 +418,14 @@ export default function OrdersPage() {
                               onClick={() => router.push(`/pedidos/editar/${order.ped_codi}`)}
                               variant="outline"
                               size="sm"
-                              className="flex-1 flex items-center justify-center gap-2"
+                              className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
                             >
                               <Pencil className="w-4 h-4" />
                               Editar Pedido
                             </Button>
                           )}
                           {order.status === 'procesado' && (
-                            <div className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-sm text-muted-foreground">
                               <AlertCircle className="w-4 h-4" />
                               No editable
                             </div>

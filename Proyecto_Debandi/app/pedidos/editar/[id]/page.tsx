@@ -518,40 +518,42 @@ export default function EditOrderPage() {
               {items.map((item) => (
                 <div
                   key={item.art_codi}
-                  className={`flex items-center gap-4 p-4 border rounded-lg transition-all ${
-                    item.removed 
-                      ? 'bg-red-50 border-red-200 opacity-60' 
-                      : item.isNew 
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 border rounded-lg transition-all ${
+                    item.removed
+                      ? 'bg-red-50 border-red-200 opacity-60'
+                      : item.isNew
                         ? 'bg-green-50 border-green-200'
                         : 'bg-white'
                   }`}
                 >
-                  <img
-                    src={item.art_img1_url || "/placeholder.svg"}
-                    alt={item.art_nomb}
-                    className="w-14 h-14 object-cover rounded border flex-shrink-0"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className={`font-medium ${item.removed ? 'line-through text-red-600' : 'text-foreground'}`}>
-                        {item.art_nomb}
-                      </h4>
-                      {item.isNew && !item.removed && (
-                        <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
-                          Nuevo
-                        </span>
-                      )}
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={item.art_img1_url || "/placeholder.svg"}
+                      alt={item.art_nomb}
+                      className="w-14 h-14 object-cover rounded border flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className={`font-medium ${item.removed ? 'line-through text-red-600' : 'text-foreground'}`}>
+                          {item.art_nomb}
+                        </h4>
+                        {item.isNew && !item.removed && (
+                          <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                            Nuevo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Código: {item.art_codi}{item.art_cint && ` • Cód. Interno: ${item.art_cint}`}
+                      </p>
+                      <p className="text-sm font-medium text-primary mt-1">
+                        {formatCurrencySpanish(item.dpe_prec)} c/u
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Código: {item.art_codi}{item.art_cint && ` • Cód. Interno: ${item.art_cint}`}
-                    </p>
-                    <p className="text-sm font-medium text-primary mt-1">
-                      {formatCurrencySpanish(item.dpe_prec)} c/u
-                    </p>
                   </div>
 
                   {!item.removed ? (
-                    <>
+                    <div className="flex items-center justify-between sm:justify-end gap-4 sm:ml-auto">
                       {/* Controles de cantidad */}
                       <div className="flex items-center gap-2">
                         <Button
@@ -577,7 +579,7 @@ export default function EditOrderPage() {
                       </div>
 
                       {/* Subtotal */}
-                      <div className="w-28 text-right">
+                      <div className="w-20 sm:w-28 text-right">
                         <p className="font-semibold text-foreground">
                           {formatCurrencySpanish(item.dpe_prec * item.quantity)}
                         </p>
@@ -587,18 +589,18 @@ export default function EditOrderPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
                         onClick={() => removeItem(item.art_codi)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
-                    </>
+                    </div>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => restoreItem(item.art_codi)}
-                      className="text-green-600 border-green-300 hover:bg-green-50"
+                      className="text-green-600 border-green-300 hover:bg-green-50 sm:ml-auto self-start sm:self-auto"
                     >
                       Restaurar
                     </Button>

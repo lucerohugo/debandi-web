@@ -300,8 +300,8 @@ export default function CheckoutPage() {
         )}
 
         {!showSuccess && !error && !isLoading && (
-          <div className="w-full max-w-2xl bg-card border border-border rounded-lg p-8">
-            <h1 className="text-3xl font-bold text-foreground mb-8">Resumen del Pedido</h1>
+          <div className="w-full max-w-2xl bg-card border border-border rounded-lg p-4 sm:p-6 md:p-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8">Resumen del Pedido</h1>
             
             <div className="space-y-6">
               {/* Items */}
@@ -330,7 +330,7 @@ export default function CheckoutPage() {
               {/* Total */}
               <div className="text-right mb-6">
                 <p className="text-muted-foreground mb-2">Total</p>
-                <p className="text-4xl font-bold text-primary">
+                <p className="text-3xl sm:text-4xl font-bold text-primary">
                   {/* Calcular total con descuento aplicado */}
                   {formatCurrencySpanish(
                     getDisplayItems().reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
@@ -341,18 +341,18 @@ export default function CheckoutPage() {
               {/* Métodos de Pago - Eliminado por preferencia del usuario */}
 
               {/* Botones */}
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
                 <Button
                   onClick={() => router.push("/cart")}
                   variant="outline"
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   Volver al Carrito
                 </Button>
                 <Button
                   onClick={handleCreateOrder}
                   disabled={isLoading}
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   {isLoading ? 'Procesando...' : 'Realizar Pedido'}
                 </Button>

@@ -593,7 +593,7 @@ export default function GestorImagenes() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
@@ -617,25 +617,28 @@ export default function GestorImagenes() {
 
         {/* Tabs */}
         <Tabs defaultValue="articulos" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="articulos" className="flex items-center gap-2">
-              <ImagePlus className="w-4 h-4" />
+          <TabsList
+            className="flex lg:grid lg:grid-cols-5 w-full h-auto p-1 gap-1 mb-8 overflow-x-auto lg:overflow-visible justify-start
+              [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <TabsTrigger value="articulos" className="shrink-0 lg:shrink flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-4 whitespace-nowrap">
+              <ImagePlus className="w-4 h-4 shrink-0" />
               Imágenes
             </TabsTrigger>
-            <TabsTrigger value="nuevos" className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
+            <TabsTrigger value="nuevos" className="shrink-0 lg:shrink flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-4 whitespace-nowrap">
+              <Sparkles className="w-4 h-4 shrink-0" />
               Nuevos
             </TabsTrigger>
-            <TabsTrigger value="recomendados" className="flex items-center gap-2">
-              <ThumbsUp className="w-4 h-4" />
+            <TabsTrigger value="recomendados" className="shrink-0 lg:shrink flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-4 whitespace-nowrap">
+              <ThumbsUp className="w-4 h-4 shrink-0" />
               Recomendados
             </TabsTrigger>
-            <TabsTrigger value="banners" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
+            <TabsTrigger value="banners" className="shrink-0 lg:shrink flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-4 whitespace-nowrap">
+              <Layers className="w-4 h-4 shrink-0" />
               Banners
             </TabsTrigger>
-            <TabsTrigger value="novedades" className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
+            <TabsTrigger value="novedades" className="shrink-0 lg:shrink flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm py-2 px-4 whitespace-nowrap">
+              <Sparkles className="w-4 h-4 shrink-0" />
               Novedades
             </TabsTrigger>
           </TabsList>

@@ -68,6 +68,18 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
     setCurrentImageIndex(0)
   }, [product.art_codi])
 
+  // Bloquear el scroll del body mientras el modal está abierto (evita scroll-chaining
+  // en mobile, que hace que el contenido de fondo se mueva junto con el modal y
+  // provoca que el header sticky "salte"/se superponga con la imagen al scrollear)
+  useEffect(() => {
+    if (!isOpen) return
+    const original = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = original
+    }
+  }, [isOpen])
+
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
   }
@@ -161,9 +173,9 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-background rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="relative bg-background rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
         {/* Botón cerrar */}
-        <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Detalles del Producto</h2>
           <button
             onClick={onClose}

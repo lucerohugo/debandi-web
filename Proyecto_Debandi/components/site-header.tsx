@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, ShoppingCart, Heart, Moon, Sun, LogOut, User, Shield, Key, UserCog, Package, FileText, Download } from "lucide-react"
+import { Search, ShoppingCart, Heart, Moon, Sun, LogOut, User, Shield, Key, UserCog, Package, FileText, Download, Menu, X } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { useConfig } from "@/contexts/config-context"
@@ -41,6 +41,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   // Banner de supervisor - lee del localStorage directamente
   const [bannerData, setBannerData] = useState<{ isImpersonating: boolean; vendedor?: { ven_nomb: string } } | null>(null)
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
@@ -235,10 +237,10 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       
       {/* Header Principal */}
       <header ref={headerRef} className={`bg-background border-b border-border sticky ${bannerData?.isImpersonating ? 'top-10' : 'top-0'} z-50`}>
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
+        <div className="w-full px-3 sm:px-4 md:px-6 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2 md:gap-4">
             {/* Logo */}
-            <Link href="/" className="flex-shrink-0 ml-8 flex items-center">
+            <Link href="/" className="flex-shrink-0 md:ml-8 flex items-center">
               <Image
                 /* src="/logo_debandi_v2.png"*/
                 /* "/logo_oscuro.png"   / oscuro */
@@ -247,12 +249,12 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                 width={145}
                 height={38}
                 priority
-                className="rounded-lg scale-150 origin-left"
+                className="rounded-lg scale-100 sm:scale-125 md:scale-150 origin-left"
               />
             </Link>
 
-            {/* Buscador Centrado - Más largo */}
-            <div className="flex-1 max-w-4xl mx-4 relative">
+            {/* Buscador Centrado - Más largo (solo tablet/desktop) */}
+            <div className="hidden md:block flex-1 max-w-4xl mx-4 relative">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer" />
                 <input
@@ -312,8 +314,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
               </div>
             </div>
 
-            {/* Derecha: Favoritos, Carrito, Auth, Toggle */}
-            <div className="flex items-center justify-end gap-4 flex-shrink-0">
+            {/* Derecha: Favoritos, Carrito, Auth, Toggle (solo tablet/desktop) */}
+            <div className="hidden md:flex items-center justify-end gap-4 flex-shrink-0">
               {/* Favoritos - Solo si está logueado */}
               {user && (
                 <Link href="/favoritos" className="relative p-2 hover:bg-accent rounded-lg transition-colors" aria-label="Favoritos">
@@ -450,7 +452,152 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                 {currentTheme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
             </div>
+
+            {/* Carrito + Menú hamburguesa (solo mobile) */}
+            <div className="flex md:hidden items-center gap-1 flex-shrink-0">
+              {user && (
+                <Link href="/cart" className="relative p-2 hover:bg-accent rounded-lg transition-colors" aria-label="Carrito">
+                  <ShoppingCart className="w-5 h-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+              <button
+                onClick={() => {
+                  setIsMobileSearchOpen((v) => !v)
+                  setIsMobileMenuOpen(false)
+                }}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+                aria-label="Buscar"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen((v) => !v)
+                  setIsMobileSearchOpen(false)
+                }}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+                aria-label="Menú"
+              >
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
+
+          {/* Buscador colapsable mobile (toggle independiente del menú) */}
+          {isMobileSearchOpen && (
+            <div className="md:hidden mt-3 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscador..."
+                value={globalSearchValue}
+                onChange={(e) => handleGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && globalSearchValue.trim().length > 0) {
+                    router.push(`/listado?search=${encodeURIComponent(globalSearchValue.trim())}`)
+                    setIsMobileSearchOpen(false)
+                  }
+                }}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
+
+          {/* Panel colapsable mobile: favoritos + cuenta + tema */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden mt-3 pb-1 space-y-1 border-t border-border pt-3">
+              {user && (
+                <Link
+                  href="/favoritos"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Heart className="w-5 h-5" />
+                  Mis Favoritos {favoritesCount > 0 && `(${favoritesCount})`}
+                </Link>
+              )}
+
+              {user ? (
+                <div className="space-y-1 border-t border-border pt-2 mt-2">
+                  <div className="px-3 pb-1">
+                    <p className="text-sm font-semibold truncate">{user.firstName || "Usuario"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                  <Link
+                    href="/pedidos"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm"
+                  >
+                    <Package className="w-5 h-5" />
+                    Mis Pedidos
+                  </Link>
+                  <Link
+                    href="/mis-datos"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm"
+                  >
+                    <UserCog className="w-5 h-5" />
+                    Mis Datos
+                  </Link>
+                  {(impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user.ven_gere)) && (
+                    <>
+                      <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
+                      >
+                        <Download className="w-5 h-5" />
+                        Exportar Cuenta Corriente
+                      </button>
+                      <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
+                      >
+                        <FileText className="w-5 h-5" />
+                        Exportar Facturas PDF
+                      </button>
+                    </>
+                  )}
+                  {!bannerData?.isImpersonating && (
+                    <button
+                      onClick={() => {
+                        handleLogout()
+                        setIsMobileMenuOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left text-red-600 dark:text-red-400"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Cerrar Sesión
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  onClick={() => {
+                    setShowAuthModal(true)
+                    setIsMobileMenuOpen(false)
+                  }}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  style={{ backgroundColor: "#028EF9", color: "white" }}
+                >
+                  Iniciar Sesión
+                </Button>
+              )}
+
+              <button
+                onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm border-t border-border mt-1 pt-3"
+              >
+                {currentTheme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                {currentTheme === "dark" ? "Modo Claro" : "Modo Oscuro"}
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

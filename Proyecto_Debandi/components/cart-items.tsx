@@ -27,10 +27,22 @@ export default function CartItems({ items, onUpdate }: CartItemsProps) {
   return (
     <div className="space-y-4">
       {items.map((item, index) => (
-        <div key={`${item.art_codi}-${index}`} className="bg-card border border-border rounded-lg p-4 flex gap-4">
-          <img src={item.art_img || "/placeholder.svg"} alt={item.art_nomb} className="w-24 h-24 object-cover rounded" />
+        <div key={`${item.art_codi}-${index}`} className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row gap-4">
+          <div className="flex gap-4">
+            <img src={item.art_img || "/placeholder.svg"} alt={item.art_nomb} className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded shrink-0" />
 
-          <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 sm:hidden">
+              <h3 className="font-semibold text-foreground mb-1">{item.art_nomb}</h3>
+              <p className="text-sm text-muted-foreground">
+                {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
+              </p>
+              <p className="text-sm text-cyan-500 font-semibold">
+                Subtotal: {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
+              </p>
+            </div>
+          </div>
+
+          <div className="hidden sm:block flex-1 min-w-0">
             <h3 className="font-semibold text-foreground mb-1">{item.art_nomb}</h3>
             <p className="text-sm text-muted-foreground">
               {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
@@ -40,28 +52,33 @@ export default function CartItems({ items, onUpdate }: CartItemsProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => updateQuantity(index, item.quantity - 1)}
+                className="p-2 hover:bg-muted rounded transition"
+                aria-label="Restar cantidad"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="w-8 text-center font-semibold">{item.quantity}</span>
+              <button
+                onClick={() => updateQuantity(index, item.quantity + 1)}
+                className="p-2 hover:bg-muted rounded transition"
+                aria-label="Sumar cantidad"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
             <button
-              onClick={() => updateQuantity(index, item.quantity - 1)}
-              className="p-2 hover:bg-muted rounded transition"
+              onClick={() => removeItem(index)}
+              className="p-2 text-destructive hover:bg-destructive/10 rounded transition"
+              aria-label="Eliminar producto"
             >
-              <Minus className="w-4 h-4" />
-            </button>
-            <span className="w-8 text-center font-semibold">{item.quantity}</span>
-            <button
-              onClick={() => updateQuantity(index, item.quantity + 1)}
-              className="p-2 hover:bg-muted rounded transition"
-            >
-              <Plus className="w-4 h-4" />
+              <Trash2 className="w-5 h-5" />
             </button>
           </div>
-
-          <button
-            onClick={() => removeItem(index)}
-            className="p-2 text-destructive hover:bg-destructive/10 rounded transition"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
         </div>
       ))}
     </div>
