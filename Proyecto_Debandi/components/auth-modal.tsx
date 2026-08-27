@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, UserCog, CheckCircle, Eye, EyeOff } from "lucide-react"
 import ForgotPasswordModal from "./forgot-password-modal"
@@ -31,6 +38,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [vendedorPassword, setVendedorPassword] = useState("")
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [documentError, setDocumentError] = useState("")
+  const [regCiva, setRegCiva] = useState("")
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -123,20 +131,28 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return
     }
 
+    if (!regCiva) {
+      setError("Seleccionar la condición de IVA")
+      setLoading(false)
+      return
+    }
+
     try {
       const form = e.currentTarget
       await RegistroService.crearRegistro({
         reg_nomb: nombre,
         reg_doc: document,
+        reg_civa: regCiva,
         reg_cuit: cuit.replace(/\D/g, ''),
         reg_emai: email,
         reg_celu: celular,
         reg_clav: password,
       })
-      
+
       setShowSuccessModal(true)
       // Limpiar el formulario
       form.reset()
+      setRegCiva("")
     } catch (err: any) {
       setError(err.message || "Error al registrarse. Intenta de nuevo.")
     } finally {
@@ -258,6 +274,20 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       required
                       disabled={loading}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg_civa">Condición de Iva</Label>
+                    <Select value={regCiva} onValueChange={setRegCiva} disabled={loading}>
+                      <SelectTrigger id="reg_civa" className="w-full">
+                        <SelectValue placeholder="Seleccionar..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="RI">Responsable Inscripto</SelectItem>
+                        <SelectItem value="CF">Consumidor Final</SelectItem>
+                        <SelectItem value="MO">Monotributo</SelectItem>
+                        <SelectItem value="EX">Exento</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cuit">CUIT</Label>

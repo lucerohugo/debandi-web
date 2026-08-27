@@ -354,7 +354,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
         
         # Validar campos requeridos
-        required_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav']
+        required_fields = ['reg_nomb', 'reg_doc', 'reg_civa', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav']
         for field in required_fields:
             if not data.get(field):
                 return Response(

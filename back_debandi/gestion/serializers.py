@@ -201,7 +201,7 @@ class RegistroSerializer(serializers.ModelSerializer):
         model = Registro
         fields = [
             'reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav',
-            'reg_clie', 'reg_fchc', 'reg_fmod'
+            'reg_civa', 'reg_clie', 'reg_fchc', 'reg_fmod'
         ]
         read_only_fields = ['reg_codi', 'reg_fchc', 'reg_fmod']
         extra_kwargs = {
@@ -216,6 +216,14 @@ class RegistroSerializer(serializers.ModelSerializer):
             registro.set_password(password)
         registro.save()
         return registro
+
+    def to_representation(self, instance):
+        """reg_clav es write_only (nunca se expone el hash); en su lugar devolvemos
+        la contraseña tal cual la mandó el front, para el export a GeneXus."""
+        ret = super().to_representation(instance)
+        ret['reg_clav'] = instance.reg_clavf or ''
+        ret['reg_clie'] = 'S' if instance.reg_clie else 'N'
+        return ret
 
 
 class VendedorSerializer(serializers.ModelSerializer):

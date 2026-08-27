@@ -110,7 +110,7 @@ class RegistroAdmin(admin.ModelAdmin):
     readonly_fields = ['reg_codi', 'reg_fchc', 'reg_fmod', 'reg_clav']
     fieldsets = (
         ('Datos Personales', {
-            'fields': ('reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit')
+            'fields': ('reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit', 'reg_civa')
         }),
         ('Contacto', {
             'fields': ('reg_emai', 'reg_celu')
@@ -133,7 +133,7 @@ class RegistroAdmin(admin.ModelAdmin):
 
 @admin.register(Clientes)
 class ClientesAdmin(admin.ModelAdmin):
-    list_display = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
+    list_display = ['cli_codi', 'cli_nomb', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
     readonly_fields = ['cli_fchc', 'cli_fmod']

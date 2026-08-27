@@ -245,7 +245,20 @@ class Registro(models.Model):
     reg_emai = models.EmailField(unique=True, help_text="Email", blank=True, null=True)
     reg_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")
     reg_clav = models.CharField(max_length=128, help_text="Contraseña (hasheada)", blank=True, null=True)
+    reg_clavf = models.CharField(max_length=128, help_text="Contraseña sin hashear, tal cual la envía el front (uso interno para export a GeneXus)", blank=True, null=True)
     reg_clie = models.BooleanField(default=False, help_text="Aprobado/NO aprobado por debandi",blank=True, null=True)
+    reg_civa = models.CharField(
+        max_length=2,
+        choices=(
+            ('RI', 'Responsable Inscripto'),
+            ('CF', 'Consumidor Final'),
+            ('MO', 'Monotributo'),
+            ('EX', 'Exento'),
+        ),
+        help_text="Condición de IVA",
+        blank=True,
+        null=True,
+    )
     reg_fchc = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
     reg_fmod = models.DateTimeField(auto_now=True, help_text="Fecha de modificación")
     reg_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
@@ -259,8 +272,9 @@ class Registro(models.Model):
         return f"{self.reg_nomb} ({self.reg_emai})"
     
     def set_password(self, raw_password):
-        """Hashear contraseña"""
+        """Hashear contraseña (conserva también el valor original para export a GeneXus)"""
         from django.contrib.auth.hashers import make_password
+        self.reg_clavf = raw_password
         self.reg_clav = make_password(raw_password)
     
     def check_password(self, raw_password):
