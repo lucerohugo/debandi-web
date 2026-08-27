@@ -196,8 +196,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cli_precs2: data.cliente.cli_precs2 || 0,
         localidad: data.cliente.loc_nomb || '',
         telefonoContacto: data.cliente.cli_tele || '',
+        ven_gere: Boolean(data.cliente.ven_gere),
       }
-      
+
       setUser(user)
       localStorage.setItem('auth_user', JSON.stringify(user))
       

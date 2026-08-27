@@ -1155,6 +1155,7 @@ def vendedor_login(request):
                 "ven_dom": vendedor.ven_dom,
                 "ven_cuit": vendedor.ven_cuit,
                 "ven_actv": vendedor.ven_actv,
+                "ven_gere": bool(vendedor.ven_gere),
                 "loc_codi": vendedor.loc_codi_id,
             },
             "cliente_activo": {
@@ -1166,6 +1167,7 @@ def vendedor_login(request):
                 "cli_tele": cliente.cli_tele,
                 "cli_dire": cliente.cli_dire,
                 "loc_codi": cliente.loc_codi_id,
+                "ven_gere": bool(vendedor.ven_gere),
             }
         }, status=200)
     
@@ -1443,6 +1445,7 @@ def cliente_login(request):
                 "loc_codi": cliente.loc_codi_id,
                 "loc_nomb": cliente.loc_codi.loc_nomb if cliente.loc_codi else None,
                 "ven_codi": cliente.ven_codi_id if cliente.ven_codi else None,
+                "ven_gere": bool(cliente.ven_codi.ven_gere) if cliente.ven_codi_id else False,
             }
         }, status=200)
     

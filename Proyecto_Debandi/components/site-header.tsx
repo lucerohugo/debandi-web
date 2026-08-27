@@ -25,7 +25,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { user, logout, impersonation } = useAuth()
-  const { stopImpersonation, logout: logoutVendedor } = useVendedor()
+  const { vendedor, stopImpersonation, logout: logoutVendedor } = useVendedor()
   const { favorites } = useFavorites()
   
   const [searchValue, setSearchValue] = useState("")
@@ -383,26 +383,30 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                           <UserCog className="w-4 h-4 inline mr-3" />
                           Mis Datos
                         </Link>
-                        <button
-                          onClick={() => {
-                            // Exportar Cuenta Corriente
-                            setShowUserMenu(false)
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                        >
-                          <Download className="w-4 h-4 inline mr-3" />
-                          Exportar Cuenta Corriente
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Exportar Facturas PDF
-                            setShowUserMenu(false)
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                        >
-                          <FileText className="w-4 h-4 inline mr-3" />
-                          Exportar Facturas PDF
-                        </button>
+                        {(impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user.ven_gere)) && (
+                          <>
+                            <button
+                              onClick={() => {
+                                // Exportar Cuenta Corriente
+                                setShowUserMenu(false)
+                              }}
+                              className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            >
+                              <Download className="w-4 h-4 inline mr-3" />
+                              Exportar Cuenta Corriente
+                            </button>
+                            <button
+                              onClick={() => {
+                                // Exportar Facturas PDF
+                                setShowUserMenu(false)
+                              }}
+                              className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            >
+                              <FileText className="w-4 h-4 inline mr-3" />
+                              Exportar Facturas PDF
+                            </button>
+                          </>
+                        )}
                         {/* <button
                           onClick={() => {
                             setShowChangePassword(true)

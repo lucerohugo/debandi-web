@@ -234,7 +234,7 @@ class VendedorSerializer(serializers.ModelSerializer):
         fields = [
             'ven_codi', 'ven_nomb', 'ven_doc', 'ven_fnac', 'ven_emai',
             'ven_tele', 'ven_dom', 'ven_bar', 'ven_cuit',
-            'ven_usua', 'ven_clav', 'ven_actv', 'loc_codi', 'loc_nomb',
+            'ven_usua', 'ven_clav', 'ven_actv', 'ven_gere', 'loc_codi', 'loc_nomb',
             'ven_fchc', 'ven_fmod'
         ]
         read_only_fields = ['ven_codi', 'ven_fchc', 'ven_fmod', 'ven_clav']

@@ -10,6 +10,7 @@ export interface User {
   cli_precs2?: number | string
   localidad?: string
   telefonoContacto?: string
+  ven_gere?: boolean
 }
 
 export interface ImpersonationInfo {
@@ -17,6 +18,7 @@ export interface ImpersonationInfo {
   vendedor?: {
     ven_codi: number
     ven_nomb: string
+    ven_gere?: boolean
   }
 }
 
