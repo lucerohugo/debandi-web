@@ -2290,6 +2290,23 @@ def importar_datos(request):
 
                             data_item.pop("ven_codi", None)
 
+                            # ============================================
+                            # 'S'/'N'/vacío -> BOOLEAN (ven_gere)
+                            # ============================================
+
+                            if "ven_gere" in data_item:
+
+                                valor_gere = data_item["ven_gere"]
+
+                                if isinstance(valor_gere, bool):
+                                    data_item["ven_gere"] = valor_gere
+                                elif valor_gere is None:
+                                    data_item["ven_gere"] = False
+                                else:
+                                    data_item["ven_gere"] = (
+                                        str(valor_gere).strip().upper() == "S"
+                                    )
+
                             obj, created = model.objects.update_or_create(
 
                                 ven_codi=lookup_value,
