@@ -355,7 +355,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Registro.objects.all()
     serializer_class = RegistroSerializer
     lookup_field_name = "reg_codi"
-    filterset_fields = ['reg_clie']
+    filterset_fields = ['reg_clie', 'reg_exp']
     search_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
     ordering = ['reg_codi'] #['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
@@ -642,6 +642,41 @@ Ferretería Debandi
                 )
         
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def marcar_exportados(self, request):
+        """
+        POST /registros/marcar_exportados/
+        Body: {"reg_codis": [1, 2, 3]}
+        """
+        from django.utils import timezone
+
+        reg_codis = request.data.get('reg_codis', [])
+
+        if not reg_codis or not isinstance(reg_codis, list):
+            return Response(
+                {'error': 'Se requiere lista de reg_codis'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            reg_codis = [int(x) for x in reg_codis]
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'reg_codis debe contener solo enteros'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_count = Registro.objects.filter(
+            reg_codi__in=reg_codis, reg_exp=False
+        ).update(reg_exp=True)
+
+        return Response({
+            'success': True,
+            'message': f'{updated_count} registros marcados como exportados',
+            'updated_count': updated_count,
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
 
 
 class ClientesViewSet(BulkCreateMixin, BaseViewSet):
