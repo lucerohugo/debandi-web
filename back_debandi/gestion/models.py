@@ -732,6 +732,16 @@ class Vendedor(models.Model):
 # *agregar en SincWeb y en la transaccion de General(gene) //LISTO
 # -si agregue un producto al carrito y cambie el precio, en inicio ,listado de productos etc ya cambio el precio, pero si ya lo agregue al carrito antes 
 # de que cambie el precio me guarda en el carrito el precio viejo y se cambia una vez realice el pedido //LISTO
+# -probado lo de dolar, cotizacion, art_cdol, art_uti1 ,gx y web//LISTO
+# -DescRegi(trae los registros en falsos-utilizo reg_clie no reg_exp) //LISTO
+#   -SubidaRegi.prg (sube los datos de los registros a la dbf) //LISTO
+#      -GenTmpR (trae en tmp los registros que envio a la dbf) //LISTO
+#         -InformaRegi(pone en True los registros que chupo asi no los vuelve a poner en la dbf regi) //LISTO
+#            -falta hacer BAT de todo eso como hace pedidos //FALTA
+# -acomodar front para que no ingrese Ñ //LISTO
+
+
+
 
 # -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web
 # -consulta de agregar campo ped_observacion 

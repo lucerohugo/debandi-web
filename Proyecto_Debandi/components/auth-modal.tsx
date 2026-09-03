@@ -88,6 +88,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     e.target.value = e.target.value.replace(/\D/g, '').slice(0, 20)
   }
 
+  const handlePasswordInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    if (/[ñÑ]/.test(input.value)) {
+      input.setCustomValidity("La contraseña no puede contener la letra Ñ")
+    } else {
+      input.setCustomValidity("")
+    }
+    input.reportValidity()
+  }
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
@@ -348,6 +358,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         required
                         disabled={loading}
                         className="pr-10"
+                        onInput={handlePasswordInput}
                       />
                       <button
                         type="button"
@@ -370,6 +381,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         required
                         disabled={loading}
                         className="pr-10"
+                        onInput={handlePasswordInput}
                       />
                       <button
                         type="button"
