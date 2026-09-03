@@ -668,8 +668,8 @@ Ferretería Debandi
             )
 
         updated_count = Registro.objects.filter(
-            reg_codi__in=reg_codis, reg_exp=False
-        ).update(reg_exp=True)
+            reg_codi__in=reg_codis, reg_clie=False
+        ).update(reg_clie=True)
 
         return Response({
             'success': True,
