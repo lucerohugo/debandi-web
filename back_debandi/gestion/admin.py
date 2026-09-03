@@ -68,7 +68,7 @@ class SubrubroAdmin(admin.ModelAdmin):
 
 @admin.register(Articulo)
 class ArticuloAdmin(admin.ModelAdmin):
-    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost', 'mar_codi', 'art_acti']
+    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost','art_uti1' ,'art_cdol', 'mar_codi', 'art_visw']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw', 'art_carru']
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'art_cn']
     readonly_fields = ['art_fchc', 'art_fmod']
@@ -77,7 +77,7 @@ class ArticuloAdmin(admin.ModelAdmin):
             'fields': ('art_codi','art_cn', 'art_nomb', 'art_desc', 'art_palac')
         }),
         ('Precios', {
-            'fields': ('art_pnet', 'art_pfin', 'art_cost', 'art_tiva', 'art_mext')
+            'fields': ('art_pnet', 'art_pfin', 'art_cost', 'art_cdol', 'art_uti1',  'art_tiva', 'art_descu','art_mext')
         }),
         ('Stock', {
             'fields': ('art_stk', 'art_xbul', 'art_ubul')
@@ -241,11 +241,11 @@ class DetallePedidoInline(admin.TabularInline):
 class PedidosAdmin(admin.ModelAdmin):
     """Admin para Pedidos con detalles anidados"""
     inlines = [DetallePedidoInline]
-    list_display = ['ped_codi', 'ped_fech', 'ped_hora', 'cliente_info', 'ped_tota', 'ped_exp']
+    list_display = ['ped_codi', 'ped_fech', 'ped_crea','ped_edit' ,'ped_fechCr','ped_fechEd','cliente_info', 'ped_tota', 'ped_exp']
     list_filter = ['ped_fech', 'ped_exp', 'ped_fpag']
     search_fields = ['ped_codi', 'cli_codi__cli_nomb', 'cli_codi__cli_ndoc']
-    readonly_fields = ['ped_codi', 'ped_tota', 'ped_fexp']
-    
+    readonly_fields = ['ped_codi', 'ped_tota', 'ped_fexp', 'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd']
+
     fieldsets = (
         ('Información del Pedido', {
             'fields': ('ped_codi', 'ped_fech', 'ped_hora', 'ped_tota')
@@ -256,7 +256,11 @@ class PedidosAdmin(admin.ModelAdmin):
         ('Forma de Pago', {
             'fields': ('ped_fpag',)
         }),
-        ('Exportación', {
+        ('Movimiento pedido', {
+            'fields': ('ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd'),
+            'description': 'Historial de quien creo o edito el pedido'
+        }),
+        ('Exportacion', {
             'fields': ('ped_exp', 'ped_fexp'),
             'classes': ('collapse',),
             'description': 'Control de exportación a GeneXus'
@@ -312,7 +316,7 @@ class CuentaBancariaAdmin(admin.ModelAdmin):
 
 @admin.register(General)
 class GeneralAdmin(admin.ModelAdmin):
-    list_display = ['gen_codi', 'gen_nomb', 'gen_cuit']
+    list_display = ['gen_codi', 'gen_nomb', 'gen_cuit', 'gen_dola']
     fieldsets = (
         ('Empresa', {
             'fields': ('gen_codi', 'gen_nomb', 'gen_raz', 'gen_cuit')
@@ -325,6 +329,9 @@ class GeneralAdmin(admin.ModelAdmin):
         }),
         ('Contacto', {
             'fields': ('gen_tele', 'gen_emai')
+        }),
+        ('Cotización', {
+            'fields': ('gen_dola',)
         }),
     )
 

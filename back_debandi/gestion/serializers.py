@@ -88,7 +88,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
         model = Articulo
         fields = [
             'art_codi', 'art_nomb', 'art_desc', 'art_palac', 'art_cn',
-            'art_pnet', 'art_pfin', 'art_cost',
+            'art_pnet', 'art_pfin', 'art_cost', 'art_cdol', 'art_uti1',
             'art_stk', 'art_descu',
             'art_xbul', 'art_ubul',
             'mar_codi', 'mar_nomb', 'sru_codi', 'sru_nomb', 'rub_nomb',
@@ -360,6 +360,8 @@ class PedidosSerializer(serializers.ModelSerializer):
     cli_tele = serializers.CharField(source='cli_codi.cli_tele', read_only=True, allow_null=True)
     cli_dire = serializers.CharField(source='cli_codi.cli_dire', read_only=True, allow_null=True)
     detalles = DetallePedidoSerializer(many=True, read_only=True)
+    ped_fechCr = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
+    ped_fechEd = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
 
     class Meta:
         model = Pedidos
@@ -367,9 +369,13 @@ class PedidosSerializer(serializers.ModelSerializer):
             'ped_codi', 'ped_fech', 'ped_hora', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
             'ped_tota', 'ped_fpag',
             'ped_exp', 'ped_fexp',
+            'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
             'detalles'
         ]
-        read_only_fields = ['ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire']
+        read_only_fields = [
+            'ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
+            'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
+        ]
 
     def validate_cli_codi(self, value):
         """Validar que el cliente exista"""
@@ -389,11 +395,20 @@ class PedidosCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer para crear/actualizar pedidos CON DETALLES ANIDADOS"""
     detalles = DetallePedidoWriteSerializer(many=True, required=True)
     cli_nomb = serializers.CharField(source='cli_codi.cli_nomb', read_only=True)
+    ped_fechCr = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
+    ped_fechEd = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
 
     class Meta:
         model = Pedidos
-        fields = ['ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_tota', 'ped_fpag', 'ped_exp', 'ped_fexp', 'detalles']
-        read_only_fields = ['ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb']
+        fields = [
+            'ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_tota', 'ped_fpag', 'ped_exp', 'ped_fexp',
+            'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
+            'detalles',
+        ]
+        read_only_fields = [
+            'ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb',
+            'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
+        ]
 
     def validate_detalles(self, value):
         """Validar que haya al menos un detalle"""
@@ -488,7 +503,7 @@ class GeneralSerializer(serializers.ModelSerializer):
         fields = [
             'gen_codi', 'gen_nomb', 'gen_raz', 'gen_logo', 'gen_logo_url',
             'gen_loge', 'gen_loge_url', 'gen_cuit', 'gen_colo',
-            'gen_loc', 'gen_dire', 'gen_tele', 'gen_emai'
+            'gen_loc', 'gen_dire', 'gen_tele', 'gen_emai', 'gen_dola'
         ]
         read_only_fields = ['gen_codi', 'gen_logo_url', 'gen_loge_url']
 

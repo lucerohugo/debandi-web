@@ -68,7 +68,7 @@ class PDFService:
         Retorna: BytesIO con el contenido del archivo PDF
         """
         
-        articulos = Articulo.objects.all()
+        articulos = Articulo.objects.filter(art_visw=True)
         
         # Crear BytesIO
         output = BytesIO()

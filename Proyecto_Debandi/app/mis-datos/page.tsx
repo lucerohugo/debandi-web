@@ -29,6 +29,12 @@ export default function MisDatosPage() {
     cli_desc: "",
     mostrar_iva: "true",
   })
+  // Valores realmente guardados en el backend (solo se actualizan al cargar o al guardar con éxito)
+  const [savedValues, setSavedValues] = useState({
+    cli_precs1: "",
+    cli_precs2: "",
+    cli_desc: "",
+  })
   const [saving, setSaving] = useState(false)
   const [notification, setNotification] = useState<{
     type: "success" | "error"
@@ -44,12 +50,17 @@ export default function MisDatosPage() {
       const precs2 = typeof user.cli_precs2 === "number" ? user.cli_precs2.toString() : (user.cli_precs2 || "")
       const desc = typeof user.cli_desc === "number" ? user.cli_desc.toString() : (user.cli_desc || "")
       
-      setFormData({
+      const nuevosValores = {
         cli_precs1: (precs1 && parseFloat(precs1) > 0) ? precs1 : "",
         cli_precs2: (precs2 && parseFloat(precs2) > 0) ? precs2 : "",
         cli_desc: (desc && parseFloat(desc) > 0) ? desc : "",
+      }
+
+      setFormData({
+        ...nuevosValores,
         mostrar_iva: localStorage.getItem("mostrar_iva") || "true",
       })
+      setSavedValues(nuevosValores)
     }
   }, [user, loading, router])
 
@@ -132,6 +143,13 @@ export default function MisDatosPage() {
           setUser(updatedUser)
           // También guardar en localStorage para persistencia
           localStorage.setItem('auth_user', JSON.stringify(updatedUser))
+
+          // "Valor actual" debe reflejar lo que confirmó el backend, no lo tipeado
+          setSavedValues({
+            cli_precs1: data.cliente.cli_precs1 ? data.cliente.cli_precs1.toString() : "",
+            cli_precs2: data.cliente.cli_precs2 ? data.cliente.cli_precs2.toString() : "",
+            cli_desc: data.cliente.cli_desc ? data.cliente.cli_desc.toString() : "",
+          })
         }
 
         // Guardar preferencia de IVA en localStorage
@@ -241,9 +259,9 @@ export default function MisDatosPage() {
                     min="0"
                     step="0.01"
                   />
-                  {formData.cli_precs1 !== "" && (
+                  {savedValues.cli_precs1 !== "" && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Valor actual: {formData.cli_precs1}%
+                      Valor actual: {savedValues.cli_precs1}%
                     </p>
                   )}
                 </div>
@@ -264,9 +282,9 @@ export default function MisDatosPage() {
                     min="0"
                     step="0.01"
                   />
-                  {formData.cli_precs2 !== "" && (
+                  {savedValues.cli_precs2 !== "" && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Valor actual: {formData.cli_precs2}%
+                      Valor actual: {savedValues.cli_precs2}%
                     </p>
                   )}
                 </div>
@@ -313,9 +331,9 @@ export default function MisDatosPage() {
                     max="100"
                     step="0.01"
                   />
-                  {formData.cli_desc !== "" && (
+                  {savedValues.cli_desc !== "" && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Valor actual: {formData.cli_desc}%
+                      Valor actual: {savedValues.cli_desc}%
                     </p>
                   )}
                 </div>

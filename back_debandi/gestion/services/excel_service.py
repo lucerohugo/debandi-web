@@ -16,7 +16,7 @@ class ExcelService:
         Retorna: BytesIO con el contenido del archivo Excel
         """
         
-        articulos = Articulo.objects.all()
+        articulos = Articulo.objects.filter(art_visw=True)
 
         # Crear workbook
         wb = Workbook()

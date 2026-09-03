@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import secrets
 
 
@@ -111,7 +111,7 @@ class Articulo(models.Model):
     art_nomb = models.CharField(max_length=255)
     art_desc = models.TextField(blank=True, help_text="Descripción del artículo", null=True)
     art_palac = models.CharField(max_length=255, blank=True, null=True, help_text="Palabras clave para búsqueda si es complejo el art_nomb")
-    art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True)
+    art_descu = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Descuento", null=True, blank=True)
     art_pnet = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Precio neto")
     art_pfin = models.DecimalField(max_digits=12, decimal_places=2, editable=True, help_text="Precio final con IVA")
     art_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Costo")
@@ -124,12 +124,15 @@ class Articulo(models.Model):
     art_depo = models.IntegerField(default=0, help_text="Depósito", null=True)
     art_mext = models.BooleanField(default=False, help_text="Precio en moneda extranjera (USD)", null=True)
     art_tiva = models.DecimalField(max_digits=5, decimal_places=2, default=21, help_text="IVA del artículo (%)", null=True)
+    art_uti1 = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text="Margen (%)", null=True, blank=True)
+    art_cdol = models.DecimalField(max_digits=12, decimal_places=2, default=0, blank=True, null=True, help_text="Costo dolar" ) #campo nuevo
 
     mar_codi = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name="articulos", default=1)
     sru_codi = models.ForeignKey(SubRubro, on_delete=models.PROTECT, blank=True, null=True, related_name="articulos")
+    
 
     art_acti = models.BooleanField(default=True, help_text="Artículo activo",null=True)
-    art_visw = models.BooleanField(default=True, help_text="Visible en web", null=True)
+    art_visw = models.BooleanField(default=True, help_text="Visible en web")
     art_carru = models.BooleanField(default=False, help_text="Mostrar en carrusel de inicio", null=True)
     art_prodr = models.BooleanField(default=False, help_text="Marcar como producto recomendado", null=True)
 
@@ -172,13 +175,51 @@ class Articulo(models.Model):
         # Generar art_cn automáticamente basado en art_codi (SIEMPRE)
         # Esto asegura que siempre sea consistente: DD + 5 dígitos del art_codi
         self.art_cn = f"DD{str(self.art_codi).zfill(5)}"
-        
-        iva_rate = Decimal(str(self.get_iva_rate()))
-        # Solo recalcular art_pfin si es 0 o None (no ha sido editado manualmente)
-        if not self.art_pfin or self.art_pfin == 0:
-            if self.art_pnet:  # Solo si art_pnet tiene valor
-                self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
+
+        # Campo vacío o string (import bulk) -> Decimal, nunca NULL
+        for campo in ('art_cdol', 'art_uti1', 'art_descu'):
+            valor = getattr(self, campo)
+            if isinstance(valor, Decimal):
+                continue
+            if valor is None or valor == '':
+                setattr(self, campo, Decimal('0'))
+                continue
+            try:
+                setattr(self, campo, Decimal(str(valor)))
+            except InvalidOperation:
+                setattr(self, campo, Decimal('0'))
+
+        if self.art_cdol > 0:
+            # Artículo valuado en dólares: costo/precio siempre se derivan de la cotización vigente
+            general = General.objects.only('gen_dola').first()
+            cotizacion = general.gen_dola if general else Decimal('0')
+            self.recalcular_desde_dolar(cotizacion)
+        else:
+            iva_rate = Decimal(str(self.get_iva_rate()))
+            # Solo recalcular art_pfin si es 0 o None (no ha sido editado manualmente)
+            if not self.art_pfin or self.art_pfin == 0:
+                if self.art_pnet:  # Solo si art_pnet tiene valor
+                    self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - self.art_descu
         super().save(*args, **kwargs)
+    #ver que el gen_dola lo tome como decimal y no solo entero
+    def recalcular_desde_dolar(self, cotizacion):
+        """Recalcula costo, precio neto y precio final a partir del costo dólar y la cotización."""
+        cotizacion = Decimal(str(cotizacion))
+        self.art_cost = self.art_cdol * cotizacion
+        margen = self.art_uti1 or Decimal('0')
+        self.art_pnet = self.art_cost * (1 + margen / 100)
+        iva_rate = Decimal(str(self.get_iva_rate()))
+        self.art_pfin = (self.art_pnet * (1 + iva_rate / 100)) - (self.art_descu or Decimal('0'))
+
+    @classmethod
+    def actualizar_por_cotizacion(cls, cotizacion):
+        """Recalcula costo/precio de los artículos valuados en dólares (art_cdol > 0)."""
+        articulos = list(cls.objects.filter(art_cdol__gt=0))
+        for articulo in articulos:
+            articulo.recalcular_desde_dolar(cotizacion)
+        if articulos:
+            cls.objects.bulk_update(articulos, ['art_cost', 'art_pnet', 'art_pfin'])
+        return len(articulos)
 
     @property
     def art_precio_final(self):
@@ -419,6 +460,7 @@ class Pedidos(models.Model):
     )
 
     ped_codi = models.AutoField(primary_key=True)
+    #ped_observacion
     ped_fech = models.DateField(blank=True, null=True, help_text="Fecha del pedido")
     ped_hora = models.TimeField(blank=True, null=True, help_text="Hora del pedido")
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
@@ -426,6 +468,21 @@ class Pedidos(models.Model):
     ped_fpag = models.CharField(max_length=3, choices=FORMA_PAGO_CHOICES)
     ped_exp = models.BooleanField(default=False, help_text="Exportado a GeneXus")
     ped_fexp = models.DateTimeField(null=True, blank=True, help_text="Fecha de exportación")
+
+    ORIGEN_CHOICES = (
+        ('C', 'Cliente'),
+        ('V', 'Vendedor'),
+    )
+    ped_crea = models.CharField(
+        max_length=10, choices=ORIGEN_CHOICES, null=True, blank=True,
+        help_text="Quien creo el pedido: cliente o vendedor"
+    )
+    ped_fechCr = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora creacion del pedido")
+    ped_edit = models.CharField(
+        max_length=10, choices=ORIGEN_CHOICES, null=True, blank=True,
+        help_text="Quien hizo la modificacion: cliente o vendedor"
+    )
+    ped_fechEd = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora modifcacion del pedido")
 
     class Meta:
         verbose_name = "Pedido"
@@ -565,7 +622,7 @@ class General(models.Model):
     gen_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
     gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
     gen_emai = models.EmailField(blank=True, default='contacto@debandi.com', help_text="Email")
-    gen_coti = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cotización")
+    gen_dola = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cotización")#campo nuevo
 
     class Meta:
         verbose_name = "General"
@@ -573,6 +630,19 @@ class General(models.Model):
 
     def __str__(self):
         return self.gen_nomb or "Configuración General"
+
+    def save(self, *args, **kwargs):
+        if self.gen_dola is not None:
+            self.gen_dola = Decimal(str(self.gen_dola))
+
+        cotizacion_anterior = None
+        if self.pk:
+            anterior = General.objects.filter(pk=self.pk).only('gen_dola').first()
+            if anterior:
+                cotizacion_anterior = anterior.gen_dola
+        super().save(*args, **kwargs)
+        if cotizacion_anterior is not None and cotizacion_anterior != self.gen_dola:
+            Articulo.actualizar_por_cotizacion(self.gen_dola)
 
 
 class Usuario(models.Model):
@@ -649,3 +719,19 @@ class Vendedor(models.Model):
 
     def __str__(self):
         return self.ven_nomb
+
+
+# -art_visw ya funciona, probar en gx6 //FALTA probar gx6
+# -Vendedor podia ingresar como cliente a los que tiene asociado por mas que el cli_acti este en falso o sin contraseña(corregido) //LISTO
+# -Arregle localidad no la tomaba dentro del panel del vendedor //LISTO
+# -Vendedores/Clientes en pedidos, quien lo creo ,modifico y sus fechas en web//LISTO
+# *Falta agregar los 4 campos en gx6 de ped_crea, ped_fechCr, ped_edit, ped_fechEd //FALTA
+# -cambie cli_dire 150 caracteres web//LISTO
+# -Cotizacion,funciona//LISTO
+# -.py listo, agregue "gene" agregar ,falta compilar //FALTA
+# *agregar en SincWeb y en la transaccion de General(gene) //LISTO
+# -si agregue un producto al carrito y cambie el precio, en inicio ,listado de productos etc ya cambio el precio, pero si ya lo agregue al carrito antes 
+# de que cambie el precio me guarda en el carrito el precio viejo y se cambia una vez realice el pedido //LISTO
+
+# -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web
+# -consulta de agregar campo ped_observacion 

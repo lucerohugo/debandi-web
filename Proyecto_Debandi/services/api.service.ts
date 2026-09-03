@@ -60,20 +60,106 @@ const clearJWTToken = (): void => {
   localStorage.removeItem('jwtToken')
 }
 
+const JWT_REFRESH_KEY = 'jwtRefreshToken'
+
+const getRefreshToken = (): string | null => {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(JWT_REFRESH_KEY)
+}
+
+const setRefreshTokenValue = (token: string): void => {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(JWT_REFRESH_KEY, token)
+}
+
+const clearRefreshTokenValue = (): void => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(JWT_REFRESH_KEY)
+}
+
 /**
- * Construir headers con JWT o API Key
+ * true si el token no decodifica o vence dentro de `skewSeconds` (margen para
+ * que no expire en el viaje de red hacia el backend)
  */
-const getHeaders = (additionalHeaders: Record<string, string> = {}): Record<string, string> => {
+const isTokenExpired = (token: string, skewSeconds = 15): boolean => {
+  const payload = decodeJWT(token)
+  if (!payload || typeof payload.exp !== 'number') return true
+  return Date.now() / 1000 >= payload.exp - skewSeconds
+}
+
+// Evita disparar varios refresh en paralelo si hay requests concurrentes
+let refreshInFlight: Promise<string | null> | null = null
+
+/**
+ * Devuelve un access token vigente para usar en el request actual:
+ * - Si no hay sesión, devuelve null.
+ * - Si el access token todavía es válido, lo devuelve tal cual.
+ * - Si venció (p.ej. usuario dejó la pestaña abierta más de 1h), lo renueva
+ *   con el refresh token contra /token/refresh/. Si el refresh también
+ *   falló o venció, limpia la sesión y devuelve null (el request sigue sin
+ *   Authorization, como un usuario anónimo).
+ */
+const ensureValidAccessToken = async (): Promise<string | null> => {
+  const token = getJWTToken()
+  if (!token) return null
+  if (!isTokenExpired(token)) return token
+
+  const refresh = getRefreshToken()
+  if (!refresh) {
+    clearJWTToken()
+    return null
+  }
+
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const response = await fetch(buildApiUrl(getApiUrl(), 'token/refresh/'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh }),
+        })
+
+        if (!response.ok) {
+          clearJWTToken()
+          clearRefreshTokenValue()
+          return null
+        }
+
+        const data = await response.json()
+        if (!data.access) {
+          clearJWTToken()
+          clearRefreshTokenValue()
+          return null
+        }
+
+        setJWTToken(data.access)
+        return data.access as string
+      } catch (error) {
+        console.warn('[ApiService] No se pudo renovar el access token:', error)
+        return null
+      } finally {
+        refreshInFlight = null
+      }
+    })()
+  }
+
+  return refreshInFlight
+}
+
+/**
+ * Construir headers con JWT (renovándolo primero si venció) o API Key
+ */
+const getHeaders = async (additionalHeaders: Record<string, string> = {}): Promise<Record<string, string>> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...additionalHeaders,
   }
-  
-  const token = getJWTToken()
+
+  const token = await ensureValidAccessToken()
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
+
   return headers
 }
 
@@ -140,14 +226,19 @@ export class ApiService {
     setJWTToken(token)
   }
 
+  static setRefreshToken(token: string): void {
+    setRefreshTokenValue(token)
+  }
+
   static clearToken(): void {
     clearJWTToken()
+    clearRefreshTokenValue()
   }
 
   static async get<T>(endpoint: string): Promise<T> {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       credentials: 'include',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     })
 
     if (!response.ok) throw new Error(await parseErrorMessage(response))
@@ -158,7 +249,7 @@ export class ApiService {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'POST',
       credentials: 'include',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(data),
     })
 
@@ -170,7 +261,7 @@ export class ApiService {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'PUT',
       credentials: 'include',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(data),
     })
 
@@ -182,7 +273,7 @@ export class ApiService {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       method: 'PATCH',
       credentials: 'include',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(data),
     })
 
@@ -194,7 +285,7 @@ export class ApiService {
     const fetchOptions: RequestInit = {
       method: 'DELETE',
       credentials: 'include',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     }
 
     if (data) {

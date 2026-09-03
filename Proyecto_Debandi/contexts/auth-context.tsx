@@ -181,9 +181,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Backend no devolvió JWT token')
       }
 
-      // Guardar JWT
+      // Guardar JWT (access + refresh, para poder renovar la sesión sin re-loguear)
       ApiService.setToken(data.access)
-      
+      if (data.refresh) {
+        ApiService.setRefreshToken(data.refresh)
+      }
+
       // Crear usuario
       const user: User = {
         id: data.cliente.cli_codi,

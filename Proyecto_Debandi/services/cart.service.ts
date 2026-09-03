@@ -94,7 +94,7 @@ class CartServiceClass {
           art_codi: item.art_codi,
           art_nomb: item.art_nomb,
           art_pnet: item.art_pnet,
-          art_pfin: item.carr_pfin, // Precio original sin descuento
+          art_pfin: item.art_pfin, // Precio actual del artículo (en vivo, no el congelado al agregar)
           art_tiva: item.art_tiva,
           art_stk: item.art_stk,
           art_img: item.art_img,

@@ -3,7 +3,8 @@ from rest_framework.decorators import action, api_view, permission_classes, auth
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.db.models import Q, Min, Max
@@ -199,6 +200,17 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']
     authentication_classes = []
+
+    def get_queryset(self):
+        """
+        Oculta artículos con art_visw=False/NULL (S/N-vacío desde el importador) en
+        todas las lecturas públicas del catálogo. retrieve/update/partial_update/destroy
+        quedan sin filtrar para no bloquear la gestión interna (Django admin) de artículos ocultos.
+        """
+        queryset = super().get_queryset()
+        if self.action not in ('retrieve', 'update', 'partial_update', 'destroy'):
+            queryset = queryset.filter(art_visw=True)
+        return queryset
 
     @action(detail=False, methods=['get'])
     def carrusel(self, request):
@@ -802,6 +814,29 @@ class CarritoItemViewSet(BaseViewSet):
 # PEDIDOS
 # ================================================================
 
+def _origen_pedido(request):
+    """
+    Determina si quien hace la request es un cliente o un vendedor (modo supervisor),
+    leyendo el JWT del header Authorization sin exigir autenticación (los endpoints de
+    pedidos siguen siendo AllowAny). Devuelve 'vendedor', 'cliente' o None si no se puede
+    determinar (sin token, token inválido, o request hecha con API Key/admin).
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    try:
+        token = AccessToken(auth_header[7:].strip())
+    except TokenError:
+        # Token ausente, corrupto o vencido: el frontend debería haberlo
+        # renovado con el refresh token antes de llegar acá (ver ApiService).
+        return None
+    if token.get('vendedor_suplantante'):
+        return 'V'
+    if token.get('user_type') == 'cliente':
+        return 'C'
+    return None
+
+
 class DetallePedidoViewSet(BaseViewSet):
     queryset = DetallePedido.objects.all()
     serializer_class = DetallePedidoSerializer
@@ -847,6 +882,18 @@ class PedidosViewSet(BaseViewSet):
             return PedidosCompletoSerializer
         return PedidosSerializer
 
+    def perform_create(self, serializer):
+        """Registrar quién creó el pedido (cliente o vendedor) y cuándo"""
+        from django.utils import timezone
+        serializer.save(ped_crea=_origen_pedido(self.request), ped_fechCr=timezone.now())
+
+    def _marcar_edicion(self, pedido, request):
+        """Registrar quién hizo la última edición del pedido (cliente o vendedor) y cuándo"""
+        from django.utils import timezone
+        pedido.ped_edit = _origen_pedido(request)
+        pedido.ped_fechEd = timezone.now()
+        pedido.save(update_fields=['ped_edit', 'ped_fechEd'])
+
     def update(self, request, *args, **kwargs):
         """
         Permitir edición solo si el pedido está pendiente (ped_exp = False)
@@ -857,6 +904,7 @@ class PedidosViewSet(BaseViewSet):
                 {'detail': 'No se puede editar un pedido que ya ha sido procesado.'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        self._marcar_edicion(pedido, request)
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
@@ -869,6 +917,7 @@ class PedidosViewSet(BaseViewSet):
                 {'detail': 'No se puede editar un pedido que ya ha sido procesado.'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        self._marcar_edicion(pedido, request)
         return super().partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
@@ -981,12 +1030,15 @@ def crear_pedido_desde_carrito(request):
             ped_tota += Decimal(str(cant)) * pfin
         
         # Crear el pedido
+        ahora = timezone.now()
         pedido = Pedidos.objects.create(
             cli_codi=cliente,
             ped_tota=ped_tota,
-            ped_fech=timezone.now().date(),  # ✅ .date() para DateField (no datetime)
-            ped_hora=timezone.now().time(),  # ✅ .time() para TimeField (solo hora)
-            ped_fpag=ped_fpag
+            ped_fech=ahora.date(),  # ✅ .date() para DateField (no datetime)
+            ped_hora=ahora.time(),  # ✅ .time() para TimeField (solo hora)
+            ped_fpag=ped_fpag,
+            ped_crea=_origen_pedido(request),
+            ped_fechCr=ahora
         )
         
         # Crear detalles del pedido desde los items del carrito
@@ -2105,6 +2157,7 @@ def importar_datos(request):
 
     MODELOS = {
 
+        "general": (General, "gen_codi"),
         "clientes": (Clientes, "cli_codi"),
         "articulos": (Articulo, "art_codi"),
 
@@ -2351,6 +2404,23 @@ def importar_datos(request):
 
                             data_item.pop("art_codi", None)
                             data_item.pop("art_codi_id", None)
+
+                            # ============================================
+                            # 'S'/'N'/vacío -> BOOLEAN (art_visw)
+                            # ============================================
+
+                            if "art_visw" in data_item:
+
+                                valor_visw = data_item["art_visw"]
+
+                                if isinstance(valor_visw, bool):
+                                    data_item["art_visw"] = valor_visw
+                                elif valor_visw is None:
+                                    data_item["art_visw"] = False
+                                else:
+                                    data_item["art_visw"] = (
+                                        str(valor_visw).strip().upper() == "S"
+                                    )
 
                             obj, created = model.objects.update_or_create(
 

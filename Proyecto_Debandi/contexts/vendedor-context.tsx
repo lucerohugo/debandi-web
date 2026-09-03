@@ -58,7 +58,10 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
       // Guardar JWT (es del cliente asignado)
       ApiService.setToken(data.access)
       localStorage.setItem('jwtToken', data.access)
-      
+      if (data.refresh) {
+        ApiService.setRefreshToken(data.refresh)
+      }
+
       // Guardar datos del vendedor
       localStorage.setItem('vendedor_session', JSON.stringify(data.vendedor))
       setVendedor(data.vendedor)
@@ -115,29 +118,15 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
 
   const getClientes = useCallback(async (search: string, page: number) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
       const ven_codi = vendedor?.ven_codi
       
       if (!ven_codi) {
         throw new Error('No hay vendedor logueado')
       }
       
-      const response = await fetch(
-        buildApiUrl(apiUrl, `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}`),
-        {
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-          }
-        }
+      const data = await ApiService.get<any>(
+        `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}`
       )
-      
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Error al obtener clientes')
-      }
-      
-      const data = await response.json()
       return {
         clientes: data.results || data,
         total: data.count || 0

@@ -37,7 +37,8 @@ interface Cliente {
   cli_tele?: string
   cli_dire?: string
   cli_barr?: string
-  localidad?: string
+  loc_nomb?: string
+  cli_acti?: boolean | null
 }
 
 export default function VendedorClientesPage() {
@@ -102,9 +103,13 @@ export default function VendedorClientesPage() {
       if (!clienteSeleccionado) {
         throw new Error('Cliente no encontrado')
       }
-      
-      console.log('\n🎯 VENDEDOR/CLIENTES: Iniciando impersonación de:', clienteSeleccionado.cli_nomb)
-      console.log('🎯 Vendedor actual:', vendedor)
+
+      if (!clienteSeleccionado.cli_acti) {
+        throw new Error('No se puede ingresar: el cliente está inactivo')
+      }
+
+      console.log('\n VENDEDOR/CLIENTES: Iniciando impersonación de:', clienteSeleccionado.cli_nomb)
+      console.log(' Vendedor actual:', vendedor)
       
       // 1. PRIMERO: Guardar impersonation_state en localStorage
       const impState = {
@@ -112,27 +117,27 @@ export default function VendedorClientesPage() {
         vendedor: vendedor
       }
       localStorage.setItem('impersonation_state', JSON.stringify(impState))
-      console.log('💾 VENDEDOR/CLIENTES: Impersonation_state guardado en localStorage')
+      
       
       // 2. Guardar cliente en localStorage
       localStorage.setItem('auth_user', JSON.stringify(clienteSeleccionado))
-      console.log('✔️ VENDEDOR/CLIENTES: Cliente guardado en localStorage')
+      
       
       // 3. Emitir evento de impersonación con toda la información
       const eventData = {
         cliente: clienteSeleccionado,
         impersonation: impState
       }
-      console.log('📡 VENDEDOR/CLIENTES: Disparando evento impersonation-started')
+      
       
       window.dispatchEvent(new CustomEvent('impersonation-started', {
         detail: eventData
       }))
-      console.log('✅ VENDEDOR/CLIENTES: Evento impersonation-started disparado')
+      
       
       // 4. Pequeño delay para asegurar que todo se procese
       await new Promise(resolve => setTimeout(resolve, 150))
-      console.log('⏰ VENDEDOR/CLIENTES: Delay completado, navegando a /')
+      
       
       // 5. Redirigir a página principal
       router.push('/')
@@ -241,6 +246,7 @@ export default function VendedorClientesPage() {
                         <TableHead className="hidden lg:table-cell">Email</TableHead>
                         <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
                         <TableHead className="hidden xl:table-cell">Localidad</TableHead>
+                        <TableHead>Estado de Cuenta</TableHead>
                         <TableHead className="text-right">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -263,13 +269,25 @@ export default function VendedorClientesPage() {
                             {cliente.cli_tele || "-"}
                           </TableCell>
                           <TableCell className="hidden xl:table-cell text-sm">
-                            {cliente.localidad || "-"}
+                            {cliente.loc_nomb || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {cliente.cli_acti ? (
+                              <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                                Habilitado
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">
+                                Inhabilitado
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               size="sm"
                               onClick={() => handleImpersonate(cliente.cli_codi)}
-                              disabled={impersonating !== null}
+                              disabled={impersonating !== null || !cliente.cli_acti}
+                              title={!cliente.cli_acti ? "Cliente inactivo: no se puede ingresar" : undefined}
                             >
                               {impersonating === cliente.cli_codi ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
