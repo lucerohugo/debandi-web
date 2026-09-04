@@ -367,7 +367,7 @@ class PedidosSerializer(serializers.ModelSerializer):
         model = Pedidos
         fields = [
             'ped_codi', 'ped_fech', 'ped_hora', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
-            'ped_tota', 'ped_fpag',
+            'ped_tota', 'ped_fpag', 'ped_obse',
             'ped_exp', 'ped_fexp',
             'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
             'detalles'
@@ -401,7 +401,7 @@ class PedidosCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedidos
         fields = [
-            'ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_tota', 'ped_fpag', 'ped_exp', 'ped_fexp',
+            'ped_codi', 'ped_fech', 'cli_codi', 'cli_nomb', 'ped_tota', 'ped_fpag', 'ped_obse', 'ped_exp', 'ped_fexp',
             'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
             'detalles',
         ]

@@ -1023,6 +1023,7 @@ def crear_pedido_desde_carrito(request):
     Body: {
         "cli_codi": 1,
         "ped_fpag": "CDO"  (opcional, default es "CDO")
+        "ped_obse": "..."  (opcional, observaciones del pedido)
     }
     """
     from django.utils import timezone
@@ -1031,6 +1032,7 @@ def crear_pedido_desde_carrito(request):
     try:
         cli_codi = request.data.get('cli_codi')
         ped_fpag = request.data.get('ped_fpag', 'CDO')
+        ped_obse = request.data.get('ped_obse')
         
         if not cli_codi:
             return Response(
@@ -1072,6 +1074,7 @@ def crear_pedido_desde_carrito(request):
             ped_fech=ahora.date(),  # ✅ .date() para DateField (no datetime)
             ped_hora=ahora.time(),  # ✅ .time() para TimeField (solo hora)
             ped_fpag=ped_fpag,
+            ped_obse=ped_obse,
             ped_crea=_origen_pedido(request),
             ped_fechCr=ahora
         )

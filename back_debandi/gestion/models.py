@@ -460,7 +460,7 @@ class Pedidos(models.Model):
     )
 
     ped_codi = models.AutoField(primary_key=True)
-    #ped_observacion
+    ped_obse = models.CharField(max_length=150, blank=True, null=True, help_text="Obversaciones del pedido")#ped_observacion nuevo
     ped_fech = models.DateField(blank=True, null=True, help_text="Fecha del pedido")
     ped_hora = models.TimeField(blank=True, null=True, help_text="Hora del pedido")
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)
@@ -721,15 +721,14 @@ class Vendedor(models.Model):
         return self.ven_nomb
 
 
-# -art_visw ya funciona, probar en gx6 //FALTA probar gx6
+# -art_visw ya funciona, probar en gx6 //LISTO
 # -Vendedor podia ingresar como cliente a los que tiene asociado por mas que el cli_acti este en falso o sin contraseña(corregido) //LISTO
 # -Arregle localidad no la tomaba dentro del panel del vendedor //LISTO
 # -Vendedores/Clientes en pedidos, quien lo creo ,modifico y sus fechas en web//LISTO
 # *Falta agregar los 4 campos en gx6 de ped_crea, ped_fechCr, ped_edit, ped_fechEd //FALTA
 # -cambie cli_dire 150 caracteres web//LISTO
 # -Cotizacion,funciona//LISTO
-# -.py listo, agregue "gene" agregar ,falta compilar //FALTA
-# *agregar en SincWeb y en la transaccion de General(gene) //LISTO
+# *agregar en SincWeb y en la transaccion de General(gene) // agregar en gx
 # -si agregue un producto al carrito y cambie el precio, en inicio ,listado de productos etc ya cambio el precio, pero si ya lo agregue al carrito antes 
 # de que cambie el precio me guarda en el carrito el precio viejo y se cambia una vez realice el pedido //LISTO
 # -probado lo de dolar, cotizacion, art_cdol, art_uti1 ,gx y web//LISTO
@@ -744,4 +743,4 @@ class Vendedor(models.Model):
 
 
 # -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web
-# -consulta de agregar campo ped_observacion 
+# -consulta de agregar campo ped_observacion //agregar

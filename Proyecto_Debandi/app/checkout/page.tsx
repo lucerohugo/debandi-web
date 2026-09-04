@@ -6,6 +6,7 @@ import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { CheckCircle2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 
 import { CartService, type CartItem } from "@/services/cart.service"
@@ -27,6 +28,9 @@ export default function CheckoutPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
+  const [observacion, setObservacion] = useState("")
+  const OBSERVACION_MAX_LENGTH = 150
+  const observacionRef = useRef<HTMLTextAreaElement>(null)
 
 
   useEffect(() => {
@@ -140,7 +144,25 @@ export default function CheckoutPage() {
     return cartItems
   }
 
+  const handleObservacionInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target
+    if (/[ñÑ]/.test(textarea.value)) {
+      textarea.setCustomValidity("La observación no puede contener la letra Ñ")
+    } else {
+      textarea.setCustomValidity("")
+    }
+    textarea.reportValidity()
+    setObservacion(textarea.value.slice(0, OBSERVACION_MAX_LENGTH))
+  }
+
   const handleCreateOrder = async () => {
+    if (/[ñÑ]/.test(observacion)) {
+      observacionRef.current?.setCustomValidity("La observación no puede contener la letra Ñ")
+      observacionRef.current?.reportValidity()
+      observacionRef.current?.focus()
+      return
+    }
+
     try {
       setIsLoading(true)
 
@@ -155,9 +177,10 @@ export default function CheckoutPage() {
       const payload = {
         cli_codi: user?.id,  // Usar el ID del usuario autenticado
         ped_fpag: 'CDO',
+        ped_obse: observacion.trim() || undefined,
         items: items
       }
-      
+
       const data = await ApiService.post<any>('/pedidos-crear-desde-carrito/', payload)
 
       if (data.success) {
@@ -339,6 +362,26 @@ export default function CheckoutPage() {
               </div>
 
               {/* Métodos de Pago - Eliminado por preferencia del usuario */}
+
+              {/* Observaciones */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="ped_obse" className="text-sm font-medium text-foreground">
+                    Observaciones <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {observacion.length}/{OBSERVACION_MAX_LENGTH}
+                  </span>
+                </div>
+                <Textarea
+                  id="ped_obse"
+                  ref={observacionRef}
+                  value={observacion}
+                  onChange={handleObservacionInput}
+                  maxLength={OBSERVACION_MAX_LENGTH}
+                  className="w-full min-h-20 resize-none"
+                />
+              </div>
 
               {/* Botones */}
               <div className="flex flex-col-reverse sm:flex-row gap-3 w-full">

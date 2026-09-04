@@ -45,6 +45,15 @@ export default function OrdersPage() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // Recargar pedidos desde el backend cada vez que se entra a esta pantalla
+  // (el contexto de pedidos solo carga una vez al iniciar sesión, por lo que
+  // un pedido recién creado no aparecía hasta refrescar la página con F5)
+  useEffect(() => {
+    if (user) {
+      reloadOrders()
+    }
+  }, [user])
+
   useEffect(() => {
     if (!loading && !user) {
       router.push("/")

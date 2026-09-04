@@ -248,7 +248,7 @@ class PedidosAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Información del Pedido', {
-            'fields': ('ped_codi', 'ped_fech', 'ped_hora', 'ped_tota')
+            'fields': ('ped_codi', 'ped_fech', 'ped_hora', 'ped_tota', 'ped_obse')
         }),
         ('Cliente', {
             'fields': ('cli_codi',)
