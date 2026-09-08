@@ -33,6 +33,10 @@ interface Order {
   total: number
   status: "pendiente" | "procesado"
   ped_exp: boolean
+  ped_crea?: 'C' | 'V'
+  ped_fechCr?: string
+  ped_edit?: 'C' | 'V'
+  ped_fechEd?: string
   detalles: any[]
   items: OrderItem[]
 }
@@ -68,6 +72,10 @@ export default function OrdersPage() {
         total: ped.ped_tota,
         status: !ped.ped_exp ? 'pendiente' : 'procesado',  // ped_exp = false = Pendiente, true = Procesado
         ped_exp: ped.ped_exp,  // Si fue procesado/exportado a Genexus
+        ped_crea: ped.ped_crea,
+        ped_fechCr: ped.ped_fechCr,
+        ped_edit: ped.ped_edit,
+        ped_fechEd: ped.ped_fechEd,
         detalles: ped.detalles,
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,
@@ -106,6 +114,12 @@ export default function OrdersPage() {
     }
   }
 
+  const getOrigenLabel = (origen?: 'C' | 'V') => {
+    if (origen === 'C') return 'Cliente'
+    if (origen === 'V') return 'Vendedor'
+    return null
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "procesado":
@@ -138,8 +152,8 @@ export default function OrdersPage() {
         price: applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0),
       }));
       
-      // Exportar PDF del pedido específico
-      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber)
+      // Exportar PDF del pedido específico (con la fecha/hora en que se realizó el pedido)
+      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time)
       
       // Mostrar notificación de éxito
       setNotification({
@@ -397,10 +411,22 @@ export default function OrdersPage() {
                           </div>
                         </div>
 
-                        <div className="pt-4 border-t">
+                        <div className="pt-4 border-t space-y-1">
                           <p className="text-xs text-muted-foreground">
                             Pedido realizado el {date} a las {time}
                           </p>
+                          {getOrigenLabel(order.ped_crea) && (
+                            <p className="text-xs text-muted-foreground">
+                              Creado por: {getOrigenLabel(order.ped_crea)}
+                              {order.ped_fechCr ? ` el ${order.ped_fechCr}` : ""}
+                            </p>
+                          )}
+                          {getOrigenLabel(order.ped_edit) && (
+                            <p className="text-xs text-muted-foreground">
+                              Última modificación: {getOrigenLabel(order.ped_edit)}
+                              {order.ped_fechEd ? ` el ${order.ped_fechEd}` : ""}
+                            </p>
+                          )}
                         </div>
 
                         <div className="pt-4 border-t flex flex-wrap gap-2">

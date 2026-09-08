@@ -215,6 +215,9 @@ class RegistroSerializer(serializers.ModelSerializer):
         if password:
             registro.set_password(password)
         registro.save()
+        # reg_codi es asignado por la base de datos (no es AutoField), así que
+        # hay que releer la instancia para que el objeto en memoria lo tenga.
+        registro.refresh_from_db()
         return registro
 
     def to_representation(self, instance):
@@ -234,7 +237,7 @@ class VendedorSerializer(serializers.ModelSerializer):
         fields = [
             'ven_codi', 'ven_nomb', 'ven_doc', 'ven_fnac', 'ven_emai',
             'ven_tele', 'ven_dom', 'ven_bar', 'ven_cuit',
-            'ven_usua', 'ven_clav', 'ven_actv', 'ven_gere', 'loc_codi', 'loc_nomb',
+            'ven_usua', 'ven_clav', 'ven_actv', 'ven_gere', 'ven_adm', 'loc_codi', 'loc_nomb',
             'ven_fchc', 'ven_fmod'
         ]
         read_only_fields = ['ven_codi', 'ven_fchc', 'ven_fmod', 'ven_clav']

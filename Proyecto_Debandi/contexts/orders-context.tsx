@@ -24,6 +24,10 @@ interface Order {
   cli_codi: number
   ped_exp: boolean  // false = Pendiente (editable), true = Procesado (no editable)
   ped_fexp?: string  // Fecha de exportación
+  ped_crea?: 'C' | 'V'  // Quién creó el pedido: Cliente o Vendedor
+  ped_fechCr?: string  // Fecha y hora de creación (ya formateada por el backend)
+  ped_edit?: 'C' | 'V'  // Quién hizo la última modificación: Cliente o Vendedor
+  ped_fechEd?: string  // Fecha y hora de la última modificación (ya formateada por el backend)
   detalles: OrderDetail[]
 }
 

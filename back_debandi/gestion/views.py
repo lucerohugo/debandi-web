@@ -684,7 +684,11 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     queryset = Clientes.objects.all()
     serializer_class = ClientesSerializer
     lookup_field_name = "cli_codi"
-    filterset_fields = ['loc_codi', 'ven_codi']
+    # 'ven_codi' se filtra a mano en get_queryset (para poder aplicar la
+    # excepción de Vendedor Administrador); si quedara en filterset_fields,
+    # DjangoFilterBackend volvería a filtrar por el ven_codi crudo del query
+    # param después de get_queryset, pisando el bypass de ven_adm.
+    filterset_fields = ['loc_codi']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
     permission_classes = [AllowAny]
@@ -696,14 +700,22 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
         """
         queryset = super().get_queryset()
         
-        # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor
+        # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor,
+        # salvo que sea un Vendedor Administrador (ven_adm=True), en cuyo
+        # caso ve TODOS los clientes sin excepción, sin importar quién
+        # tenga asignado a cada uno.
         ven_codi = self.request.query_params.get('ven_codi')
         if ven_codi:
             try:
-                queryset = queryset.filter(ven_codi_id=int(ven_codi))
+                ven_codi_int = int(ven_codi)
+                es_admin = Vendedor.objects.filter(
+                    ven_codi=ven_codi_int, ven_adm=True
+                ).exists()
+                if not es_admin:
+                    queryset = queryset.filter(ven_codi_id=ven_codi_int)
             except (ValueError, TypeError):
                 pass
-        
+
         return queryset
 
     # El envío del correo de activación (transición cli_acti False -> True)
@@ -1213,15 +1225,21 @@ def vendedor_login(request):
             )
 
         #  MODO SUPERVISOR: Obtener cliente asignado
-        # Buscar primer cliente asignado a este vendedor
+        # Buscar primer cliente asignado a este vendedor. Si es Vendedor
+        # Administrador (ven_adm=True), no necesita tener clientes propios
+        # asignados: puede ver TODOS los clientes, así que se usa cualquier
+        # cliente del sistema para inicializar el JWT.
         clientes_asignados = Clientes.objects.filter(ven_codi=vendedor)
-        
+
         if not clientes_asignados.exists():
-            return JsonResponse(
-                {'success': False, 'detail': 'Vendedor sin clientes asignados'}, 
-                status=403
-            )
-        
+            if vendedor.ven_adm:
+                clientes_asignados = Clientes.objects.all()
+            if not clientes_asignados.exists():
+                return JsonResponse(
+                    {'success': False, 'detail': 'Vendedor sin clientes asignados'},
+                    status=403
+                )
+
         cliente = clientes_asignados.first()
         
         #  Generar JWT CON EL CLI_CODI (no con ven_codi)
@@ -1246,6 +1264,7 @@ def vendedor_login(request):
                 "ven_cuit": vendedor.ven_cuit,
                 "ven_actv": vendedor.ven_actv,
                 "ven_gere": bool(vendedor.ven_gere),
+                "ven_adm": bool(vendedor.ven_adm),
                 "loc_codi": vendedor.loc_codi_id,
             },
             "cliente_activo": {

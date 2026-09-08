@@ -190,7 +190,9 @@ export class ExportUtils {
       quantity: number;
       price: number;
     }>,
-    orderNumber: string
+    orderNumber: string,
+    orderDate?: string,
+    orderTime?: string
   ): Promise<void> {
     try {
       const jsPDF = (await import('jspdf')).jsPDF;
@@ -202,18 +204,28 @@ export class ExportUtils {
         format: 'a4',
       });
 
+      // Fecha/hora del pedido (no la fecha/hora de descarga del PDF)
+      let fechaDisplay: string;
+      if (orderDate) {
+        const [year, month, day] = orderDate.split('-').map(Number);
+        fechaDisplay = new Date(year, month - 1, day).toLocaleDateString('es-ES');
+      } else {
+        fechaDisplay = new Date().toLocaleDateString('es-ES');
+      }
+      const horaDisplay = orderTime ? orderTime.substring(0, 5) : new Date().toLocaleTimeString('es-ES');
+
       // Configurar fuentes
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(16);
-      
+
       // Título
       doc.text(`Pedido #${orderNumber}`, 20, 20);
-      
+
       // Información del pedido
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
-      doc.text(`Hora: ${new Date().toLocaleTimeString('es-ES')}`, 20, 37);
+      doc.text(`Fecha: ${fechaDisplay}`, 20, 30);
+      doc.text(`Hora: ${horaDisplay}`, 20, 37);
 
       // Preparar datos de la tabla
       const tableData = items.map((item) => {
@@ -280,7 +292,8 @@ export class ExportUtils {
       doc.text('DEBANDI - Sistema de Gestión de Pedidos', 20, doc.internal.pageSize.getHeight() - 10);
 
       // Descargar
-      doc.save(`PEDIDO-${orderNumber}-${new Date().toISOString().slice(0, 10)}.pdf`);
+      const fileDate = orderDate || new Date().toISOString().slice(0, 10);
+      doc.save(`PEDIDO-${orderNumber}-${fileDate}.pdf`);
       console.log(' PDF del pedido descargado exitosamente');
     } catch (error) {
       console.error('Error al exportar PDF del pedido:', error);

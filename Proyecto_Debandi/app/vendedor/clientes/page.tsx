@@ -198,8 +198,13 @@ export default function VendedorClientesPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <CardTitle>Mis Clientes</CardTitle>
+                <CardTitle>{vendedor?.ven_adm ? "Todos los Clientes" : "Mis Clientes"}</CardTitle>
                 <Badge variant="secondary">{total} clientes</Badge>
+                {vendedor?.ven_adm && (
+                  <Badge variant="outline" className="border-primary text-primary">
+                    Administrador
+                  </Badge>
+                )}
               </div>
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -212,7 +217,9 @@ export default function VendedorClientesPage() {
               </div>
             </div>
             <CardDescription>
-              Selecciona un cliente para ingresar al sistema como supervisor
+              {vendedor?.ven_adm
+                ? "Como Vendedor Administrador podés ver todos los clientes sin excepción. Selecciona uno para ingresar al sistema como supervisor"
+                : "Selecciona un cliente para ingresar al sistema como supervisor"}
             </CardDescription>
           </CardHeader>
           <CardContent>

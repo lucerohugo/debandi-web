@@ -681,6 +681,7 @@ class Vendedor(models.Model):
     ven_clav = models.CharField(max_length=128, blank=True, null=True, help_text="Contraseña/Clave (hasheada)")
     ven_actv = models.IntegerField(default=0, choices=[(0, 'Inactivo'), (1, 'Activo')], help_text="Vendedor activo", null=True)
     ven_gere = models.BooleanField(default=False, blank=True, null=True, help_text="Gerencia: habilita exportar cuenta corriente y facturas PDF (S=true, N/vacío=false)")
+    ven_adm = models.BooleanField(default=False, blank=True, null=True, help_text="Vendedor Administrador: si es True, puede ver TODOS los clientes sin excepción, sin importar el vendedor asignado")
     loc_codi = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True, related_name='vendedores')
     ven_fchc = models.DateTimeField(auto_now_add=True,null=True)
     ven_fmod = models.DateTimeField(auto_now=True, null=True)
@@ -740,7 +741,11 @@ class Vendedor(models.Model):
 # -acomodar front para que no ingrese Ñ //LISTO
 
 
+# -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web //LISTO
+# -consulta de agregar campo ped_observacion //agregar // LISTO
 
-
-# -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web
-# -consulta de agregar campo ped_observacion //agregar
+#- campo agregado ped_obse,en el .py tambien //falta probar con gx
+#- vendedor/cliente que pueda ver todos los clientes //LISTO
+#- en mis pedidos tanto clientes/vendedores ven quien lo crea, modifica ,etc(tanto cliente como vendedor desde mis pedidos) //
+#- probado lo de reenvio del mail es Cpanel -> Reenviador -> Añadir reenviador y listo (por ahora lo tengo con mi cuenta de gmail probada) //
+#- fecha y hora de descargar pdf de historial de pedidos estaba tomando fecha y hora del momento que se descargo pero no del pedido realizado //

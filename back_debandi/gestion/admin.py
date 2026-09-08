@@ -104,7 +104,7 @@ class ArticuloAdmin(admin.ModelAdmin):
 
 @admin.register(Registro)
 class RegistroAdmin(admin.ModelAdmin):
-    list_display = ['reg_codi', 'reg_nomb', 'reg_emai', 'reg_celu', 'reg_clie', 'reg_fchc', 'reg_exp']
+    list_display = ['reg_codi', 'reg_nomb', 'reg_emai', 'reg_celu','reg_fchc' ,'reg_clie']
     list_filter = ['reg_clie', 'reg_fchc']
     search_fields = ['reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
     readonly_fields = ['reg_codi', 'reg_fchc', 'reg_fmod', 'reg_clav']
@@ -165,8 +165,8 @@ class ClientesAdmin(admin.ModelAdmin):
 
 @admin.register(Vendedor)
 class VendedorAdmin(admin.ModelAdmin):
-    list_display = ['ven_codi', 'ven_nomb', 'ven_actv', 'ven_gere', 'loc_codi']
-    list_filter = ['ven_actv', 'ven_gere', 'loc_codi']
+    list_display = ['ven_codi', 'ven_nomb', 'ven_actv', 'ven_gere', 'ven_adm', 'loc_codi']
+    list_filter = ['ven_actv', 'ven_gere', 'ven_adm', 'loc_codi']
     search_fields = ['ven_codi', 'ven_nomb', 'ven_doc', 'ven_emai']
     readonly_fields = ['ven_fchc', 'ven_fmod']
     fieldsets = (
@@ -180,7 +180,7 @@ class VendedorAdmin(admin.ModelAdmin):
             'fields': ('loc_codi',)
         }),
         ('Autenticación', {
-            'fields': ('ven_usua', 'ven_clav', 'ven_actv', 'ven_gere')
+            'fields': ('ven_usua', 'ven_clav', 'ven_actv', 'ven_gere', 'ven_adm')
         }),
         ('Control', {
             'fields': ('ven_fchc', 'ven_fmod')
