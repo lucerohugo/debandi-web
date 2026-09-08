@@ -364,24 +364,26 @@ export default function CheckoutPage() {
               {/* Métodos de Pago - Eliminado por preferencia del usuario */}
 
               {/* Observaciones */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="ped_obse" className="text-sm font-medium text-foreground">
-                    Observaciones <span className="text-muted-foreground font-normal">(opcional)</span>
-                  </label>
-                  <span className="text-xs text-muted-foreground">
-                    {observacion.length}/{OBSERVACION_MAX_LENGTH}
-                  </span>
+              {user?.ven_gere && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="ped_obse" className="text-sm font-medium text-foreground">
+                      Observaciones <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      {observacion.length}/{OBSERVACION_MAX_LENGTH}
+                    </span>
+                  </div>
+                  <Textarea
+                    id="ped_obse"
+                    ref={observacionRef}
+                    value={observacion}
+                    onChange={handleObservacionInput}
+                    maxLength={OBSERVACION_MAX_LENGTH}
+                    className="w-full min-h-20 resize-none"
+                  />
                 </div>
-                <Textarea
-                  id="ped_obse"
-                  ref={observacionRef}
-                  value={observacion}
-                  onChange={handleObservacionInput}
-                  maxLength={OBSERVACION_MAX_LENGTH}
-                  className="w-full min-h-20 resize-none"
-                />
-              </div>
+              )}
 
               {/* Botones */}
               <div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
