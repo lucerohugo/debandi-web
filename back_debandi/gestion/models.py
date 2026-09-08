@@ -722,30 +722,3 @@ class Vendedor(models.Model):
         return self.ven_nomb
 
 
-# -art_visw ya funciona, probar en gx6 //LISTO
-# -Vendedor podia ingresar como cliente a los que tiene asociado por mas que el cli_acti este en falso o sin contraseña(corregido) //LISTO
-# -Arregle localidad no la tomaba dentro del panel del vendedor //LISTO
-# -Vendedores/Clientes en pedidos, quien lo creo ,modifico y sus fechas en web//LISTO
-# *Falta agregar los 4 campos en gx6 de ped_crea, ped_fechCr, ped_edit, ped_fechEd //FALTA
-# -cambie cli_dire 150 caracteres web//LISTO
-# -Cotizacion,funciona//LISTO
-# *agregar en SincWeb y en la transaccion de General(gene) // agregar en gx
-# -si agregue un producto al carrito y cambie el precio, en inicio ,listado de productos etc ya cambio el precio, pero si ya lo agregue al carrito antes 
-# de que cambie el precio me guarda en el carrito el precio viejo y se cambia una vez realice el pedido //LISTO
-# -probado lo de dolar, cotizacion, art_cdol, art_uti1 ,gx y web//LISTO
-# -DescRegi(trae los registros en falsos-utilizo reg_clie no reg_exp) //LISTO
-#   -SubidaRegi.prg (sube los datos de los registros a la dbf) //LISTO
-#      -GenTmpR (trae en tmp los registros que envio a la dbf) //LISTO
-#         -InformaRegi(pone en True los registros que chupo asi no los vuelve a poner en la dbf regi) //LISTO
-#            -falta hacer BAT de todo eso como hace pedidos //FALTA
-# -acomodar front para que no ingrese Ñ //LISTO
-
-
-# -consulta lo de Pedidos por clientes/vendedor si va a genexus o solo web //LISTO
-# -consulta de agregar campo ped_observacion //agregar // LISTO
-
-#- campo agregado ped_obse,en el .py tambien //falta probar con gx
-#- vendedor/cliente que pueda ver todos los clientes //LISTO
-#- en mis pedidos tanto clientes/vendedores ven quien lo crea, modifica ,etc(tanto cliente como vendedor desde mis pedidos) //
-#- probado lo de reenvio del mail es Cpanel -> Reenviador -> Añadir reenviador y listo (por ahora lo tengo con mi cuenta de gmail probada) //
-#- fecha y hora de descargar pdf de historial de pedidos estaba tomando fecha y hora del momento que se descargo pero no del pedido realizado //
