@@ -460,7 +460,7 @@ class Pedidos(models.Model):
     )
 
     ped_codi = models.AutoField(primary_key=True)
-    ped_obse = models.CharField(max_length=150, blank=True, null=True, help_text="Obversaciones del pedido")#ped_observacion nuevo
+    ped_obse = models.CharField(max_length=110, blank=True, null=True, help_text="Obversaciones del pedido")#ped_observacion nuevo
     ped_fech = models.DateField(blank=True, null=True, help_text="Fecha del pedido")
     ped_hora = models.TimeField(blank=True, null=True, help_text="Hora del pedido")
     cli_codi = models.ForeignKey(Clientes, on_delete=models.PROTECT, related_name='pedidos', null=True, blank=True)

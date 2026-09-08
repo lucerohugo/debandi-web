@@ -29,7 +29,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [observacion, setObservacion] = useState("")
-  const OBSERVACION_MAX_LENGTH = 150
+  const OBSERVACION_MAX_LENGTH = 110
   const observacionRef = useRef<HTMLTextAreaElement>(null)
 
 
