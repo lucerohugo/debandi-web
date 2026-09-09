@@ -282,6 +282,7 @@ class Registro(models.Model):
     reg_codi = models.IntegerField(primary_key=True, editable= True)
     reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido", blank=True, null=True)
     reg_doc = models.IntegerField(help_text="Documento", blank=True, null=True)
+    reg_direE = models.CharField(max_length=80, help_text="Direccion Entrega", blank=True, null=True)
     reg_cuit = models.CharField(max_length=20, blank=True, null=True, help_text="CUIT")
     reg_emai = models.EmailField(unique=True, help_text="Email", blank=True, null=True)
     reg_celu = models.CharField(max_length=20, blank=True, null=True, help_text="Celular")

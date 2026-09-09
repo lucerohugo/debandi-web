@@ -2,7 +2,8 @@ import { ApiService } from './api.service'
 
 interface RegistroData {
   reg_nomb: string
-  reg_doc: string
+  reg_doc?: string
+  reg_direE: string
   reg_civa: string
   reg_cuit: string
   reg_emai: string

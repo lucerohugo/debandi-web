@@ -189,9 +189,9 @@ class ClientesSerializer(serializers.ModelSerializer):
             'cli_emai', 'cli_celu', 'cli_tele', 'cli_dire', 'cli_bar',
             'cli_estc', 'cli_ocup', 'cli_desc', 'cli_precs1', 'cli_precs2',
             'loc_codi', 'loc_nomb', 'zon_codi', 'zon_nomb', 'ven_codi', 'cli_acti',
-            'cli_clav', 'cli_fchc', 'cli_fmod'
+            'cli_fchc', 'cli_fmod'
         ]
-        read_only_fields = ['cli_codi', 'cli_fchc', 'cli_fmod', 'cli_clav']
+        read_only_fields = ['cli_codi', 'cli_fchc', 'cli_fmod']
 
 
 class RegistroSerializer(serializers.ModelSerializer):
@@ -200,7 +200,7 @@ class RegistroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Registro
         fields = [
-            'reg_codi', 'reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav',
+            'reg_codi', 'reg_nomb', 'reg_direE', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav',
             'reg_civa', 'reg_clie', 'reg_fchc', 'reg_fmod'
         ]
         read_only_fields = ['reg_codi', 'reg_fchc', 'reg_fmod']
@@ -221,10 +221,10 @@ class RegistroSerializer(serializers.ModelSerializer):
         return registro
 
     def to_representation(self, instance):
-        """reg_clav es write_only (nunca se expone el hash); en su lugar devolvemos
-        la contraseña tal cual la mandó el front, para el export a GeneXus."""
+        """reg_clav es write_only: nunca se expone por la API, ni hasheada ni en
+        texto plano. reg_clavf (texto plano) queda solo en la BD, para uso
+        interno del export a GeneXus, y tampoco se serializa aquí."""
         ret = super().to_representation(instance)
-        ret['reg_clav'] = instance.reg_clavf or ''
         ret['reg_clie'] = 'S' if instance.reg_clie else 'N'
         return ret
 
@@ -237,10 +237,10 @@ class VendedorSerializer(serializers.ModelSerializer):
         fields = [
             'ven_codi', 'ven_nomb', 'ven_doc', 'ven_fnac', 'ven_emai',
             'ven_tele', 'ven_dom', 'ven_bar', 'ven_cuit',
-            'ven_usua', 'ven_clav', 'ven_actv', 'ven_gere', 'ven_adm', 'loc_codi', 'loc_nomb',
+            'ven_usua', 'ven_actv', 'ven_gere', 'ven_adm', 'loc_codi', 'loc_nomb',
             'ven_fchc', 'ven_fmod'
         ]
-        read_only_fields = ['ven_codi', 'ven_fchc', 'ven_fmod', 'ven_clav']
+        read_only_fields = ['ven_codi', 'ven_fchc', 'ven_fmod']
 
 
 # ================================================================

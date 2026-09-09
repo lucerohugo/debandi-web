@@ -356,7 +356,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = RegistroSerializer
     lookup_field_name = "reg_codi"
     filterset_fields = ['reg_clie', 'reg_exp']
-    search_fields = ['reg_nomb', 'reg_doc', 'reg_cuit', 'reg_emai', 'reg_celu']
+    search_fields = ['reg_nomb', 'reg_doc', 'reg_direE', 'reg_cuit', 'reg_emai', 'reg_celu']
     ordering = ['reg_codi'] #['-reg_fchc']
     permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
     authentication_classes = []
@@ -366,7 +366,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
         
         # Validar campos requeridos
-        required_fields = ['reg_nomb', 'reg_doc', 'reg_civa', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav']
+        required_fields = ['reg_nomb', 'reg_direE', 'reg_civa', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav']
         for field in required_fields:
             if not data.get(field):
                 return Response(
@@ -390,9 +390,13 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        
+
+        # Generar reg_codi automáticamente (no es AutoField, no lo asigna la BD)
+        last_registro = Registro.objects.all().order_by('-reg_codi').first()
+        next_reg_codi = (last_registro.reg_codi + 1) if last_registro else 1
+
         # Crear y guardar registro (serializer.create() ya hashea la contraseña)
-        registro = serializer.save()
+        registro = serializer.save(reg_codi=next_reg_codi)
         
         # Re-serializar para obtener los datos exactos guardados
         response_serializer = self.get_serializer(registro)
@@ -414,7 +418,7 @@ ID Registro: {registro.reg_codi}
 
 Nombre: {registro.reg_nomb}
 
-Documento: {registro.reg_doc}
+Dirección de Entrega: {registro.reg_direE}
 CUIT: {registro.reg_cuit}
 Email: {registro.reg_emai}
 Teléfono: {registro.reg_celu}
@@ -685,9 +689,10 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     serializer_class = ClientesSerializer
     lookup_field_name = "cli_codi"
     # 'ven_codi' se filtra a mano en get_queryset (para poder aplicar la
-    # excepción de Vendedor Administrador); si quedara en filterset_fields,
-    # DjangoFilterBackend volvería a filtrar por el ven_codi crudo del query
-    # param después de get_queryset, pisando el bypass de ven_adm.
+    # excepción de Vendedor Gerente sin cartera asignada); si quedara en
+    # filterset_fields, DjangoFilterBackend volvería a filtrar por el
+    # ven_codi crudo del query param después de get_queryset, pisando el
+    # bypass calculado ahí.
     filterset_fields = ['loc_codi']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
@@ -699,20 +704,27 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
         Filtrar clientes por vendedor si es un vendedor logueado
         """
         queryset = super().get_queryset()
-        
+
         # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor,
-        # salvo que sea un Vendedor Administrador (ven_adm=True), en cuyo
-        # caso ve TODOS los clientes sin excepción, sin importar quién
-        # tenga asignado a cada uno.
+        # salvo que sea un Vendedor Gerente (ven_gere=True) que no tenga
+        # ningún cliente asignado: en ese caso ve TODOS los clientes.
+        # Si el gerente sí tiene cartera propia asignada, ve solo la suya
+        # (igual que cualquier vendedor común).
         ven_codi = self.request.query_params.get('ven_codi')
         if ven_codi:
             try:
                 ven_codi_int = int(ven_codi)
-                es_admin = Vendedor.objects.filter(
-                    ven_codi=ven_codi_int, ven_adm=True
+                tiene_clientes_asignados = Clientes.objects.filter(
+                    ven_codi_id=ven_codi_int
                 ).exists()
-                if not es_admin:
+                if tiene_clientes_asignados:
                     queryset = queryset.filter(ven_codi_id=ven_codi_int)
+                else:
+                    es_gerente = Vendedor.objects.filter(
+                        ven_codi=ven_codi_int, ven_gere=True
+                    ).exists()
+                    if not es_gerente:
+                        queryset = queryset.filter(ven_codi_id=ven_codi_int)
             except (ValueError, TypeError):
                 pass
 
@@ -1226,14 +1238,16 @@ def vendedor_login(request):
 
         #  MODO SUPERVISOR: Obtener cliente asignado
         # Buscar primer cliente asignado a este vendedor. Si es Vendedor
-        # Administrador (ven_adm=True), no necesita tener clientes propios
-        # asignados: puede ver TODOS los clientes, así que se usa cualquier
-        # cliente del sistema para inicializar el JWT.
+        # Gerente (ven_gere=True) sin cartera propia asignada, puede ver
+        # TODOS los clientes, así que se usa cualquier cliente del sistema
+        # para inicializar el JWT.
         clientes_asignados = Clientes.objects.filter(ven_codi=vendedor)
+        ve_todos_clientes = False
 
         if not clientes_asignados.exists():
-            if vendedor.ven_adm:
+            if vendedor.ven_gere:
                 clientes_asignados = Clientes.objects.all()
+                ve_todos_clientes = True
             if not clientes_asignados.exists():
                 return JsonResponse(
                     {'success': False, 'detail': 'Vendedor sin clientes asignados'},
@@ -1264,7 +1278,7 @@ def vendedor_login(request):
                 "ven_cuit": vendedor.ven_cuit,
                 "ven_actv": vendedor.ven_actv,
                 "ven_gere": bool(vendedor.ven_gere),
-                "ven_adm": bool(vendedor.ven_adm),
+                "ve_todos_clientes": ve_todos_clientes,
                 "loc_codi": vendedor.loc_codi_id,
             },
             "cliente_activo": {

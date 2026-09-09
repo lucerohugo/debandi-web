@@ -37,7 +37,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [vendedorUsername, setVendedorUsername] = useState("")
   const [vendedorPassword, setVendedorPassword] = useState("")
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [documentError, setDocumentError] = useState("")
   const [regCiva, setRegCiva] = useState("")
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
@@ -56,19 +55,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   if (!isOpen) return null
 
-  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    // Solo permitir números
-    const onlyNumbers = value.replace(/\D/g, '')
-    // Limitar a 8 caracteres
-    const limitedValue = onlyNumbers.slice(0, 8)
-    e.target.value = limitedValue
-    
-    if (limitedValue.length > 0 && limitedValue.length < 8) {
-      setDocumentError(`Documento debe tener 8 dígitos (${limitedValue.length}/8)`)
+  const handleDireccionEntregaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    if (/[ñÑ]/.test(input.value)) {
+      input.setCustomValidity("La dirección de entrega no puede contener la letra Ñ")
     } else {
-      setDocumentError("")
+      input.setCustomValidity("")
     }
+    input.reportValidity()
   }
 
   const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,7 +114,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
-    setDocumentError("")
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
@@ -128,7 +121,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirmPassword") as string
     const nombre = formData.get("nombre") as string
-    const document = formData.get("document") as string
+    const direccionEntrega = formData.get("direccionEntrega") as string
     const cuit = formData.get("cuit") as string
     const celular = formData.get("celular") as string
 
@@ -144,13 +137,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return
     }
 
-    // Validar documento: debe ser exactamente 8 dígitos
-    if (!document || document.length !== 8 || isNaN(Number(document))) {
-      setError("El documento debe tener exactamente 8 dígitos numéricos")
-      setLoading(false)
-      return
-    }
-
     if (!regCiva) {
       setError("Seleccionar la condición de IVA")
       setLoading(false)
@@ -161,7 +147,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const form = e.currentTarget
       await RegistroService.crearRegistro({
         reg_nomb: nombre,
-        reg_doc: document,
+        reg_direE: direccionEntrega,
         reg_civa: regCiva,
         reg_cuit: cuit.replace(/\D/g, ''),
         reg_emai: email,
@@ -283,14 +269,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="document">Documento</Label>
+                    <Label htmlFor="direccionEntrega">Direccion Entrega</Label>
                     <Input
-                      id="document"
-                      name="document"
-                      inputMode="numeric"
-                      placeholder="12345678"
-                      maxLength={8}
-                      onChange={handleDocumentChange}
+                      id="direccionEntrega"
+                      name="direccionEntrega"
+                      placeholder="Tu direccion de entrega"
+                      maxLength={80}
+                      onChange={handleDireccionEntregaChange}
                       required
                       disabled={loading}
                     />

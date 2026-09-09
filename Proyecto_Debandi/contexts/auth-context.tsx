@@ -102,6 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { detail } = customEvent
       
       if (detail.cliente) {
+        // ven_gere: durante la supervisión, prevalece el flag del vendedor
+        // que está supervisando (no el del vendedor asignado al cliente),
+        // ya que es quien está armando el pedido y necesita el campo de
+        // observaciones si es Gerente.
         const impersonatedUser: User = {
           id: detail.cliente.cli_codi,
           email: detail.cliente.cli_emai || '',
@@ -113,8 +117,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           cli_precs2: detail.cliente.cli_precs2 || 0,
           localidad: detail.cliente.loc_nomb || '',
           telefonoContacto: detail.cliente.cli_tele || '',
+          ven_gere: Boolean(detail.impersonation?.vendedor?.ven_gere),
         }
-        
+
         setUser(impersonatedUser)
         localStorage.setItem('auth_user', JSON.stringify(impersonatedUser))
       }
