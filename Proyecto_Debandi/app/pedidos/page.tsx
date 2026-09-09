@@ -7,6 +7,7 @@ import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { useAuth } from "@/contexts/auth-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 import { useOrders } from "@/contexts/orders-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,7 +43,9 @@ interface Order {
 }
 
 export default function OrdersPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, impersonation } = useAuth()
+  const { vendedor } = useVendedor()
+  const canSeeOrderOrigin = impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user?.ven_gere)
   const { orders: backendOrders, loading: ordersLoading, loadOrders: reloadOrders } = useOrders()
   const router = useRouter()
   const [orders, setOrders] = useState<any[]>([])
@@ -415,13 +418,13 @@ export default function OrdersPage() {
                           <p className="text-xs text-muted-foreground">
                             Pedido realizado el {date} a las {time}
                           </p>
-                          {getOrigenLabel(order.ped_crea) && (
+                          {canSeeOrderOrigin && getOrigenLabel(order.ped_crea) && (
                             <p className="text-xs text-muted-foreground">
                               Creado por: {getOrigenLabel(order.ped_crea)}
                               {order.ped_fechCr ? ` el ${order.ped_fechCr}` : ""}
                             </p>
                           )}
-                          {getOrigenLabel(order.ped_edit) && (
+                          {canSeeOrderOrigin && getOrigenLabel(order.ped_edit) && (
                             <p className="text-xs text-muted-foreground">
                               Última modificación: {getOrigenLabel(order.ped_edit)}
                               {order.ped_fechEd ? ` el ${order.ped_fechEd}` : ""}
