@@ -14,6 +14,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
+from rest_framework.permissions import BasePermission
+from .permissions import SimpleJWTAuthentication, APIKeyAuthentication
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
@@ -31,11 +33,19 @@ from .serializers import (
     ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
     MarcaSerializer, RubroSerializer, SubrubroSerializer, ArticuloSerializer, ArticuloFrontendSerializer, NovedadesSerializer,
     ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
-    PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer, 
+    PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer,
     DetallePedidoSerializer, DetallePedidoWriteSerializer,
     CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer, RegistroSerializer
 )
 from .filters import ArticuloFilterSet, SubrubroFilterSet
+
+
+class _RequireRealAuth(BasePermission):
+    """Igual que IsAuthenticatedWithJWTOrAPIKey pero sin el bypass de
+    API_DEBUG_MODE: reg_clavf (contraseña en texto plano) no debe quedar
+    visible ni en local con la API abierta para el resto de los endpoints."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
 
 
 # ================================================================
@@ -358,8 +368,19 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
     filterset_fields = ['reg_clie', 'reg_exp']
     search_fields = ['reg_nomb', 'reg_doc', 'reg_direE', 'reg_cuit', 'reg_emai', 'reg_celu']
     ordering = ['reg_codi'] #['-reg_fchc']
-    permission_classes = [AllowAny]  # ✅ Público: cualquiera puede registrarse
-    authentication_classes = []
+    # Sin SessionAuthentication: una sesión de admin logueada en el navegador
+    # no debe alcanzar para ver reg_clavf (contraseña en texto plano) desde
+    # el Browsable API. Solo JWT o API Key (los que usan el front y los
+    # scripts de export) autentican acá.
+    authentication_classes = [SimpleJWTAuthentication, APIKeyAuthentication]
+
+    def get_permissions(self):
+        """create (auto-registro) es público; el resto (listar/exportar a
+        GeneXus, incluye reg_clavf en texto plano) requiere JWT o API Key
+        real, incluso con API_DEBUG_MODE=True."""
+        if self.action == 'create':
+            return [AllowAny()]
+        return [_RequireRealAuth()]
 
     def create(self, request, *args, **kwargs):
         """POST /registros/ - Crear nuevo registro"""

@@ -201,11 +201,12 @@ class RegistroSerializer(serializers.ModelSerializer):
         model = Registro
         fields = [
             'reg_codi', 'reg_nomb', 'reg_direE', 'reg_cuit', 'reg_emai', 'reg_celu', 'reg_clav',
-            'reg_civa', 'reg_clie', 'reg_fchc', 'reg_fmod'
+            'reg_clavf', 'reg_civa', 'reg_clie', 'reg_fchc', 'reg_fmod'
         ]
         read_only_fields = ['reg_codi', 'reg_fchc', 'reg_fmod']
         extra_kwargs = {
-            'reg_clav': {'write_only': True}  # No retornar contraseña
+            'reg_clav': {'write_only': True},  # No retornar hash
+            'reg_clavf': {'read_only': True}  # Solo lectura: la fija set_password(), no el cliente
         }
 
     def create(self, validated_data):
@@ -221,9 +222,10 @@ class RegistroSerializer(serializers.ModelSerializer):
         return registro
 
     def to_representation(self, instance):
-        """reg_clav es write_only: nunca se expone por la API, ni hasheada ni en
-        texto plano. reg_clavf (texto plano) queda solo en la BD, para uso
-        interno del export a GeneXus, y tampoco se serializa aquí."""
+        """reg_clav (hash) nunca se expone. reg_clavf (texto plano) sí se
+        expone, pero el endpoint de listado/retrieve requiere JWT o API Key
+        (ver RegistroViewSet.get_permissions) porque es para uso interno del
+        export a GeneXus."""
         ret = super().to_representation(instance)
         ret['reg_clie'] = 'S' if instance.reg_clie else 'N'
         return ret
