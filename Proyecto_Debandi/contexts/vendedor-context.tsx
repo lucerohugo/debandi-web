@@ -12,7 +12,7 @@ interface VendedorContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   stopImpersonation: () => Promise<void>
-  getClientes: (search: string, page: number) => Promise<any>
+  getClientes: (search: string, page: number, estado?: string) => Promise<any>
   impersonate?: (cli_codi: number) => Promise<void>
 }
 
@@ -116,16 +116,17 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
     router.push('/vendedor/clientes')
   }
 
-  const getClientes = useCallback(async (search: string, page: number) => {
+  const getClientes = useCallback(async (search: string, page: number, estado?: string) => {
     try {
       const ven_codi = vendedor?.ven_codi
-      
+
       if (!ven_codi) {
         throw new Error('No hay vendedor logueado')
       }
-      
+
+      const estadoParam = estado ? `&cli_acti=${estado}` : ''
       const data = await ApiService.get<any>(
-        `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}`
+        `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}${estadoParam}`
       )
       return {
         clientes: data.results || data,

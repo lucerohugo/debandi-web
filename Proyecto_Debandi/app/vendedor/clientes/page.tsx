@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Loader2,
   Search,
   UserCog,
@@ -25,7 +32,8 @@ import {
   ChevronLeft,
   ChevronRight,
   PlayCircle,
-  User
+  User,
+  ChevronDown
 } from "lucide-react"
 
 interface Cliente {
@@ -49,6 +57,7 @@ export default function VendedorClientesPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
+  const [estadoFiltro, setEstadoFiltro] = useState("todos")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [impersonating, setImpersonating] = useState<number | null>(null)
@@ -62,7 +71,8 @@ export default function VendedorClientesPage() {
     setError("")
     
     try {
-      const data = await getClientes(search, page)
+      const estado = estadoFiltro === "todos" ? undefined : estadoFiltro
+      const data = await getClientes(search, page, estado)
       setClientes(data.clientes)
       setTotal(data.total)
     } catch (err: any) {
@@ -70,7 +80,7 @@ export default function VendedorClientesPage() {
     } finally {
       setLoading(false)
     }
-  }, [isVendedorSession, search, page, getClientes])
+  }, [isVendedorSession, search, page, estadoFiltro, getClientes])
 
   useEffect(() => {
     // Solo redirigir a inicio si no hay sesión de vendedor Y no estamos impersonando
@@ -93,6 +103,11 @@ export default function VendedorClientesPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [search])
+
+  // Reset page cuando cambia el filtro de estado
+  useEffect(() => {
+    setPage(1)
+  }, [estadoFiltro])
 
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
@@ -253,7 +268,23 @@ export default function VendedorClientesPage() {
                         <TableHead className="hidden lg:table-cell">Email</TableHead>
                         <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
                         <TableHead className="hidden xl:table-cell">Localidad</TableHead>
-                        <TableHead>Estado de Cuenta</TableHead>
+                        <TableHead>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-1 hover:text-primary">
+                                Estado de Cuenta
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuRadioGroup value={estadoFiltro} onValueChange={setEstadoFiltro}>
+                                <DropdownMenuRadioItem value="todos">Todos</DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="true">Habilitados</DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="false">Inhabilitados</DropdownMenuRadioItem>
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableHead>
                         <TableHead className="text-right">Acción</TableHead>
                       </TableRow>
                     </TableHeader>

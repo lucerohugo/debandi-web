@@ -382,6 +382,25 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
             return [AllowAny()]
         return [_RequireRealAuth()]
 
+    def get_authenticators(self):
+        """En 'create' no hay que autenticar nada: es un endpoint público y,
+        si el navegador manda un JWT viejo/inválido (p.ej. de un cliente cuyo
+        cli_codi no coincide con ningún usuario real de Django), DRF corre la
+        autenticación antes que los permisos y devuelve 401 'Usuario no
+        encontrado' aunque la acción sea AllowAny.
+
+        OJO: DRF arma esta lista de autenticadores ANTES de fijar
+        `self.action` (lo hace recién después, en
+        ViewSetMixin.initialize_request), así que acá no podemos confiar en
+        `self.action` todavía y hay que resolver la acción a mano a partir
+        del método HTTP, igual que hace DRF internamente."""
+        action = getattr(self, 'action', None)
+        if action is None and getattr(self, 'request', None) is not None:
+            action = getattr(self, 'action_map', {}).get(self.request.method.lower())
+        if action == 'create':
+            return []
+        return super().get_authenticators()
+
     def create(self, request, *args, **kwargs):
         """POST /registros/ - Crear nuevo registro"""
         data = request.data.copy() if hasattr(request, 'data') else request.POST.copy()
@@ -529,6 +548,10 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     # filterset_fields, DjangoFilterBackend volvería a filtrar por el
     # ven_codi crudo del query param después de get_queryset, pisando el
     # bypass calculado ahí.
+    # 'cli_acti' también se filtra a mano (ver get_queryset): al ser
+    # nullable, el filtro automático de DjangoFilterBackend con cli_acti=false
+    # no matchea los registros con cli_acti=NULL, que la UI también
+    # considera "Inhabilitado".
     filterset_fields = ['loc_codi']
     search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
     ordering = ['cli_nomb']
@@ -563,6 +586,19 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
                         queryset = queryset.filter(ven_codi_id=ven_codi_int)
             except (ValueError, TypeError):
                 pass
+
+        # Filtrar por estado de cuenta (habilitado/inhabilitado). cli_acti
+        # es nullable, y la UI trata NULL igual que False ("Inhabilitado"),
+        # por eso cli_acti=false debe incluir también los NULL.
+        cli_acti = self.request.query_params.get('cli_acti')
+        if cli_acti is not None:
+            cli_acti_lower = cli_acti.strip().lower()
+            if cli_acti_lower in ('true', '1'):
+                queryset = queryset.filter(cli_acti=True)
+            elif cli_acti_lower in ('false', '0'):
+                queryset = queryset.filter(
+                    Q(cli_acti=False) | Q(cli_acti__isnull=True)
+                )
 
         return queryset
 
