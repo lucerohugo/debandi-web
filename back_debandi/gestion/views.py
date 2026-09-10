@@ -428,7 +428,7 @@ Este registro está pendiente de aprobación.
 Revisa en el sistema para procesar esta solicitud.
 
 Saludos,
-Sistema Ferreterería Debandi
+Sistema Ferreterera Debandi
                 """
                 
                 # Enviar el correo con fail_silently=True para no lanzar excepciones
@@ -607,7 +607,7 @@ Email:
 Si tiene inconvenientes, comuníquese con nuestro equipo.
 
 Saludos cordiales,
-Ferretería Debandi
+Ferretera Debandi
                 """
                 
                 send_mail(
