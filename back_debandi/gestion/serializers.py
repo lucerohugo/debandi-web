@@ -216,9 +216,6 @@ class RegistroSerializer(serializers.ModelSerializer):
         if password:
             registro.set_password(password)
         registro.save()
-        # reg_codi es asignado por la base de datos (no es AutoField), así que
-        # hay que releer la instancia para que el objeto en memoria lo tenga.
-        registro.refresh_from_db()
         return registro
 
     def to_representation(self, instance):

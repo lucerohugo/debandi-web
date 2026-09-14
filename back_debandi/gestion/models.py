@@ -279,7 +279,7 @@ class Novedades(models.Model):
 
 class Registro(models.Model):
     """Registros pendientes de aprobación para convertirse en clientes"""
-    reg_codi = models.IntegerField(primary_key=True, editable= True)
+    reg_codi = models.AutoField(primary_key=True)
     reg_nomb = models.CharField(max_length=150, help_text="Nombre y Apellido", blank=True, null=True)
     reg_doc = models.IntegerField(help_text="Documento", blank=True, null=True)
     reg_direE = models.CharField(max_length=80, help_text="Direccion Entrega", blank=True, null=True)

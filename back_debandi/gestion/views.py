@@ -435,12 +435,9 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        # Generar reg_codi automáticamente (no es AutoField, no lo asigna la BD)
-        last_registro = Registro.objects.all().order_by('-reg_codi').first()
-        next_reg_codi = (last_registro.reg_codi + 1) if last_registro else 1
-
-        # Crear y guardar registro (serializer.create() ya hashea la contraseña)
-        registro = serializer.save(reg_codi=next_reg_codi)
+        # reg_codi es AutoField: lo asigna la base de datos, incremental y
+        # nunca se repite aunque se borren registros (igual que ped_codi).
+        registro = serializer.save()
         
         # Re-serializar para obtener los datos exactos guardados
         response_serializer = self.get_serializer(registro)
@@ -1644,9 +1641,7 @@ def cliente_asignar_clave(request):
                 )
 
         if registro is None:
-            last_registro = Registro.objects.all().order_by('-reg_codi').first()
-            next_reg_codi = (last_registro.reg_codi + 1) if last_registro else 1
-            registro = Registro(reg_codi=next_reg_codi, reg_emai=email)
+            registro = Registro(reg_emai=email)
 
         registro.reg_nomb = cliente.cli_nomb
         registro.set_password(password)
