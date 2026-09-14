@@ -81,7 +81,8 @@ Ferretera Debandi
 
     # Espera a que la transacción confirme antes de enviar, para no notificar
     # una activación que termina siendo revertida por un rollback.
-    transaction.on_commit(_enviar)
+    # TODO: descomentar para reactivar el envío de mail de alta de cliente
+    # transaction.on_commit(_enviar) #descomenar esto dsp para que ande nuevamente
 
 
 @receiver(pre_save, sender=Registro)

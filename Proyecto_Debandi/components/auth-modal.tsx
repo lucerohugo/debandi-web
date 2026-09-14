@@ -58,6 +58,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   if (!isOpen) return null
 
+  const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    const cursor = input.selectionStart
+    input.value = input.value.toUpperCase()
+    if (cursor !== null) {
+      input.setSelectionRange(cursor, cursor)
+    }
+  }
+
   const handleDireccionEntregaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target
     if (/[ñÑ]/.test(input.value)) {
@@ -160,7 +169,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       const form = e.currentTarget
       await RegistroService.crearRegistro({
-        reg_nomb: nombre,
+        reg_nomb: nombre.toUpperCase(),
         reg_direE: direccionEntrega,
         reg_civa: regCiva,
         reg_cuit: cuit.replace(/\D/g, ''),
@@ -275,7 +284,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     <Input
                       id="nombre"
                       name="nombre"
-                      placeholder="Juan Pérez"
+                      placeholder="JUAN PEREZ"
+                      className="uppercase"
+                      onChange={handleNombreChange}
                       required
                       disabled={loading}
                     />
