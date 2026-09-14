@@ -1648,6 +1648,7 @@ def cliente_asignar_clave(request):
             next_reg_codi = (last_registro.reg_codi + 1) if last_registro else 1
             registro = Registro(reg_codi=next_reg_codi, reg_emai=email)
 
+        registro.reg_nomb = cliente.cli_nomb
         registro.set_password(password)
         registro.reg_clie = False
         registro.save()
