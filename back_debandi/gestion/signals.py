@@ -110,9 +110,10 @@ def marcar_aprobacion_registro(sender, instance, **kwargs):
 def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
     """
     Al aprobar un Registro (reg_clie False -> True) crea automáticamente el
-    Cliente correspondiente, envía el correo de aprobación y elimina el
-    Registro. Centralizado aquí para que se dispare sin importar el origen
-    del cambio (API o admin de Django).
+    Cliente correspondiente y envía el correo de aprobación. El Registro se
+    mantiene (no se borra) para que siga viéndose en el admin. Centralizado
+    aquí para que se dispare sin importar el origen del cambio (API o admin
+    de Django).
     """
     if created or not getattr(instance, '_reg_clie_recien_aprobado', False):
         return
@@ -158,19 +159,6 @@ def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
             logger.error(
                 f"Error al aplicar contraseña de Registro {instance.reg_codi} a Cliente "
                 f"{existing_cliente.cli_codi}: {str(e)}",
-                exc_info=True
-            )
-            return
-
-        try:
-            instance.delete()
-            logger.info(
-                f"Registro {instance.reg_codi} eliminado (contraseña aplicada a Cliente existente "
-                f"{existing_cliente.cli_codi})"
-            )
-        except Exception as e:
-            logger.error(
-                f"Error al eliminar registro {instance.reg_codi} tras aplicar contraseña: {str(e)}",
                 exc_info=True
             )
         return
@@ -249,14 +237,3 @@ Ferretera Debandi
     # Espera a que la transacción confirme antes de enviar, para no notificar
     # una aprobación que termina siendo revertida por un rollback.
     transaction.on_commit(_enviar)
-
-    try:
-        instance.delete()
-        logger.info(
-            f"Registro {instance.reg_codi} eliminado (cliente {cliente.cli_codi} creado exitosamente)"
-        )
-    except Exception as e:
-        logger.error(
-            f"Error al eliminar registro {instance.reg_codi} después de aprobar: {str(e)}",
-            exc_info=True
-        )

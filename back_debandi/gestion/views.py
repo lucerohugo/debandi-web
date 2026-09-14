@@ -501,7 +501,7 @@ Sistema Ferreterera Debandi
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     # La aprobación de un Registro (transición reg_clie False -> True: crear
-    # el Cliente correspondiente, enviar el correo de aprobación y eliminar
+    # el Cliente correspondiente y enviar el correo de aprobación, sin borrar
     # el Registro) se maneja centralizada en signals.py, disparada por
     # Model.save() sin importar el origen (API, admin de Django, shell,
     # scripts).
@@ -533,8 +533,8 @@ Sistema Ferreterera Debandi
         # Se guarda registro por registro (en vez de un bulk .update()) para
         # que se disparen los signals de pre_save/post_save de Registro
         # (ver signals.py), igual que hace el admin de Django: crea el
-        # Cliente correspondiente, envía el correo de aprobación y elimina
-        # el Registro al pasar reg_clie de False a True.
+        # Cliente correspondiente y envía el correo de aprobación al pasar
+        # reg_clie de False a True (el Registro no se borra).
         registros = list(Registro.objects.filter(reg_codi__in=reg_codis, reg_clie=False))
 
         updated_count = 0
