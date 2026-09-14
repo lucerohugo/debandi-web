@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, UserCog, CheckCircle, Eye, EyeOff } from "lucide-react"
 import ForgotPasswordModal from "./forgot-password-modal"
 import RegisterSuccessModal from "./register-success-modal"
+import AssignPasswordModal from "./assign-password-modal"
 import { RegistroService } from "@/services/registro.service"
 
 interface AuthModalProps {
@@ -37,6 +38,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [vendedorUsername, setVendedorUsername] = useState("")
   const [vendedorPassword, setVendedorPassword] = useState("")
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showAssignPassword, setShowAssignPassword] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState("")
   const [regCiva, setRegCiva] = useState("")
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
@@ -95,17 +98,28 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
-    setLoading(true)
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
+    if (!email) {
+      setError("Completá el email")
+      return
+    }
+
+    setLoading(true)
+
     try {
       await login(email, password)
       onClose()
     } catch (err: any) {
-      setError(err.message)
+      if (err.sinContrasena) {
+        setPendingEmail(email)
+        setShowAssignPassword(true)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -212,7 +226,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       name="email"
                       type="email"
                       placeholder="tu@email.com"
-                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -223,7 +236,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         name="password"
                         type={showLoginPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        required
                         className="pr-10"
                       />
                       <button
@@ -473,6 +485,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             setShowSuccessModal(false)
             onClose()
           }}
+        />
+      )}
+
+      {showAssignPassword && (
+        <AssignPasswordModal
+          email={pendingEmail}
+          onClose={() => {
+            setShowAssignPassword(false)
+            onClose()
+          }}
+          onBack={() => setShowAssignPassword(false)}
         />
       )}
     </div>

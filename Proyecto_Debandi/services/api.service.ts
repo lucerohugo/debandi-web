@@ -62,6 +62,29 @@ const clearJWTToken = (): void => {
 
 const JWT_REFRESH_KEY = 'jwtRefreshToken'
 
+/**
+ * Códigos que el backend devuelve cuando el cliente (cli_acti=False) o el
+ * vendedor que lo está suplantando (ven_actv=0) fueron dados de baja
+ * después de haber iniciado sesión. El JWT sigue siendo válido, así que
+ * hay que cortar la sesión del lado del cliente ni bien se detecta.
+ */
+const SESION_BLOQUEADA_CODES = new Set(['CLIENTE_INACTIVO', 'VENDEDOR_INACTIVO'])
+
+/**
+ * Limpia toda la sesión guardada y fuerza una recarga completa hacia el
+ * inicio, para que el usuario quede deslogueado y vea el flujo de login
+ * de nuevo (equivalente a logout() de AuthContext, pero utilizable desde
+ * este módulo que no es un componente React).
+ */
+const forzarLogoutPorSesionBloqueada = (): void => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('auth_user')
+  localStorage.removeItem('impersonation_state')
+  clearJWTToken()
+  clearRefreshTokenValue()
+  window.location.href = '/'
+}
+
 const getRefreshToken = (): string | null => {
   if (typeof window === 'undefined') return null
   return localStorage.getItem(JWT_REFRESH_KEY)
@@ -164,30 +187,48 @@ const getHeaders = async (additionalHeaders: Record<string, string> = {}): Promi
 }
 
 /**
- * Extraer un mensaje de error legible del cuerpo de la respuesta.
+ * Extraer un mensaje de error legible del cuerpo de la respuesta, junto con
+ * el `code` opcional que manda el backend (p.ej. CLIENTE_INACTIVO).
  * Soporta el formato { error: "..." } usado por el backend, así como
  * { detail: "..." }, { message: "..." } y errores de campo de DRF.
  */
-const parseErrorMessage = async (response: Response): Promise<string> => {
+const parseErrorBody = async (response: Response): Promise<{ message: string; code?: string }> => {
   try {
     const data = await response.json()
+    const code = data?.code
 
-    if (typeof data === 'string') return data
-    if (data?.error) return data.error
-    if (data?.detail) return data.detail
-    if (data?.message) return data.message
+    if (typeof data === 'string') return { message: data, code }
+    if (data?.error) return { message: data.error, code }
+    if (data?.detail) return { message: data.detail, code }
+    if (data?.message) return { message: data.message, code }
 
     const firstKey = Object.keys(data || {})[0]
     if (firstKey) {
       const value = data[firstKey]
-      if (Array.isArray(value)) return value[0]
-      if (typeof value === 'string') return value
+      if (Array.isArray(value)) return { message: value[0], code }
+      if (typeof value === 'string') return { message: value, code }
     }
+
+    return { message: `Error: ${response.status}`, code }
   } catch {
     // El cuerpo no era JSON o estaba vacío
+    return { message: `Error: ${response.status}` }
+  }
+}
+
+/**
+ * Parsea el error de una respuesta no-ok y, si el backend indica que la
+ * sesión quedó bloqueada (cliente o vendedor dado de baja), corta la
+ * sesión y redirige antes de lanzar el error.
+ */
+const throwForErrorResponse = async (response: Response): Promise<never> => {
+  const { message, code } = await parseErrorBody(response)
+
+  if (code && SESION_BLOQUEADA_CODES.has(code)) {
+    forzarLogoutPorSesionBloqueada()
   }
 
-  return `Error: ${response.status}`
+  throw new Error(message)
 }
 
 /**
@@ -241,7 +282,7 @@ export class ApiService {
       headers: await getHeaders(),
     })
 
-    if (!response.ok) throw new Error(await parseErrorMessage(response))
+    if (!response.ok) await throwForErrorResponse(response)
     return response.json()
   }
 
@@ -253,7 +294,7 @@ export class ApiService {
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error(await parseErrorMessage(response))
+    if (!response.ok) await throwForErrorResponse(response)
     return response.json()
   }
 
@@ -265,7 +306,7 @@ export class ApiService {
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error(await parseErrorMessage(response))
+    if (!response.ok) await throwForErrorResponse(response)
     return response.json()
   }
 
@@ -277,7 +318,7 @@ export class ApiService {
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) throw new Error(await parseErrorMessage(response))
+    if (!response.ok) await throwForErrorResponse(response)
     return response.json()
   }
 
@@ -294,7 +335,7 @@ export class ApiService {
 
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), fetchOptions)
 
-    if (!response.ok) throw new Error(await parseErrorMessage(response))
+    if (!response.ok) await throwForErrorResponse(response)
     return response.json()
   }
 

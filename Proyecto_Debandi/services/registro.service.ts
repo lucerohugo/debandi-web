@@ -95,6 +95,20 @@ class RegistroServiceClass {
       throw error
     }
   }
+
+  /**
+   * POST /cliente-asignar-clave/ - Asignar una contraseña nueva a un cliente
+   * existente que todavía no tiene una (queda pendiente en Registro).
+   */
+  async asignarClave(data: { email: string; password: string }): Promise<any> {
+    try {
+      const response = await ApiService.post<any>('/cliente-asignar-clave/', data)
+      return response
+    } catch (error) {
+      console.error('Error asignando contraseña:', error)
+      throw error
+    }
+  }
 }
 
 export const RegistroService = new RegistroServiceClass()

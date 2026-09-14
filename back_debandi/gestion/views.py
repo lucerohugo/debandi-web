@@ -24,6 +24,10 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+# Cooldown entre reintentos de auto-asignación de contraseña (endpoint
+# público /api/cliente-asignar-clave/) para el mismo email.
+ASIGNAR_CLAVE_COOLDOWN_MINUTOS = 10
+
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
@@ -526,9 +530,18 @@ Sistema Ferreterera Debandi
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        updated_count = Registro.objects.filter(
-            reg_codi__in=reg_codis, reg_clie=False
-        ).update(reg_clie=True)
+        # Se guarda registro por registro (en vez de un bulk .update()) para
+        # que se disparen los signals de pre_save/post_save de Registro
+        # (ver signals.py), igual que hace el admin de Django: crea el
+        # Cliente correspondiente, envía el correo de aprobación y elimina
+        # el Registro al pasar reg_clie de False a True.
+        registros = list(Registro.objects.filter(reg_codi__in=reg_codis, reg_clie=False))
+
+        updated_count = 0
+        for registro in registros:
+            registro.reg_clie = True
+            registro.save()
+            updated_count += 1
 
         return Response({
             'success': True,
@@ -768,6 +781,41 @@ def _origen_pedido(request):
     return None
 
 
+def _vendedor_suplantante_bloqueado(request, as_drf=False):
+    """
+    Si la request viene de un vendedor suplantando a un cliente (JWT con
+    claim 'vendedor_suplantante', ver vendedor_login), verifica que ese
+    vendedor siga activo (ven_actv=1). Devuelve una respuesta de error si
+    el vendedor fue desactivado o borrado, o None si está todo bien
+    (incluye el caso de que no haya vendedor suplantante, p.ej. cliente
+    logueado directo).
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    try:
+        token = AccessToken(auth_header[7:].strip())
+    except TokenError:
+        return None
+
+    ven_codi = token.get('vendedor_suplantante')
+    if not ven_codi:
+        return None
+
+    vendedor = Vendedor.objects.filter(ven_codi=ven_codi).first()
+    if vendedor is None or vendedor.ven_actv != 1:
+        payload = {
+            'success': False,
+            'detail': 'El vendedor de esta sesión está dado de baja. Volvé a iniciar sesión.',
+            'code': 'VENDEDOR_INACTIVO'
+        }
+        if as_drf:
+            return Response(payload, status=status.HTTP_403_FORBIDDEN)
+        return JsonResponse(payload, status=403)
+
+    return None
+
+
 class DetallePedidoViewSet(BaseViewSet):
     queryset = DetallePedido.objects.all()
     serializer_class = DetallePedidoSerializer
@@ -944,7 +992,21 @@ def crear_pedido_desde_carrito(request):
                 {'success': False, 'detail': 'Cliente no encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+        if not cliente.cli_acti:
+            return Response(
+                {
+                    'success': False,
+                    'detail': 'Tu cuenta está dada de baja. Volvé a iniciar sesión.',
+                    'code': 'CLIENTE_INACTIVO'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        vendedor_error = _vendedor_suplantante_bloqueado(request, as_drf=True)
+        if vendedor_error:
+            return vendedor_error
+
         # ✅ IMPORTANTE: Obtener items DIRECTAMENTE del carrito del cliente
         # Así aseguramos que usamos las cantidades correctas de la BD
         carrito_items = CarritoItem.objects.filter(cli_codi_id=cli_codi)
@@ -1366,11 +1428,11 @@ def cliente_login(request):
             return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
         
         email = data.get('email')
-        password = data.get('password')
+        password = data.get('password') or ''
 
-        if not email or not password:
+        if not email:
             return JsonResponse(
-                {'success': False, 'detail': 'Email y contraseña requeridos'}, 
+                {'success': False, 'detail': 'Email requerido'},
                 status=400
             )
 
@@ -1401,10 +1463,53 @@ def cliente_login(request):
                     status=401
                 )
         
-        # Verificar que cliente esté activo
+        # Cliente existente (p.ej. importado desde GeneXus, o inactivo
+        # todavía sin activar) sin contraseña asignada todavía: en vez de
+        # "contraseña incorrecta" (o del aviso de cuenta pendiente de
+        # activación), el front debe ofrecerle definir una nueva. Esto va
+        # antes de chequear cli_acti a propósito: un cliente inactivo tiene
+        # que poder asignarse una contraseña igual, y recién se entera de
+        # que su cuenta está pendiente de activación cuando ya tiene
+        # contraseña y efectivamente intenta iniciar sesión con ella.
+        # Excepción: si ya hay una solicitud pendiente en cooldown (ver
+        # cliente_asignar_clave), no lo mandamos de nuevo al formulario de
+        # "Asignar nueva contraseña" -sin sin_contrasena, el front se queda
+        # en el login mostrando el aviso- porque ese reintento fallaría
+        # igual por el cooldown.
+        if not cliente.cli_clav or not cliente.cli_clav.strip():
+            from django.utils import timezone
+
+            registro_pendiente = Registro.objects.filter(reg_emai=email, reg_clie=False).first()
+            if registro_pendiente is not None:
+                segundos_cooldown = ASIGNAR_CLAVE_COOLDOWN_MINUTOS * 60
+                segundos_transcurridos = (timezone.now() - registro_pendiente.reg_fmod).total_seconds()
+                if segundos_transcurridos < segundos_cooldown:
+                    minutos_restantes = int((segundos_cooldown - segundos_transcurridos) // 60) + 1
+                    return JsonResponse(
+                        {
+                            'success': False,
+                            'detail': f'Ya solicitaste una nueva contraseña para esta cuenta. '
+                                       f'Esperá {minutos_restantes} minuto(s) y volvé a intentar iniciar sesión.'
+                        },
+                        status=200
+                    )
+
+            return JsonResponse(
+                {
+                    'success': False,
+                    'sin_contrasena': True,
+                    'detail': 'Tu cuenta todavía no tiene una contraseña asignada. Por favor, asigná una nueva contraseña.'
+                },
+                status=200
+            )
+
+        # Verificar que cliente esté activo. Se chequea después de la rama
+        # sin_contrasena de arriba para que un cliente inactivo pueda seguir
+        # asignándose una contraseña; una vez que ya tiene una y la usa para
+        # loguearse, ahí sí se lo bloquea con este aviso.
         if not cliente.cli_acti:
             return JsonResponse(
-                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada.'}, 
+                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada.'},
                 status=401
             )
 
@@ -1443,7 +1548,7 @@ def cliente_login(request):
                 "ven_gere": bool(cliente.ven_codi.ven_gere) if cliente.ven_codi_id else False,
             }
         }, status=200)
-    
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1451,6 +1556,111 @@ def cliente_login(request):
             'success': False,
             'detail': str(e)
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def cliente_asignar_clave(request):
+    """
+    POST /api/cliente-asignar-clave/
+
+    Un Cliente existente (p.ej. importado desde GeneXus) que todavía no
+    tiene contraseña asignada (cli_clav vacío) puede definir una acá. La
+    contraseña NO se graba directamente en Clientes: queda pendiente en
+    Registro (reg_codi, reg_emai, reg_clav) para que se aplique de la misma
+    forma que el resto de las altas/cambios de clientes.
+
+    Body: {"email": "...", "password": "..."}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return JsonResponse(
+            {'success': False, 'detail': 'Email y contraseña requeridos'},
+            status=400
+        )
+
+    if len(password) < 3:
+        return JsonResponse(
+            {'success': False, 'detail': 'La contraseña debe tener al menos 3 caracteres'},
+            status=400
+        )
+
+    try:
+        cliente = Clientes.objects.get(cli_emai=email)
+    except Clientes.MultipleObjectsReturned:
+        cantidad = Clientes.objects.filter(cli_emai=email).count()
+        return JsonResponse(
+            {
+                'success': False,
+                'detail': f'Hay {cantidad} cuentas registradas con este email. '
+                           f'Por favor contactate con soporte para resolverlo.'
+            },
+            status=409
+        )
+    except Clientes.DoesNotExist:
+        return JsonResponse(
+            {'success': False, 'detail': 'No existe un cliente con ese email'},
+            status=404
+        )
+
+    if cliente.cli_clav and cliente.cli_clav.strip():
+        return JsonResponse(
+            {'success': False, 'detail': 'Esa cuenta ya tiene una contraseña asignada. Iniciá sesión normalmente.'},
+            status=400
+        )
+
+    try:
+        from django.utils import timezone
+
+        registro = Registro.objects.filter(reg_emai=email).first()
+
+        # Si ya hay una solicitud pendiente (reg_clie=False) para este email,
+        # no dejar reintentar hasta que pase el cooldown: evita que se pueda
+        # sobrescribir la contraseña pendiente a repetición (spam/fuerza
+        # bruta) contra este endpoint público. reg_fmod se actualiza en cada
+        # save(), así que refleja el último intento.
+        if registro is not None and not registro.reg_clie:
+            segundos_cooldown = ASIGNAR_CLAVE_COOLDOWN_MINUTOS * 60
+            segundos_transcurridos = (timezone.now() - registro.reg_fmod).total_seconds()
+            if segundos_transcurridos < segundos_cooldown:
+                minutos_restantes = int((segundos_cooldown - segundos_transcurridos) // 60) + 1
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'detail': f'Ya solicitaste un cambio de contraseña para este email. '
+                                   f'Esperá {minutos_restantes} minuto(s) antes de volver a intentarlo.'
+                    },
+                    status=429
+                )
+
+        if registro is None:
+            last_registro = Registro.objects.all().order_by('-reg_codi').first()
+            next_reg_codi = (last_registro.reg_codi + 1) if last_registro else 1
+            registro = Registro(reg_codi=next_reg_codi, reg_emai=email)
+
+        registro.set_password(password)
+        registro.reg_clie = False
+        registro.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Tu nueva contraseña fue registrada. En breve podrás iniciar sesión con ella.'
+        }, status=200)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'detail': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -1945,7 +2155,21 @@ def carrito_manage(request):
             {'success': False, 'detail': 'Artículo no encontrado'},
             status=404
         )
-    
+
+    if not cliente.cli_acti:
+        return JsonResponse(
+            {
+                'success': False,
+                'detail': 'Tu cuenta está dada de baja. Volvé a iniciar sesión.',
+                'code': 'CLIENTE_INACTIVO'
+            },
+            status=403
+        )
+
+    vendedor_error = _vendedor_suplantante_bloqueado(request)
+    if vendedor_error:
+        return vendedor_error
+
     if request.method == 'POST':
         # Agregar item al carrito
         carr_cant = data.get('carr_cant', 1)

@@ -87,10 +87,10 @@ Ferretera Debandi
 @receiver(pre_save, sender=Registro)
 def marcar_aprobacion_registro(sender, instance, **kwargs):
     """
-    Detecta la transición reg_clie (False o None/desconocido) -> True antes de
-    persistir el save(). Se dispara sin importar el origen del cambio (API,
+    Detecta el reg_clie (False o None/desconocido) -> True antes de
+    hacer el save(). Se dispara sin importar el origen del cambio (API,
     admin de Django, shell, scripts), ya que cualquiera de esos caminos
-    termina llamando a Model.save().
+    termina llamando a Model.save(). deberia hacer lo mismo a futuro para el cli_clav y vendedor lo mismo
     """
     instance._reg_clie_recien_aprobado = False
 
@@ -135,11 +135,44 @@ def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
 
     existing_cliente = Clientes.objects.filter(cli_emai=instance.reg_emai).first()
     if existing_cliente:
-        logger.warning(
-            f"No se puede crear Cliente duplicado: Email {instance.reg_emai} ya existe en "
-            f"Cliente {existing_cliente.cli_codi} ({existing_cliente.cli_nomb}). "
-            f"Registro {instance.reg_codi} aprobado pero sin crear duplicado."
-        )
+        if not instance.reg_clavf:
+            logger.warning(
+                f"No se puede crear Cliente duplicado: Email {instance.reg_emai} ya existe en "
+                f"Cliente {existing_cliente.cli_codi} ({existing_cliente.cli_nomb}). "
+                f"Registro {instance.reg_codi} aprobado pero sin crear duplicado ni contraseña que aplicar."
+            )
+            return
+
+        # Caso típico: cliente ya existente (p.ej. importado desde GeneXus)
+        # sin contraseña propia todavía, que pidió una nueva desde el login.
+        # En vez de crear un Cliente duplicado, le aplicamos esa contraseña
+        # al Cliente existente (Clientes.save() la hashea automáticamente).
+        try:
+            existing_cliente.cli_clav = instance.reg_clavf
+            existing_cliente.save()
+            logger.info(
+                f"Contraseña de Registro {instance.reg_codi} aplicada a Cliente existente "
+                f"{existing_cliente.cli_codi} ({existing_cliente.cli_emai})"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error al aplicar contraseña de Registro {instance.reg_codi} a Cliente "
+                f"{existing_cliente.cli_codi}: {str(e)}",
+                exc_info=True
+            )
+            return
+
+        try:
+            instance.delete()
+            logger.info(
+                f"Registro {instance.reg_codi} eliminado (contraseña aplicada a Cliente existente "
+                f"{existing_cliente.cli_codi})"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error al eliminar registro {instance.reg_codi} tras aplicar contraseña: {str(e)}",
+                exc_info=True
+            )
         return
 
     try:

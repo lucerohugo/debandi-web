@@ -6,8 +6,8 @@ from .views import (
     MarcaViewSet, RubroViewSet, SubrubroViewSet, ArticuloViewSet, NovedadesViewSet,
     ClientesViewSet, VendedorViewSet, RegistroViewSet, FavoritosViewSet, CarritoItemViewSet,
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
-    GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login, 
-    importar_datos, cliente_login, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
+    GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login,
+    importar_datos, cliente_login, cliente_asignar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
     crear_pedido_desde_carrito, contacto_enviar
 )
@@ -53,6 +53,7 @@ urlpatterns = [
     # Custom authentication endpoints
     path('vendedores-login/', vendedor_login, name='vendedor-login'),
     path('cliente-login/', cliente_login, name='cliente-login'),
+    path('cliente-asignar-clave/', cliente_asignar_clave, name='cliente-asignar-clave'),
     path('cliente-register/', cliente_register, name='cliente-register'),
     path('cliente-update-password/', cliente_update_password, name='cliente-update-password'),
     path('cliente-update-parametros/', cliente_update_parametros, name='cliente-update-parametros'),

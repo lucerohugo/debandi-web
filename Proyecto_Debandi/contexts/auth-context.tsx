@@ -179,7 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(data.detail || 'Error al iniciar sesión')
+        const authError: any = new Error(data.detail || 'Error al iniciar sesión')
+        if (data.sin_contrasena) {
+          authError.sinContrasena = true
+        }
+        throw authError
       }
 
       if (!data.access) {
