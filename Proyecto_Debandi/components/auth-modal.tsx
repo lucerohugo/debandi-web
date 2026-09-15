@@ -33,6 +33,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { login } = useAuth()
   const { login: loginVendedor } = useVendedor()
   const [error, setError] = useState("")
+  const [errorVisible, setErrorVisible] = useState(false)
+  const [activeTab, setActiveTab] = useState("login")
   const [loading, setLoading] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [vendedorUsername, setVendedorUsername] = useState("")
@@ -55,6 +57,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       document.body.style.overflow = original
     }
   }, [isOpen])
+
+  // El cartel de error se difumina y desaparece solo a los pocos segundos
+  useEffect(() => {
+    if (!error) return
+    setErrorVisible(true)
+    const hideTimer = setTimeout(() => setErrorVisible(false), 4000)
+    const clearTimer = setTimeout(() => setError(""), 4500)
+    return () => {
+      clearTimeout(hideTimer)
+      clearTimeout(clearTimer)
+    }
+  }, [error])
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    setError("")
+  }
 
   if (!isOpen) return null
 
@@ -208,7 +227,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="max-w-md w-full my-8 sm:my-0">
-        <Tabs defaultValue="login" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <Card>
             <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
@@ -219,7 +238,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </CardHeader>
             <CardContent>
               {error && (
-                <Alert variant="destructive" className="mb-4">
+                <Alert
+                  variant="destructive"
+                  className={`mb-4 transition-opacity duration-500 ease-out ${errorVisible ? "opacity-100" : "opacity-0"}`}
+                >
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
