@@ -131,12 +131,23 @@ class RegistroAdmin(admin.ModelAdmin):
     ordering = ['-reg_fchc']
 
 
+@admin.action(description='Activar clientes seleccionados')
+def activar_clientes(modeladmin, request, queryset):
+    queryset.update(cli_acti=True)
+
+
+@admin.action(description='Desactivar clientes seleccionados')
+def desactivar_clientes(modeladmin, request, queryset):
+    queryset.update(cli_acti=False)
+
+
 @admin.register(Clientes)
 class ClientesAdmin(admin.ModelAdmin):
     list_display = ['cli_codi', 'cli_nomb', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
     readonly_fields = ['cli_fchc', 'cli_fmod']
+    actions = [activar_clientes, desactivar_clientes]
     fieldsets = (
         ('Datos Personales', {
             'fields': ('cli_codi', 'cli_nomb', 'cli_fnac', 'cli_tdoc', 'cli_ndoc', 'cli_cuit', 'cli_acti')
