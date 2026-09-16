@@ -612,6 +612,21 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
 
         return queryset
 
+    def list(self, request, *args, **kwargs):
+        """
+        Listado usado por el panel vendedor/clientes (ver VendedorContext.
+        getClientes) para cargar/buscar/filtrar/paginar su cartera. Si el
+        vendedor de la sesión fue dado de baja (ven_actv=0) mientras
+        navegaba ese panel, cortamos acá con el mismo código VENDEDOR_INACTIVO
+        que ya usan carrito_manage/crear_pedido_desde_carrito, para que
+        ApiService fuerce el logout+refresh apenas el vendedor busque,
+        filtre, cambie de página o vuelva a entrar a la sección.
+        """
+        vendedor_error = _vendedor_suplantante_bloqueado(request, as_drf=True)
+        if vendedor_error:
+            return vendedor_error
+        return super().list(request, *args, **kwargs)
+
     # El envío del correo de activación (transición cli_acti False -> True)
     # se maneja centralizado en signals.py, disparado por Model.save() sin
     # importar el origen (API, admin de Django, shell, scripts).

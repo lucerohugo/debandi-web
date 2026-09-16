@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useVendedor } from "@/contexts/vendedor-context"
+import { ApiService } from "@/services/api.service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -112,6 +113,13 @@ export default function VendedorClientesPage() {
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
     try {
+      // Revalida contra el backend que el vendedor de la sesión siga activo
+      // antes de impersonar (mismo chequeo VENDEDOR_INACTIVO que loadClientes
+      // ya dispara al buscar/filtrar/paginar). Si fue dado de baja, ApiService
+      // corta la sesión y redirige en silencio; el código de abajo no llega
+      // a ejecutarse.
+      await ApiService.get(`clientes/?ven_codi=${vendedor?.ven_codi}&page=1`)
+
       // Buscar datos completos del cliente
       const clienteSeleccionado = clientes.find(c => c.cli_codi === cli_codi)
       

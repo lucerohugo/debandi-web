@@ -80,6 +80,12 @@ const forzarLogoutPorSesionBloqueada = (): void => {
   if (typeof window === 'undefined') return
   localStorage.removeItem('auth_user')
   localStorage.removeItem('impersonation_state')
+  // Si el bloqueo fue por VENDEDOR_INACTIVO, además de cortar la sesión del
+  // cliente (arriba) hay que limpiar la sesión de vendedor: si no, al volver
+  // a '/' el VendedorProvider la lee de localStorage y lo deja con
+  // isVendedorSession=true pese a estar dado de baja.
+  localStorage.removeItem('vendedor_session')
+  localStorage.removeItem('vendedor_name')
   clearJWTToken()
   clearRefreshTokenValue()
   window.location.href = '/'
@@ -226,6 +232,13 @@ const throwForErrorResponse = async (response: Response): Promise<never> => {
 
   if (code && SESION_BLOQUEADA_CODES.has(code)) {
     forzarLogoutPorSesionBloqueada()
+    // La sesión ya se cortó y `window.location.href` está navegando a '/'.
+    // Esa navegación no interrumpe la ejecución de JS en el acto, así que si
+    // devolviéramos un error normal el componente que llamó (loadClientes,
+    // etc.) llegaría a mostrarlo un instante antes de que la página termine
+    // de recargar. Colgamos la promesa en cambio: nadie debe ver ningún
+    // mensaje, solo la salida silenciosa.
+    return new Promise<never>(() => {})
   }
 
   throw new Error(message)
