@@ -244,132 +244,139 @@ export default function VendedorClientesPage() {
               </Alert>
             )}
 
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : clientes.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No se encontraron clientes</p>
-                {search && (
-                  <p className="text-sm mt-1">Intenta con otra búsqueda</p>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead className="hidden md:table-cell">DNI/CUIT</TableHead>
-                        <TableHead className="hidden lg:table-cell">Email</TableHead>
-                        <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
-                        <TableHead className="hidden xl:table-cell">Localidad</TableHead>
-                        <TableHead>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="flex items-center gap-1 hover:text-primary">
-                                Estado de Cuenta
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
-                              <DropdownMenuRadioGroup value={estadoFiltro} onValueChange={setEstadoFiltro}>
-                                <DropdownMenuRadioItem value="todos">Todos</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="true">Habilitados</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="false">Inhabilitados</DropdownMenuRadioItem>
-                              </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableHead>
-                        <TableHead className="text-right">Acción</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {clientes.map((cliente) => (
-                        <TableRow key={cliente.cli_codi}>
-                          <TableCell className="font-mono text-sm">
-                            {cliente.cli_codi}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {cliente.cli_nomb || "-"}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {cliente.cli_ndoc || cliente.cli_cuit || "-"}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                            {cliente.cli_emai || "-"}
-                          </TableCell>
-                          <TableCell className="hidden xl:table-cell text-sm">
-                            {cliente.cli_tele || "-"}
-                          </TableCell>
-                          <TableCell className="hidden xl:table-cell text-sm">
-                            {cliente.loc_nomb || "-"}
-                          </TableCell>
-                          <TableCell>
-                            {cliente.cli_acti ? (
-                              <Badge variant="default" className="bg-green-600 hover:bg-green-600">
-                                Habilitado
-                              </Badge>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead className="hidden md:table-cell">DNI/CUIT</TableHead>
+                    <TableHead className="hidden lg:table-cell">Email</TableHead>
+                    <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
+                    <TableHead className="hidden xl:table-cell">Localidad</TableHead>
+                    <TableHead>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="flex items-center gap-1 hover:text-primary">
+                            Estado de Cuenta
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuRadioGroup value={estadoFiltro} onValueChange={setEstadoFiltro}>
+                            <DropdownMenuRadioItem value="todos">Todos</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="true">Habilitados</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="false">Inhabilitados</DropdownMenuRadioItem>
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableHead>
+                    <TableHead className="text-right">Acción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-12 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : clientes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No se encontraron clientes</p>
+                        {search && (
+                          <p className="text-sm mt-1">Intenta con otra búsqueda</p>
+                        )}
+                        {estadoFiltro !== "todos" && (
+                          <p className="text-sm mt-1">
+                            Cambie el filtro de estado de cuenta 
+                          </p>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    clientes.map((cliente) => (
+                      <TableRow key={cliente.cli_codi}>
+                        <TableCell className="font-mono text-sm">
+                          {cliente.cli_codi}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {cliente.cli_nomb || "-"}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {cliente.cli_ndoc || cliente.cli_cuit || "-"}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                          {cliente.cli_emai || "-"}
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell text-sm">
+                          {cliente.cli_tele || "-"}
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell text-sm">
+                          {cliente.loc_nomb || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {cliente.cli_acti ? (
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+                              Habilitado
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">
+                              Inhabilitado
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => handleImpersonate(cliente.cli_codi)}
+                            disabled={impersonating !== null || !cliente.cli_acti}
+                            title={!cliente.cli_acti ? "Cliente inactivo: no se puede ingresar" : undefined}
+                          >
+                            {impersonating === cliente.cli_codi ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Badge variant="destructive">
-                                Inhabilitado
-                              </Badge>
+                              <>
+                                <PlayCircle className="w-4 h-4 mr-1" />
+                                Ingresar
+                              </>
                             )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              onClick={() => handleImpersonate(cliente.cli_codi)}
-                              disabled={impersonating !== null || !cliente.cli_acti}
-                              title={!cliente.cli_acti ? "Cliente inactivo: no se puede ingresar" : undefined}
-                            >
-                              {impersonating === cliente.cli_codi ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <PlayCircle className="w-4 h-4 mr-1" />
-                                  Ingresar
-                                </>
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-sm text-muted-foreground">
-                      Página {page} de {totalPages}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1 || loading}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages || loading}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
+            {/* Pagination */}
+            {!loading && clientes.length > 0 && totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Página {page} de {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1 || loading}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages || loading}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
