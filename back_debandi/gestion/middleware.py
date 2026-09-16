@@ -1,24 +1,25 @@
 """
 Corta CUALQUIER request a la API hecha con el JWT de un vendedor dado de
-baja (ven_actv != 1) o de un cliente dado de baja (cli_acti=False) que
-inició sesión directo (sin vendedor de por medio).
+baja (ven_actv != 1) mientras navega el panel vendedor/clientes o está
+suplantando a un cliente.
+
+Solo toca el caso vendedor a propósito: el lado cliente (cli_acti) ya
+funciona bien tal cual está -se corta al agregar al carrito o hacer un
+pedido, ver carrito_manage/crear_pedido_desde_carrito- y no se tocó acá.
 
 El JWT sigue siendo válido hasta que vence (no hay forma de invalidarlo
 del lado del server con SimpleJWT sin blacklist), así que sin este
-middleware alguien desactivado podía seguir navegando cualquier sección
-(listado de productos, favoritos, inicio, etc.) sin que nadie lo frenara:
-antes solo se chequeaba puntualmente en un par de endpoints de escritura
-(agregar al carrito, crear pedido). Corriendo esto antes de cualquier
-vista, se corta apenas hace la primera request a la que sea, vaya donde
-vaya, sin esperar a que "toque" alguna de esas acciones puntuales.
+middleware un vendedor desactivado podía seguir navegando cualquier
+sección (listado de productos, favoritos, inicio, etc.) sin que nadie lo
+frenara: antes solo se chequeaba puntualmente en un par de endpoints de
+escritura (agregar al carrito, crear pedido) vía
+_vendedor_suplantante_bloqueado. Corriendo esto antes de cualquier vista,
+se corta apenas hace la primera request a la que sea, vaya donde vaya.
 
-Nota: cuando el JWT trae 'vendedor_suplantante' (login de vendedor, ver
-vendedor_login), el 'user_id'/cli_codi que codifica es solo un cliente
-placeholder para poder listar clientes -no necesariamente el que está
-impersonando en un momento dado-, así que acá NO se chequea cli_acti con
-ese valor; eso lo siguen resolviendo los endpoints que reciben el
-cli_codi real por parámetro (carrito, pedido). Acá solo se valida que el
-vendedor de la sesión siga activo.
+Reutiliza el mismo mecanismo que ya existía para cliente (JWT + código
+VENDEDOR_INACTIVO + SESION_BLOQUEADA_CODES del lado del frontend en
+api.service.ts), solo que ahora corre en cada request en vez de en dos
+endpoints nada más.
 """
 from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import AccessToken
@@ -51,33 +52,21 @@ class SesionBloqueadaMiddleware:
             # request. No es responsabilidad de este middleware.
             return None
 
-        from .models import Vendedor, Clientes
-
         ven_codi = token.get('vendedor_suplantante')
-        if ven_codi:
-            vendedor = Vendedor.objects.filter(ven_codi=ven_codi).first()
-            if vendedor is None or vendedor.ven_actv != 1:
-                return JsonResponse(
-                    {
-                        'success': False,
-                        'detail': 'Sesión inválida.',
-                        'code': 'VENDEDOR_INACTIVO',
-                    },
-                    status=403,
-                )
+        if not ven_codi:
             return None
 
-        if token.get('user_type') == 'cliente':
-            cli_codi = token.get('user_id')
-            cliente = Clientes.objects.filter(cli_codi=cli_codi).first()
-            if cliente is None or not cliente.cli_acti:
-                return JsonResponse(
-                    {
-                        'success': False,
-                        'detail': 'Sesión inválida.',
-                        'code': 'CLIENTE_INACTIVO',
-                    },
-                    status=403,
-                )
+        from .models import Vendedor
+
+        vendedor = Vendedor.objects.filter(ven_codi=ven_codi).first()
+        if vendedor is None or vendedor.ven_actv != 1:
+            return JsonResponse(
+                {
+                    'success': False,
+                    'detail': 'Sesión inválida.',
+                    'code': 'VENDEDOR_INACTIVO',
+                },
+                status=403,
+            )
 
         return None
