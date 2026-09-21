@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImagePlus, Sparkles, Layers, ThumbsUp, LogOut, AlertCircle, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
-import Link from "next/link"
 import { useImagenesAdmin } from "@/contexts/imagenes-admin-context"
 import { LoginImagenesModal } from "@/components/login-imagenes-modal"
 import Image from "next/image"
@@ -598,9 +597,6 @@ export default function GestorImagenes() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <div>
-            <Link href="/" className="text-primary hover:text-primary/80 mb-2 inline-block text-sm">
-              ← Volver al inicio
-            </Link>
             <h1 className="text-3xl font-bold text-gray-900">Gestor visual WEB</h1>
             <p className="text-gray-600 mt-1">Administra las imágenes y contenido visual de tu tienda</p>
           </div>

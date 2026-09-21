@@ -34,7 +34,8 @@ import {
   ChevronRight,
   PlayCircle,
   User,
-  ChevronDown
+  ChevronDown,
+  ImageIcon
 } from "lucide-react"
 
 interface Cliente {
@@ -206,10 +207,20 @@ export default function VendedorClientesPage() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Cerrar Sesión
-            </Button>
+            <div className="flex items-center gap-2">
+              {Boolean(vendedor?.ven_gere) && (
+                <Button variant="outline" asChild>
+                  <a href="/imagenes/articulos" target="_blank" rel="noopener noreferrer">
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Gestor de Imágenes
+                  </a>
+                </Button>
+              )}
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </div>
