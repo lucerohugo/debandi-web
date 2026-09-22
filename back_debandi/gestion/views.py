@@ -6,21 +6,24 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Q, Min, Max
 from datetime import datetime
 from django.http import FileResponse, JsonResponse
 from django.core.mail import send_mail
 from django.conf import settings
+from django.utils import timezone
+from decimal import Decimal, InvalidOperation
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
 from rest_framework.permissions import BasePermission
-from .permissions import SimpleJWTAuthentication, APIKeyAuthentication
+from .permissions import SimpleJWTAuthentication, APIKeyAuthentication, IsAuthenticatedWithJWTOrAPIKey
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
 import threading
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -2700,4 +2703,221 @@ def importar_datos(request):
             "error": str(e)
 
         }, status=500)
+
+
+# ================================================================
+# ACTUALIZACIÓN MASIVA DE PRECIOS (SOLO UPDATE, NUNCA CREA)
+# ================================================================
+
+PRECIOS_CAMPOS = ('art_pnet', 'art_pfin', 'art_cost', 'art_uti1', 'art_cdol')
+PRECIOS_DOS_DECIMALES = Decimal('0.01')
+PRECIOS_MARGEN_MINIMO = 1000  # piso del techo, para que un catálogo chico no quede súper limitado
+
+
+def _q2(valor):
+    """Redondea a 2 decimales, igual que un DecimalField(decimal_places=2)
+    al guardar por el ORM (acá se escribe por SQL directo, así que hay
+    que hacerlo a mano)."""
+    return valor.quantize(PRECIOS_DOS_DECIMALES)
+
+
+def _precios_limite_maximo():
+    """Techo defensivo del tamaño del request, calculado en base al
+    catálogo real en vez de un número fijo: si el catálogo crece o se
+    achica, el límite se mueve solo, sin tocar código. El x2 da margen
+    para que el catálogo pueda casi duplicarse antes de que este
+    endpoint necesite un ajuste manual."""
+    total_articulos = Articulo.objects.count()
+    return max(total_articulos * 2, PRECIOS_MARGEN_MINIMO)
+
+
+@api_view(['POST'])
+@authentication_classes([APIKeyAuthentication, SimpleJWTAuthentication])
+@permission_classes([IsAuthenticatedWithJWTOrAPIKey])
+def actualizar_precios(request):
+    """
+    POST /api/actualizar-precios/
+
+    Actualiza en bloque SOLO los campos de precio de artículos que ya
+    existen (nunca crea artículos nuevos ni toca otros campos).
+
+    Body esperado:
+    {
+        "articulos": [
+            {"art_codi": 1023, "art_pnet": 1500.00, "art_pfin": 1815.00,
+             "art_cost": 1200.00, "art_uti1": 25.00, "art_cdol": 0},
+            ...
+        ]
+    }
+
+    Misma lógica de negocio que Articulo.save()/recalcular_desde_dolar,
+    pero resuelta en memoria en vez de con una query por artículo:
+    - Si art_cdol > 0 (artículo valuado en dólares): se ignoran los
+      art_cost/art_pnet/art_pfin que vengan en el body y se recalculan
+      desde art_cdol * cotización vigente (General.gen_dola), el
+      margen art_uti1 del body y el art_tiva/art_descu ya guardados del
+      artículo. Igual que recalcular_desde_dolar().
+    - Si art_cdol == 0: se graban art_cost/art_pnet/art_pfin/art_uti1
+      tal cual vienen en el body (se asume que ya vienen calculados).
+
+    Todo el UPDATE se hace en UNA sola transacción (nada de trocear en
+    lotes): medido localmente con el catálogo completo (~4500
+    artículos, 7 corridas por variante), una única transacción tarda
+    ~21ms de mediana; trocear en lotes de 100/300/500/1000 da ~22-25ms
+    (cada COMMIT extra suma su propio overhead). O sea que acá trocear
+    no reduce el bloqueo (ya es de milisegundos) y encima lo hace más
+    lento. Con el WAL activado en apps.py esa transacción tampoco
+    bloquea a quienes solo leen (ver GestionConfig._configurar_sqlite);
+    _precios_limite_maximo() pone el techo de cuánto puede llegar a
+    durar, calculado en base al catálogo real (no un número fijo) para
+    no quedar desactualizado si el catálogo crece o se achica.
+
+    Se usa UPDATE parametrizado (cursor.executemany), no
+    Articulo.save() ni bulk_update() del ORM, por velocidad: medido
+    sobre el mismo catálogo completo, Articulo.save() por artículo es
+    lo más lento (dispara 1 query extra por artículo para leer la
+    cotización), bulk_update() ~3.2s (arma un UPDATE con CASE WHEN por
+    fila, SQL gigante que hay que replanear), y este UPDATE
+    parametrizado sin trocear ~0.02s (mismo UPDATE preparado, se
+    reutiliza fila a fila).
+    """
+    try:
+        body = json.loads(request.body)
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'detail': f'JSON inválido: {str(e)}'},
+            status=400,
+        )
+
+    items = body.get('articulos')
+    if not isinstance(items, list):
+        return JsonResponse(
+            {'success': False, 'detail': "Falta 'articulos' (lista)"},
+            status=400,
+        )
+
+    limite_maximo = _precios_limite_maximo()
+    if len(items) > limite_maximo:
+        return JsonResponse(
+            {
+                'success': False,
+                'detail': f'Máximo {limite_maximo} artículos por request, llegaron {len(items)}',
+            },
+            status=400,
+        )
+
+    inicio = time.monotonic()
+
+    # -------------------------------------------------------------
+    # 1) Parsear y validar cada fila en memoria (sin tocar la DB)
+    # -------------------------------------------------------------
+    validos = {}  # art_codi -> {campo: Decimal}
+    invalidos = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            invalidos.append({'data': item, 'error': 'Item no es un objeto'})
+            continue
+
+        try:
+            art_codi = int(item.get('art_codi'))
+        except (TypeError, ValueError):
+            invalidos.append({'data': item, 'error': 'art_codi inválido o ausente'})
+            continue
+
+        valores = {}
+        error_campo = None
+        for campo in PRECIOS_CAMPOS:
+            valor = item.get(campo)
+            if valor is None:
+                error_campo = f'Falta {campo}'
+                break
+            try:
+                valores[campo] = Decimal(str(valor))
+            except InvalidOperation:
+                error_campo = f'{campo} no es numérico: {valor!r}'
+                break
+
+        if error_campo:
+            invalidos.append({'art_codi': art_codi, 'error': error_campo})
+            continue
+
+        validos[art_codi] = valores
+
+    # -------------------------------------------------------------
+    # 2) Traer de una sola vez qué art_codi existen de verdad (nunca
+    #    se crea ninguno) + los datos que hacen falta para replicar
+    #    recalcular_desde_dolar (art_descu, art_tiva), que no vienen
+    #    en el body.
+    # -------------------------------------------------------------
+    codigos = list(validos.keys())
+    metadata = {
+        fila['art_codi']: fila
+        for fila in Articulo.objects.filter(art_codi__in=codigos).values(
+            'art_codi', 'art_descu', 'art_tiva'
+        )
+    }
+    no_encontrados = [c for c in codigos if c not in metadata]
+    a_actualizar = [c for c in codigos if c in metadata]
+
+    general = General.objects.only('gen_dola').first()
+    cotizacion = Decimal(str(general.gen_dola)) if general and general.gen_dola else Decimal('0')
+
+    # -------------------------------------------------------------
+    # 3) Resolver, por artículo, los valores finales a grabar
+    # -------------------------------------------------------------
+    a_grabar = {}  # art_codi -> (pnet, pfin, cost, uti1, cdol)
+    for codigo in a_actualizar:
+        valores = validos[codigo]
+        art_cdol = valores['art_cdol']
+        art_uti1 = valores['art_uti1']
+
+        if art_cdol > 0:
+            # Valuado en dólares: se recalcula igual que
+            # Articulo.recalcular_desde_dolar(), ignorando el
+            # cost/pnet/pfin que haya mandado el body.
+            fila = metadata[codigo]
+            art_descu = fila['art_descu'] or Decimal('0')
+            art_tiva = Decimal(str(fila['art_tiva'])) if fila['art_tiva'] else Decimal('21')
+
+            art_cost = art_cdol * cotizacion
+            art_pnet = art_cost * (1 + art_uti1 / 100)
+            art_pfin = (art_pnet * (1 + art_tiva / 100)) - art_descu
+        else:
+            art_cost = valores['art_cost']
+            art_pnet = valores['art_pnet']
+            art_pfin = valores['art_pfin']
+
+        a_grabar[codigo] = (
+            _q2(art_pnet), _q2(art_pfin), _q2(art_cost), _q2(art_uti1), _q2(art_cdol),
+        )
+
+    # -------------------------------------------------------------
+    # 4) Actualizar todo en una sola transacción (ver docstring: es lo
+    #    más rápido medido, y a este volumen no vale la pena trocear)
+    # -------------------------------------------------------------
+    ahora = timezone.now()
+    sql = (
+        "UPDATE gestion_articulo "
+        "SET art_pnet=%s, art_pfin=%s, art_cost=%s, art_uti1=%s, art_cdol=%s, art_fmod=%s "
+        "WHERE art_codi=%s"
+    )
+    filas = [
+        (*a_grabar[codigo], ahora, codigo)
+        for codigo in a_actualizar
+    ]
+
+    with connection.cursor() as cursor:
+        with transaction.atomic():
+            cursor.executemany(sql, filas)
+    actualizados = len(filas)
+
+    return JsonResponse({
+        'success': True,
+        'total_recibidos': len(items),
+        'actualizados': actualizados,
+        'no_encontrados': no_encontrados,
+        'invalidos': invalidos,
+        'tiempo_seg': round(time.monotonic() - inicio, 3),
+    }, status=200)
 

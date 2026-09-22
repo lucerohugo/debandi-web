@@ -7,7 +7,7 @@ from .views import (
     ClientesViewSet, VendedorViewSet, RegistroViewSet, FavoritosViewSet, CarritoItemViewSet,
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
     GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login,
-    importar_datos, cliente_login, cliente_asignar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
+    importar_datos, actualizar_precios, cliente_login, cliente_asignar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
     crear_pedido_desde_carrito, contacto_enviar
 )
@@ -67,5 +67,6 @@ urlpatterns = [
     path('csrf/', get_csrf_token, name='csrf-token'),
     path('health/', health_check, name='health-check'),
     path('importar_datos/', importar_datos, name='importar-datos'),
+    path('actualizar-precios/', actualizar_precios, name='actualizar-precios'),
 ]
 
