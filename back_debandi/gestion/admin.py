@@ -66,12 +66,21 @@ class SubrubroAdmin(admin.ModelAdmin):
     ordering = ['rub_codi', 'sru_nomb']
 
 
+@admin.action(description='[PRUEBA] Poner art_cost en 0 (solo ese campo)')
+def poner_costo_cero(modeladmin, request, queryset):
+    """Para probar SubInfoART.py/actualizar-precios: deja
+    art_cost en 0 en los artículos seleccionados, sin tocar ningún otro
+    campo (usa .update(), así que tampoco dispara Articulo.save() """
+    queryset.update(art_cost=0)
+
+
 @admin.register(Articulo)
 class ArticuloAdmin(admin.ModelAdmin):
     list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost','art_uti1' ,'art_cdol', 'mar_codi', 'art_visw']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw', 'art_carru']
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'art_cn']
     readonly_fields = ['art_fchc', 'art_fmod']
+    actions = [poner_costo_cero]
     fieldsets = (
         ('Identificación', {
             'fields': ('art_codi','art_cn', 'art_nomb', 'art_desc', 'art_palac')
