@@ -132,9 +132,7 @@ export default function VendedorClientesPage() {
         throw new Error('No se puede ingresar: el cliente está inactivo')
       }
 
-      console.log('\n VENDEDOR/CLIENTES: Iniciando impersonación de:', clienteSeleccionado.cli_nomb)
-      console.log(' Vendedor actual:', vendedor)
-      
+
       // 1. PRIMERO: Guardar impersonation_state en localStorage
       const impState = {
         isImpersonating: true,

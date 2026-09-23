@@ -3,6 +3,16 @@
  * Conecta con los endpoints: /api/articulos/exportar-excel/ y /api/articulos/exportar-pdf/
  */
 
+/**
+ * Arma los headers de autorización solo si hay un token guardado.
+ * Sin esto, mandar "Authorization: Bearer " (vacío) sin sesión iniciada
+ * hace que el backend responda 401 en vez de tratar la request como anónima.
+ */
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem('jwtToken');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 export class ExportUtils {
   /**
    * Exporta todos los artículos a Excel
@@ -14,9 +24,7 @@ export class ExportUtils {
         `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`,
         {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwtToken') || ''}`,
-          },
+          headers: authHeaders(),
         }
       );
 
@@ -54,9 +62,7 @@ export class ExportUtils {
         `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`,
         {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwtToken') || ''}`,
-          },
+          headers: authHeaders(),
         }
       );
 
@@ -106,9 +112,7 @@ export class ExportUtils {
 
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwtToken') || ''}`,
-        },
+        headers: authHeaders(),
       });
 
       if (!response.ok) {
@@ -154,9 +158,7 @@ export class ExportUtils {
 
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwtToken') || ''}`,
-        },
+        headers: authHeaders(),
       });
 
       if (!response.ok) {

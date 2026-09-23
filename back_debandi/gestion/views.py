@@ -213,7 +213,7 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     permission_classes = [AllowAny]  # ✅ Público: productos visibles sin API Key
     lookup_field_name = "art_codi"
     filterset_class = ArticuloFilterSet  # ✅ Usar FilterSet personalizado
-    search_fields = ['art_nomb', 'art_codi', 'art_palac', 'mar_codi__mar_nomb']
+    search_fields = ['art_nomb', 'art_codi', 'art_cn', 'art_palac', 'mar_codi__mar_nomb']
     ordering_fields = ['art_nomb', 'art_pnet', 'art_fchc']
     ordering = ['art_nomb']
     authentication_classes = []
@@ -263,12 +263,17 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
             'max_price': float(precios['max_price'] or 0)
         })
 
-    @action(detail=False, methods=['get'], url_path='exportar-excel', permission_classes=[AllowAny])
+    @action(
+        detail=False, methods=['get'], url_path='exportar-excel',
+        permission_classes=[AllowAny], authentication_classes=[SimpleJWTAuthentication],
+    )
     def exportar_excel(self, request):
-        """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel"""
+        """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel.
+        al publico sin iniciar sesion no incluye precios"""
         try:
-            excel_file = ExcelService.generar_excel()
-            
+            incluir_precios = bool(request.user and request.user.is_authenticated)
+            excel_file = ExcelService.generar_excel(incluir_precios=incluir_precios)
+
             # Crear respuesta con descarga
             response = FileResponse(
                 excel_file,
@@ -283,12 +288,17 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=False, methods=['get'], url_path='exportar-pdf', permission_classes=[AllowAny])
-    def exportar_pdf(self, request):
-        """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF"""
+    @action(
+        detail=False, methods=['get'], url_path='exportar-pdf',
+        permission_classes=[AllowAny], authentication_classes=[SimpleJWTAuthentication],
+    )
+    def exportar_pdf(self, request):    
+        """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF.
+        al publico sin iniciar sesion no incluye precios"""
         try:
-            pdf_file = PDFService.generar_pdf()
-            
+            incluir_precios = bool(request.user and request.user.is_authenticated)
+            pdf_file = PDFService.generar_pdf(incluir_precios=incluir_precios)
+
             # Crear respuesta con descarga
             response = FileResponse(
                 pdf_file,
@@ -578,25 +588,17 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
         queryset = super().get_queryset()
 
         # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor,
-        # salvo que sea un Vendedor Gerente (ven_gere=True) que no tenga
-        # ningún cliente asignado: en ese caso ve TODOS los clientes.
-        # Si el gerente sí tiene cartera propia asignada, ve solo la suya
-        # (igual que cualquier vendedor común).
+        # salvo que sea un Vendedor Gerente (ven_gere=True): en ese caso ve
+        # TODOS los clientes, tenga o no cartera propia asignada.
         ven_codi = self.request.query_params.get('ven_codi')
         if ven_codi:
             try:
                 ven_codi_int = int(ven_codi)
-                tiene_clientes_asignados = Clientes.objects.filter(
-                    ven_codi_id=ven_codi_int
+                es_gerente = Vendedor.objects.filter(
+                    ven_codi=ven_codi_int, ven_gere=True
                 ).exists()
-                if tiene_clientes_asignados:
+                if not es_gerente:
                     queryset = queryset.filter(ven_codi_id=ven_codi_int)
-                else:
-                    es_gerente = Vendedor.objects.filter(
-                        ven_codi=ven_codi_int, ven_gere=True
-                    ).exists()
-                    if not es_gerente:
-                        queryset = queryset.filter(ven_codi_id=ven_codi_int)
             except (ValueError, TypeError):
                 pass
 
@@ -1186,22 +1188,21 @@ def vendedor_login(request):
             )
 
         #  MODO SUPERVISOR: Obtener cliente asignado
-        # Buscar primer cliente asignado a este vendedor. Si es Vendedor
-        # Gerente (ven_gere=True) sin cartera propia asignada, puede ver
-        # TODOS los clientes, así que se usa cualquier cliente del sistema
-        # para inicializar el JWT.
-        clientes_asignados = Clientes.objects.filter(ven_codi=vendedor)
-        ve_todos_clientes = False
+        # Si es Vendedor Gerente (ven_gere=True), puede ver TODOS los
+        # clientes sin importar si tiene o no cartera propia asignada, así
+        # que se usa cualquier cliente del sistema para inicializar el JWT.
+        ve_todos_clientes = bool(vendedor.ven_gere)
+        clientes_asignados = (
+            Clientes.objects.all()
+            if ve_todos_clientes
+            else Clientes.objects.filter(ven_codi=vendedor)
+        )
 
         if not clientes_asignados.exists():
-            if vendedor.ven_gere:
-                clientes_asignados = Clientes.objects.all()
-                ve_todos_clientes = True
-            if not clientes_asignados.exists():
-                return JsonResponse(
-                    {'success': False, 'detail': 'Vendedor sin clientes asignados'},
-                    status=403
-                )
+            return JsonResponse(
+                {'success': False, 'detail': 'Vendedor sin clientes asignados'},
+                status=403
+            )
 
         cliente = clientes_asignados.first()
         

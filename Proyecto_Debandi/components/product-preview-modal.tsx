@@ -172,7 +172,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
         <div className="relative bg-background rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto overscroll-contain">
         {/* Botón cerrar */}
         <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">

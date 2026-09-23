@@ -37,7 +37,7 @@ export default function WelcomeModal({ firstName, isOpen, onClose }: WelcomeModa
   if (!mounted || !isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[70] backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-300">
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">

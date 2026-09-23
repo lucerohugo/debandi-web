@@ -31,7 +31,7 @@ export default function RegisterSuccessModal({ isOpen, onClose }: RegisterSucces
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
       <Card className="max-w-md w-full relative">
         {/* Botón X para cerrar */}
         <button

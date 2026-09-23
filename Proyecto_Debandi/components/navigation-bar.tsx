@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation"
 import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail, Loader2 } from "lucide-react"
 import { ConfigService } from "@/services/config.service"
 import { ExportUtils } from "@/lib/export-utils"
-import { useAuth } from "@/contexts/auth-context"
 
 interface Rubro {
   rub_codi: number
@@ -15,7 +14,6 @@ interface Rubro {
 
 export default function NavigationBar() {
   const pathname = usePathname()
-  const { user } = useAuth()
   const [rubros, setRubros] = useState<Rubro[]>([])
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
@@ -138,8 +136,7 @@ export default function NavigationBar() {
             {isActive("/") && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
           </Link>
 
-          {/* Catálogos (Rubros) - Solo visible si el usuario inició sesión */}
-          {user && (
+          {/* Catálogos (Rubros) - Exportar PDF/Excel, visible con o sin sesión iniciada */}
           <div className="relative group">
             <button
               ref={catalogBtnRef}
@@ -182,7 +179,7 @@ export default function NavigationBar() {
                       className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <FileDown className="w-4 h-4" />
-                      Exportar PDF
+                      Catálogo PDF
                     </button>
 
                     {/* Opción: Exportar Excel */}
@@ -192,14 +189,13 @@ export default function NavigationBar() {
                       className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <FileDown className="w-4 h-4" />
-                      Exportar Excel
+                      Catálogo Excel
                     </button>
                   </div>
                 </div>
               </>
             )}
           </div>
-          )}
 
           {/* Listado de Productos */}
           <Link

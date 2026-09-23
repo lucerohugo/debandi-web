@@ -345,7 +345,7 @@ export default function MisDatosPage() {
         {/* Información del usuario - SEGUNDO */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Información del perfil</CardTitle>
+            <CardTitle>Información del Perfil</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

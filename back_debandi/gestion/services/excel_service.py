@@ -9,13 +9,17 @@ class ExcelService:
     """Servicio para exportar artículos a Excel"""
     
     @staticmethod
-    def generar_excel():
+    def generar_excel(incluir_precios: bool = True):
         """
         Genera un archivo Excel con todos los artículos.
-        
+
+        Args:
+            incluir_precios: si es False, omite las columnas de precio
+                (usado para exportaciones públicas sin sesión iniciada).
+
         Retorna: BytesIO con el contenido del archivo Excel
         """
-        
+
         articulos = Articulo.objects.filter(art_visw=True)
 
         # Crear workbook
@@ -24,13 +28,11 @@ class ExcelService:
         ws.title = "Artículos"
 
         # Definir encabezados
-        encabezados = [
-            "Código",
-            "Nombre",
-            "Precio Neto",
-            "Precio Final",
-        ]
-        
+        encabezados = ["Código", "Nombre"]
+        if incluir_precios:
+            encabezados += ["Precio Neto", "Precio Final"]
+        precio_cols = {3, 4} if incluir_precios else set()
+
         # Agregar encabezados a la primera fila
         for col_num, encabezado in enumerate(encabezados, 1):
             cell = ws.cell(row=1, column=col_num)
@@ -39,21 +41,21 @@ class ExcelService:
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.alignment = Alignment(horizontal="center", vertical="center")
-        
+
         # Agregar datos
         for row_num, articulo in enumerate(articulos, 2):
-            fila_datos = [
-                articulo.art_codi,
-                articulo.art_nomb,
-                float(articulo.art_pnet) if articulo.art_pnet else 0,
-                float(articulo.art_pfin) if articulo.art_pfin else 0,
-            ]
+            fila_datos = [articulo.art_codi, articulo.art_nomb]
+            if incluir_precios:
+                fila_datos += [
+                    float(articulo.art_pnet) if articulo.art_pnet else 0,
+                    float(articulo.art_pfin) if articulo.art_pfin else 0,
+                ]
 
             for col_num, valor in enumerate(fila_datos, 1):
                 cell = ws.cell(row=row_num, column=col_num)
                 cell.value = valor
                 # Alineación y formato
-                if col_num in [3, 4]:  # Columnas numéricas (Precio Neto, Precio Final)
+                if col_num in precio_cols:  # Columnas numéricas (Precio Neto, Precio Final)
                     cell.alignment = Alignment(horizontal="right")
                     cell.number_format = '$#,##0.00'
                 else:

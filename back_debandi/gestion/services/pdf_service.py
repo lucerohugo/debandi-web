@@ -61,10 +61,14 @@ class PDFService:
             return None
 
     @staticmethod
-    def generar_pdf():
+    def generar_pdf(incluir_precios: bool = True):
         """
         Genera un archivo PDF con todos los artículos en formato tabla.
-        
+
+        Args:
+            incluir_precios: si es False, omite las columnas de precio
+                (usado para exportaciones públicas sin sesión iniciada).
+
         Retorna: BytesIO con el contenido del archivo PDF
         """
         
@@ -110,13 +114,9 @@ class PDFService:
         data = []
         
         # Encabezados
-        encabezados = [
-            "Código",
-            "Imagen",
-            "Nombre",
-            "Precio Neto",
-            "Precio Final",
-        ]
+        encabezados = ["Código", "Imagen", "Nombre"]
+        if incluir_precios:
+            encabezados += ["Precio Neto", "Precio Final"]
         
         # Crear estilos para encabezados
         header_style = ParagraphStyle(
@@ -161,25 +161,34 @@ class PDFService:
                 Paragraph(str(articulo.art_codi), center_style),
                 imagen if imagen else Paragraph("-", center_style),
                 Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
-                Paragraph(f"${float(articulo.art_pnet):.2f}" if articulo.art_pnet else "$0.00", number_style),
-                Paragraph(f"${float(articulo.art_pfin):.2f}" if articulo.art_pfin else "$0.00", number_style),
             ]
+            if incluir_precios:
+                fila += [
+                    Paragraph(f"${float(articulo.art_pnet):.2f}" if articulo.art_pnet else "$0.00", number_style),
+                    Paragraph(f"${float(articulo.art_pfin):.2f}" if articulo.art_pfin else "$0.00", number_style),
+                ]
             data.append(fila)
 
         # Crear tabla con ancho dinámico
-        table_width = 10 * inch  # Ancho total disponible en landscape
-        col_widths = [
-            0.7*inch,  # Código
-            0.8*inch,  # Imagen
-            4.8*inch,  # Nombre
-            1.6*inch,  # Precio Neto
-            1.6*inch,  # Precio Final
-        ]
+        if incluir_precios:
+            col_widths = [
+                0.7*inch,  # Código
+                0.8*inch,  # Imagen
+                4.8*inch,  # Nombre
+                1.6*inch,  # Precio Neto
+                1.6*inch,  # Precio Final
+            ]
+        else:
+            col_widths = [
+                0.9*inch,  # Código
+                1.0*inch,  # Imagen
+                7.8*inch,  # Nombre
+            ]
         
         table = Table(data, colWidths=col_widths)
-        
+
         # Estilos de la tabla
-        table.setStyle(TableStyle([
+        table_style = [
             # Encabezados
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -187,26 +196,28 @@ class PDFService:
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 8),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            
+
             # Datos
             ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 7),
             ('TOPPADDING', (0, 1), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-            
+
             # Alternancia de colores en filas
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0F0F0')]),
-            
+
             # Bordes
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            
+
             # Alineación de columnas numéricas
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Código
             ('ALIGN', (1, 1), (1, -1), 'CENTER'),  # Imagen
-            ('ALIGN', (3, 1), (4, -1), 'RIGHT'),  # Números (Precio Neto, Precio Final)
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
+        ]
+        if incluir_precios:
+            table_style.append(('ALIGN', (3, 1), (4, -1), 'RIGHT'))  # Números (Precio Neto, Precio Final)
+        table.setStyle(TableStyle(table_style))
         
         elements.append(table)
         
