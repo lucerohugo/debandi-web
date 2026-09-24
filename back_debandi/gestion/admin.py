@@ -76,7 +76,7 @@ def poner_costo_cero(modeladmin, request, queryset):
 
 @admin.register(Articulo)
 class ArticuloAdmin(admin.ModelAdmin):
-    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost','art_uti1' ,'art_cdol', 'mar_codi', 'art_visw']
+    list_display = ['art_codi','art_cn', 'art_nomb', 'art_pnet', 'art_pfin', 'art_cost','art_uti1' ,'art_cdol', 'mar_codi', 'art_visw', 'art_tiva']
     list_filter = ['mar_codi', 'sru_codi', 'art_acti', 'art_visw', 'art_carru']
     search_fields = ['art_nomb', 'art_codi', 'art_palac', 'art_cn']
     readonly_fields = ['art_fchc', 'art_fmod']
@@ -154,7 +154,7 @@ def desactivar_clientes(modeladmin, request, queryset):
 class ClientesAdmin(admin.ModelAdmin):
     list_display = ['cli_codi', 'cli_nomb', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
-    search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit']
+    search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit','ven_codi']
     readonly_fields = ['cli_fchc', 'cli_fmod']
     actions = [activar_clientes, desactivar_clientes]
     fieldsets = (

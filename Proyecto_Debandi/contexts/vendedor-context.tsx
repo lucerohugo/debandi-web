@@ -67,8 +67,8 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
       setVendedor(data.vendedor)
       setIsVendedorSession(true)
       
-      // Redirigir al panel de clientes del vendedor para que seleccione cuál impersionar
-      router.push('/vendedor/clientes')
+      // Redirigir al panel del vendedor (solapa principal: Artículos)
+      router.push('/vendedor/articulos')
       
     } catch (error) {
       console.error('Vendedor login error:', error)

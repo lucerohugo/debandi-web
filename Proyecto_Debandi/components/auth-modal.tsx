@@ -215,7 +215,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       await loginVendedor(vendedorUsername, vendedorPassword)
-      // El contexto maneja la redirección a /vendedor/clientes
+      //  maneja primero la redirección a /vendedor/articulos, antes tenia la de cliente 
       onClose()
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión")
@@ -331,7 +331,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       <SelectTrigger id="reg_civa" className="w-full">
                         <SelectValue placeholder="Seleccionar..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[80]">
                         <SelectItem value="RI">Responsable Inscripto</SelectItem>
                         <SelectItem value="CF">Consumidor Final</SelectItem>
                         <SelectItem value="MO">Monotributo</SelectItem>

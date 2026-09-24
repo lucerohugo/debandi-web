@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useVendedor } from "@/contexts/vendedor-context"
 import { ApiService } from "@/services/api.service"
+import VendedorHeader from "@/components/vendedor-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,15 +28,12 @@ import {
 import {
   Loader2,
   Search,
-  UserCog,
-  LogOut,
   Users,
   ChevronLeft,
   ChevronRight,
   PlayCircle,
   User,
-  ChevronDown,
-  ImageIcon
+  ChevronDown
 } from "lucide-react"
 
 interface Cliente {
@@ -53,7 +51,7 @@ interface Cliente {
 
 export default function VendedorClientesPage() {
   const router = useRouter()
-  const { vendedor, isVendedorSession, loading: vendedorLoading, getClientes, impersonate, logout } = useVendedor()
+  const { vendedor, isVendedorSession, loading: vendedorLoading, getClientes, impersonate } = useVendedor()
   
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [total, setTotal] = useState(0)
@@ -169,11 +167,6 @@ export default function VendedorClientesPage() {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-    router.push("/")
-  }
-
   const totalPages = Math.ceil(total / limit)
 
   if (vendedorLoading) {
@@ -190,38 +183,7 @@ export default function VendedorClientesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                <UserCog className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-lg">Panel de Vendedor</h1>
-                <p className="text-sm text-muted-foreground">
-                  {vendedor?.ven_nomb || vendedor?.ven_usua}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {Boolean(vendedor?.ven_gere) && (
-                <Button variant="outline" asChild>
-                  <a href="/imagenes/articulos" target="_blank" rel="noopener noreferrer">
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Gestor de Imágenes
-                  </a>
-                </Button>
-              )}
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Cerrar Sesión
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <VendedorHeader />
 
       {/* Content */}
       <div className="container mx-auto px-4 py-6">
@@ -230,7 +192,7 @@ export default function VendedorClientesPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <CardTitle>{vendedor?.ve_todos_clientes ? "Todos los Clientes" : "Mis Clientes"}</CardTitle>
+                <CardTitle>Pedidos Clientes</CardTitle>
                 <Badge variant="secondary">{total} clientes</Badge>
                 {vendedor?.ve_todos_clientes && (
                   <Badge variant="outline" className="border-primary text-primary">

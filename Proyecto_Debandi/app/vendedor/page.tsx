@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useVendedor } from "@/contexts/vendedor-context"
 
 /**
- * Redirige a /vendedor/clientes/ si hay sesión de vendedor
+ * Redirige a /vendedor/articulos/ si hay sesión de vendedor
  * O a / si no hay sesión
  */
 export default function VendedorRedirectPage() {
@@ -15,7 +15,7 @@ export default function VendedorRedirectPage() {
   useEffect(() => {
     if (!loading) {
       if (isVendedorSession) {
-        router.push("/vendedor/clientes")
+        router.push("/vendedor/articulos") 
       } else {
         router.push("/")
       }
