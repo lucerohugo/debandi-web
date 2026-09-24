@@ -28,6 +28,7 @@ interface Order {
   ped_fechCr?: string  // Fecha y hora de creación (ya formateada por el backend)
   ped_edit?: 'C' | 'V'  // Quién hizo la última modificación: Cliente o Vendedor
   ped_fechEd?: string  // Fecha y hora de la última modificación (ya formateada por el backend)
+  ped_obse?: string | null  // Observaciones del pedido
   detalles: OrderDetail[]
 }
 

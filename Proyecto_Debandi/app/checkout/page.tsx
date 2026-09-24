@@ -30,7 +30,16 @@ export default function CheckoutPage() {
   const [showDetails, setShowDetails] = useState(false)
   const [observacion, setObservacion] = useState("")
   const OBSERVACION_MAX_LENGTH = 110
+  const OBSERVACION_STORAGE_KEY = "checkoutObservacion"
   const observacionRef = useRef<HTMLTextAreaElement>(null)
+
+  // gaurda en el cache observación (por si el usuario volvio al carrito, inicio,etc)
+  useEffect(() => {
+    const saved = localStorage.getItem(OBSERVACION_STORAGE_KEY)
+    if (saved) {
+      setObservacion(saved)
+    }
+  }, [])
 
 
   useEffect(() => {
@@ -114,7 +123,8 @@ export default function CheckoutPage() {
                 setOrderNumber(`ORD-${data.ped_codi}`)
                 setFinalOrderItems(cartItems)
                 setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
-                
+                localStorage.removeItem(OBSERVACION_STORAGE_KEY)
+
                 // Vaciar carrito local (ya está limpio en BD)
                 localStorage.removeItem("cart")
                 window.dispatchEvent(new Event("storage"))
@@ -152,7 +162,9 @@ export default function CheckoutPage() {
       textarea.setCustomValidity("")
     }
     textarea.reportValidity()
-    setObservacion(textarea.value.slice(0, OBSERVACION_MAX_LENGTH))
+    const value = textarea.value.slice(0, OBSERVACION_MAX_LENGTH)
+    setObservacion(value)
+    localStorage.setItem(OBSERVACION_STORAGE_KEY, value)
   }
 
   const handleCreateOrder = async () => {
@@ -193,6 +205,7 @@ export default function CheckoutPage() {
         window.dispatchEvent(new Event("storage"))
         setFinalOrderItems(cartItems)
         setFinalTotal(parseFloat(data.pedido.ped_tota))  // ← Guardar total exacto del backend
+        localStorage.removeItem(OBSERVACION_STORAGE_KEY)
         setShowSuccess(true)
       } else {
         setError(data.detail || "Error al crear el pedido")

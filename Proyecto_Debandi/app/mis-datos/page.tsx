@@ -7,6 +7,7 @@ import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { useAuth } from "@/contexts/auth-context"
+import { ApiService } from "@/services/api.service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -101,8 +102,9 @@ export default function MisDatosPage() {
     setSaving(true)
 
     try {
-      // Obtener token del localStorage
-      const token = localStorage.getItem("jwtToken")
+      // Obtener token vigente, renovándolo primero si venció (usuario que
+      // quedó varias horas sin hacer nada y ahora guarda por primera vez)
+      const token = await ApiService.getValidToken()
       if (!token) {
         setNotification({
           type: "error",

@@ -3,13 +3,17 @@
  * Conecta con los endpoints: /api/articulos/exportar-excel/ y /api/articulos/exportar-pdf/
  */
 
+import { ApiService } from '@/services/api.service';
+
 /**
- * Arma los headers de autorización solo si hay un token guardado.
- * Sin esto, mandar "Authorization: Bearer " (vacío) sin sesión iniciada
- * hace que el backend responda 401 en vez de tratar la request como anónima.
+ * Arma los headers de autorización solo si hay un token guardado, renovándolo
+ * primero si venció. Sin esto, mandar "Authorization: Bearer " (vacío) sin
+ * sesión iniciada hace que el backend responda 401 en vez de tratar la
+ * request como anónima; y un token vencido sin renovar también da 401 aunque
+ * la sesión siga siendo válida.
  */
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('jwtToken');
+async function authHeaders(): Promise<HeadersInit> {
+  const token = await ApiService.getValidToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
@@ -24,7 +28,7 @@ export class ExportUtils {
         `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`,
         {
           method: 'GET',
-          headers: authHeaders(),
+          headers: await authHeaders(),
         }
       );
 
@@ -62,7 +66,7 @@ export class ExportUtils {
         `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`,
         {
           method: 'GET',
-          headers: authHeaders(),
+          headers: await authHeaders(),
         }
       );
 
@@ -112,7 +116,7 @@ export class ExportUtils {
 
       const response = await fetch(url, {
         method: 'GET',
-        headers: authHeaders(),
+        headers: await authHeaders(),
       });
 
       if (!response.ok) {
@@ -158,7 +162,7 @@ export class ExportUtils {
 
       const response = await fetch(url, {
         method: 'GET',
-        headers: authHeaders(),
+        headers: await authHeaders(),
       });
 
       if (!response.ok) {
@@ -194,14 +198,15 @@ export class ExportUtils {
     }>,
     orderNumber: string,
     orderDate?: string,
-    orderTime?: string
+    orderTime?: string,
+    orderObs?: string | null
   ): Promise<void> {
     try {
       const jsPDF = (await import('jspdf')).jsPDF;
       const autoTable = (await import('jspdf-autotable')).default;
 
       const doc = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
@@ -235,7 +240,7 @@ export class ExportUtils {
         const quantity = Number(item.quantity) || 0;
         return [
           item.art_codi,
-          item.art_nomb.substring(0, 40), // Limitar nombre a 40 caracteres
+          item.art_nomb,
           quantity,
           `$${price.toFixed(2)}`,
           `$${(quantity * price).toFixed(2)}`,
@@ -254,9 +259,10 @@ export class ExportUtils {
         head: [['Codigo', 'Producto', 'Cantidad', 'Precio Unit.', 'Subtotal']],
         body: tableData,
         startY: 45,
+        margin: { left: 14, right: 14 },
         styles: {
-          fontSize: 9,
-          cellPadding: 4,
+          fontSize: 8,
+          cellPadding: 3,
         },
         headStyles: {
           fillColor: [2, 142, 249], // Azul #028EF9
@@ -271,11 +277,11 @@ export class ExportUtils {
           fillColor: [240, 240, 240],
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 20 },
-          1: { halign: 'left', cellWidth: 100 },
-          2: { halign: 'center', cellWidth: 25 },
-          3: { halign: 'right', cellWidth: 25 },
-          4: { halign: 'right', cellWidth: 25 },
+          0: { halign: 'center', cellWidth: 16 },
+          1: { halign: 'left', cellWidth: 'auto' },
+          2: { halign: 'center', cellWidth: 18 },
+          3: { halign: 'right', cellWidth: 26 },
+          4: { halign: 'right', cellWidth: 28 },
         },
       });
 
@@ -287,18 +293,29 @@ export class ExportUtils {
         align: 'right',
       });
 
+      // Observaciones del pedido (si las hay)
+      if (orderObs && orderObs.trim()) {
+        const obsY = finalY + 27;
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('Observaciones:', 20, obsY);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(9);
+        const obsLines = doc.splitTextToSize(orderObs.trim(), doc.internal.pageSize.getWidth() - 40);
+        doc.text(obsLines, 20, obsY + 6);
+      }
+
       // Pie de página
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
-      doc.text('DEBANDI - Sistema de Gestión de Pedidos', 20, doc.internal.pageSize.getHeight() - 10);
+      doc.text('DEBANDI', 20, doc.internal.pageSize.getHeight() - 10);
 
       // Descargar
       const fileDate = orderDate || new Date().toISOString().slice(0, 10);
       doc.save(`PEDIDO-${orderNumber}-${fileDate}.pdf`);
       console.log(' PDF del pedido descargado exitosamente');
     } catch (error) {
-      console.error('Error al exportar PDF del pedido:', error);
       throw error;
     }
   }
@@ -319,7 +336,7 @@ export class ExportUtils {
       const autoTable = (await import('jspdf-autotable')).default;
 
       const doc = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
@@ -327,7 +344,7 @@ export class ExportUtils {
       // Configurar fuentes
       doc.setFont('Helvetica', 'bold');
       doc.setFontSize(16);
-      
+
       // Título
       doc.text('CARRITO - DEBANDI', 20, 20);
       
@@ -343,7 +360,7 @@ export class ExportUtils {
         const quantity = Number(item.quantity) || 0;
         return [
           item.art_codi,
-          item.art_nomb.substring(0, 40), // Limitar nombre a 40 caracteres
+          item.art_nomb,
           quantity,
           `$${price.toFixed(2)}`,
           `$${(quantity * price).toFixed(2)}`,
@@ -362,9 +379,10 @@ export class ExportUtils {
         head: [['Codigo', 'Producto', 'Cantidad', 'Precio Unit.', 'Subtotal']],
         body: tableData,
         startY: 45,
+        margin: { left: 14, right: 14 },
         styles: {
-          fontSize: 9,
-          cellPadding: 4,
+          fontSize: 8,
+          cellPadding: 3,
         },
         headStyles: {
           fillColor: [2, 142, 249], // Azul #028EF9
@@ -379,11 +397,11 @@ export class ExportUtils {
           fillColor: [240, 240, 240],
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 20 },
-          1: { halign: 'left', cellWidth: 100 },
-          2: { halign: 'center', cellWidth: 25 },
-          3: { halign: 'right', cellWidth: 25 },
-          4: { halign: 'right', cellWidth: 25 },
+          0: { halign: 'center', cellWidth: 16 },
+          1: { halign: 'left', cellWidth: 'auto' },
+          2: { halign: 'center', cellWidth: 18 },
+          3: { halign: 'right', cellWidth: 26 },
+          4: { halign: 'right', cellWidth: 28 },
         },
       });
 

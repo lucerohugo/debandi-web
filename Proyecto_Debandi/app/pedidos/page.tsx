@@ -38,6 +38,7 @@ interface Order {
   ped_fechCr?: string
   ped_edit?: 'C' | 'V'
   ped_fechEd?: string
+  ped_obse?: string | null
   detalles: any[]
   items: OrderItem[]
 }
@@ -79,6 +80,7 @@ export default function OrdersPage() {
         ped_fechCr: ped.ped_fechCr,
         ped_edit: ped.ped_edit,
         ped_fechEd: ped.ped_fechEd,
+        ped_obse: ped.ped_obse,
         detalles: ped.detalles,
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,
@@ -156,7 +158,7 @@ export default function OrdersPage() {
       }));
       
       // Exportar PDF del pedido específico (con la fecha/hora en que se realizó el pedido)
-      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time)
+      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time, order.ped_obse)
       
       // Mostrar notificación de éxito
       setNotification({
@@ -413,6 +415,17 @@ export default function OrdersPage() {
                             </span>
                           </div>
                         </div>
+
+                        {order.ped_obse && (
+                          <div className="border-t pt-4 mt-4">
+                            <h4 className="font-semibold text-sm text-foreground mb-1">
+                              Observaciones
+                            </h4>
+                            <p className="text-sm text-slate-800 whitespace-pre-wrap">
+                              {order.ped_obse}
+                            </p>
+                          </div>
+                        )}
 
                         <div className="pt-4 border-t space-y-1">
                           <p className="text-xs text-muted-foreground">

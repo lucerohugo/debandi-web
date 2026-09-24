@@ -148,8 +148,8 @@ export default function NavigationBar() {
                 setShowCatalogDropdown(!showCatalogDropdown)
               }}
               className={`flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors ${
-                pathname.includes("/listado") 
-                  ? "text-primary" 
+                showCatalogDropdown
+                  ? "text-primary"
                   : "text-foreground hover:text-primary"
               }`}
             >

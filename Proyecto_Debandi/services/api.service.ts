@@ -289,6 +289,16 @@ export class ApiService {
     clearRefreshTokenValue()
   }
 
+  /**
+   * Access token vigente, renovándolo primero si venció (misma lógica que
+   * usan internamente get/post/put/patch/delete). Para código que arma sus
+   * propios headers "a mano" (exports, fetch de blobs, etc.) en lugar de
+   * pasar por ApiService.
+   */
+  static async getValidToken(): Promise<string | null> {
+    return ensureValidAccessToken()
+  }
+
   static async get<T>(endpoint: string): Promise<T> {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), {
       credentials: 'include',
