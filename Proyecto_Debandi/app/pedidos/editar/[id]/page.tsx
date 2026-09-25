@@ -7,6 +7,7 @@ import Footer from "@/components/footer"
 import Link from "next/link"
 import { ArrowLeft, Trash2, Plus, Minus, Save, AlertCircle, Check, Loader2, Search, X } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 import { useOrders } from "@/contexts/orders-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -50,6 +51,7 @@ export default function EditOrderPage() {
   const pedCodi = Number(params.id)
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { isVendedorSession } = useVendedor()
   const { getOrder, updateOrder, loadOrders } = useOrders()
   
   const [items, setItems] = useState<EditableItem[]>([])
@@ -68,7 +70,7 @@ export default function EditOrderPage() {
   const [loadingProducts, setLoadingProducts] = useState(false)
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !user && !isVendedorSession) {
       router.push("/")
       return
     }
@@ -77,7 +79,7 @@ export default function EditOrderPage() {
       loadOrder()
       loadAllProducts()
     }
-  }, [user, authLoading, pedCodi])
+  }, [user, authLoading, pedCodi, isVendedorSession])
 
   const loadAllProducts = async () => {
     // Ya no necesitamos cargar todos los productos

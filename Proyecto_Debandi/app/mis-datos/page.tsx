@@ -7,6 +7,7 @@ import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
 import { useAuth } from "@/contexts/auth-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 import { ApiService } from "@/services/api.service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,7 @@ import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react"
 
 export default function MisDatosPage() {
   const { user, loading, setUser } = useAuth()
+  const { isVendedorSession } = useVendedor()
   const router = useRouter()
   const [formData, setFormData] = useState({
     cli_precs1: "",
@@ -44,7 +46,7 @@ export default function MisDatosPage() {
 
   // Cargar datos del usuario
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isVendedorSession) {
       router.push("/")
     } else if (user) {
       const precs1 = typeof user.cli_precs1 === "number" ? user.cli_precs1.toString() : (user.cli_precs1 || "")
@@ -63,7 +65,7 @@ export default function MisDatosPage() {
       })
       setSavedValues(nuevosValores)
     }
-  }, [user, loading, router])
+  }, [user, loading, router, isVendedorSession])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

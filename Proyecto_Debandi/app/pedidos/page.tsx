@@ -46,7 +46,7 @@ interface Order {
 
 export default function OrdersPage() {
   const { user, loading, impersonation } = useAuth()
-  const { vendedor } = useVendedor()
+  const { vendedor, isVendedorSession } = useVendedor()
   const canSeeOrderOrigin = impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user?.ven_gere)
   const { orders: backendOrders, loading: ordersLoading, loadOrders: reloadOrders } = useOrders()
   const router = useRouter()
@@ -64,7 +64,7 @@ export default function OrdersPage() {
   }, [user])
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isVendedorSession) {
       router.push("/")
     } else if (user && backendOrders.length >= 0) {
       // Convertir datos del backend al formato esperado
@@ -97,7 +97,7 @@ export default function OrdersPage() {
       
       setOrders(formattedOrders)
     }
-  }, [user, loading, router, backendOrders])
+  }, [user, loading, router, backendOrders, isVendedorSession])
 
   const formatDate = (dateString: string, timeString?: string) => {
     // Parsear como fecha local (no como UTC)

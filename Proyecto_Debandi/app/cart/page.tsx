@@ -10,6 +10,7 @@ import CartSummary from "@/components/cart-summary"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 import { Button } from "@/components/ui/button"
 import { ExportUtils } from "@/lib/export-utils"
 import { CartService, type CartItem } from "@/services/cart.service"
@@ -28,6 +29,7 @@ export default function CartPage() {
     message: string;
   } | null>(null)
   const { user } = useAuth()
+  const { isVendedorSession } = useVendedor()
   const router = useRouter()
 
   const handleExportPDF = async () => {
@@ -95,7 +97,8 @@ export default function CartPage() {
   useEffect(() => {
     // Redirigir si no está logueado
     if (!user) {
-      router.push("/")
+      // Si es un vendedor saliendo de la impersonación, stopImpersonation ya redirige al panel
+      if (!isVendedorSession) router.push("/")
       return
     }
 
@@ -126,7 +129,7 @@ export default function CartPage() {
       window.removeEventListener("cartCleared", handleCartCleared)
       window.removeEventListener("cartUpdated", loadCart)
     }
-  }, [user, router])
+  }, [user, router, isVendedorSession])
 
   const updateCart = async (newItems: (Product & { quantity: number })[]) => {
     try {

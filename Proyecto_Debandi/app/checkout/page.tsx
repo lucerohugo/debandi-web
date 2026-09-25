@@ -13,10 +13,12 @@ import { CartService, type CartItem } from "@/services/cart.service"
 import { ApiService } from "@/services/api.service"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { useAuth } from "@/contexts/auth-context"
+import { useVendedor } from "@/contexts/vendedor-context"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { isVendedorSession } = useVendedor()
   const hasCreatedOrder = useRef(false)
   const hasAttemptedAutoCreate = useRef(false)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
@@ -49,7 +51,8 @@ export default function CheckoutPage() {
     }
 
     if (!user) {
-      router.push("/")
+      // Si es un vendedor saliendo de la impersonación, stopImpersonation ya redirige al panel
+      if (!isVendedorSession) router.push("/")
       return
     }
 
@@ -84,7 +87,7 @@ export default function CheckoutPage() {
     }
 
     loadCart()
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, isVendedorSession])
 
   // Efecto separado para crear pedido automáticamente si es necesario
   useEffect(() => {
