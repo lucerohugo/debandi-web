@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Clientes, Localidad, Registro
+from .models import Clientes, Registro
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +109,8 @@ def marcar_aprobacion_registro(sender, instance, **kwargs):
 @receiver(post_save, sender=Registro)
 def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
     """
-    Al aprobar un Registro (reg_clie False -> True) crea automáticamente el
-    Cliente correspondiente y envía el correo de aprobación. El Registro se
+    Al aprobar un Registro (reg_clie False -> True) envía el correo de
+    aprobación (el Cliente lo crea GeneXus, no Django). El Registro se
     mantiene (no se borra) para que siga viéndose en el admin. Centralizado
     aquí para que se dispare sin importar el origen del cambio (API o admin
     de Django).
@@ -118,21 +118,7 @@ def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
     if created or not getattr(instance, '_reg_clie_recien_aprobado', False):
         return
 
-    logger.info(f"Registro {instance.reg_codi} aprobado. Procesando creación de Cliente...")
-
-    try:
-        default_localidad = Localidad.objects.first()
-        if not default_localidad:
-            logger.error(
-                f"No hay localidades configuradas. No se puede crear Cliente para registro {instance.reg_codi}"
-            )
-            return
-    except Exception as e:
-        logger.error(
-            f"Error al obtener localidad por defecto para registro {instance.reg_codi}: {str(e)}",
-            exc_info=True
-        )
-        return
+    logger.info(f"Registro {instance.reg_codi} aprobado.")
 
     existing_cliente = Clientes.objects.filter(cli_emai=instance.reg_emai).first()
     if existing_cliente:
@@ -163,37 +149,9 @@ def aprobar_registro_y_crear_cliente(sender, instance, created, **kwargs):
             )
         return
 
-    try:
-        last_cliente = Clientes.objects.all().order_by('-cli_codi').first()
-        next_cli_codi = (last_cliente.cli_codi + 1) if last_cliente else 1
-    except Exception as e:
-        logger.error(
-            f"Error al generar cli_codi para registro {instance.reg_codi}: {str(e)}",
-            exc_info=True
-        )
-        return
-
-    try:
-        cliente = Clientes.objects.create(
-            cli_codi=next_cli_codi,
-            cli_nomb=instance.reg_nomb,
-            cli_ndoc=instance.reg_doc,
-            cli_cuit=instance.reg_cuit,
-            cli_emai=instance.reg_emai,
-            cli_celu=instance.reg_celu,
-            cli_clav=instance.reg_clav,  # Copiar hash directamente, NO re-hashear
-            loc_codi=default_localidad,
-            cli_acti=False  # Crear inactivo, se activa cuando admin cambia cli_acti a True
-        )
-        logger.info(
-            f"Cliente {cliente.cli_codi} creado automáticamente para registro {instance.reg_codi}"
-        )
-    except Exception as e:
-        logger.error(
-            f"Error al crear Cliente para registro {instance.reg_codi}: {str(e)}",
-            exc_info=True
-        )
-        return
+    # El Cliente NO se crea acá: lo da de alta GeneXus (con su propio
+    # cli_codi, localidad, zona y vendedor) y llega por /importar_datos/.
+    # Crearlo también desde Django generaba un Cliente duplicado.
 
     reg_nomb = instance.reg_nomb
     reg_emai = instance.reg_emai

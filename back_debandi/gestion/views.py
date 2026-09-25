@@ -510,9 +510,9 @@ Sistema Ferreterera Debandi
         # Responder inmediatamente con HTTP 201 (registro ya guardado)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-    # La aprobación de un Registro (transición reg_clie False -> True: crear
-    # el Cliente correspondiente y enviar el correo de aprobación, sin borrar
-    # el Registro) se maneja centralizada en signals.py, disparada por
+    # La aprobación de un Registro (transición reg_clie False -> True: enviar
+    # el correo de aprobación, sin borrar el Registro ni crear el Cliente,
+    # que lo da de alta GeneXus) se maneja centralizada en signals.py, disparada por
     # Model.save() sin importar el origen (API, admin de Django, shell,
     # scripts).
 
@@ -542,8 +542,8 @@ Sistema Ferreterera Debandi
 
         # Se guarda registro por registro (en vez de un bulk .update()) para
         # que se disparen los signals de pre_save/post_save de Registro
-        # (ver signals.py), igual que hace el admin de Django: crea el
-        # Cliente correspondiente y envía el correo de aprobación al pasar
+        # (ver signals.py), igual que hace el admin de Django: envía el
+        # correo de aprobación (el Cliente lo crea GeneXus) al pasar
         # reg_clie de False a True (el Registro no se borra).
         registros = list(Registro.objects.filter(reg_codi__in=reg_codis, reg_clie=False))
 
