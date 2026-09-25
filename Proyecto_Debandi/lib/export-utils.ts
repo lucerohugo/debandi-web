@@ -187,6 +187,75 @@ export class ExportUtils {
   }
 
   /**
+   * Exporta el listado de productos a PDF.
+   * `headers` y cada fila de `rows` deben tener la misma cantidad de columnas;
+   * las dos primeras son Código y Producto, el resto son precios (alineados a la derecha).
+   */
+  static async exportarListadoPDF(headers: string[], rows: Array<Array<string | number>>): Promise<void> {
+    const jsPDF = (await import('jspdf')).jsPDF;
+    const autoTable = (await import('jspdf-autotable')).default;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('LISTADO DE PRODUCTOS - DEBANDI', 14, 18);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 26);
+
+    const columnStyles: Record<number, any> = {
+      0: { halign: 'center', cellWidth: 18 },
+      1: { halign: 'left', cellWidth: 'auto' },
+    };
+    for (let i = 2; i < headers.length; i++) {
+      columnStyles[i] = { halign: 'right', cellWidth: 30 };
+    }
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 32,
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: {
+        fillColor: [2, 142, 249], // Azul #028EF9
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      bodyStyles: { textColor: [0, 0, 0] },
+      alternateRowStyles: { fillColor: [240, 240, 240] },
+      columnStyles,
+    });
+
+    doc.save(`listado-productos-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
+  /**
+   * Exporta el listado de productos a Excel.
+   * Las columnas de precio se guardan como números para que se puedan operar en la planilla.
+   */
+  static async exportarListadoExcel(headers: string[], rows: Array<Array<string | number>>): Promise<void> {
+    const XLSX = await import('xlsx');
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    worksheet['!cols'] = headers.map((_, i) => ({ wch: i === 0 ? 10 : i === 1 ? 60 : 18 }));
+
+    // Formato numérico con 2 decimales para las columnas de precio
+    for (let r = 1; r <= rows.length; r++) {
+      for (let c = 2; c < headers.length; c++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
+        if (cell && typeof cell.v === 'number') cell.z = '#,##0.00';
+      }
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+    XLSX.writeFile(workbook, `listado-productos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  /**
    * Exporta un pedido específico a PDF (con sus artículos)
    */
   static async exportarPedidoPDF(

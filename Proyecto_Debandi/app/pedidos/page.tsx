@@ -18,6 +18,7 @@ import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 interface OrderItem {
   art_codi: number
   art_nomb: string
+  art_cn?: string | null
   art_pnet: number
   art_pfin: number
   quantity: number
@@ -85,6 +86,7 @@ export default function OrdersPage() {
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,
           art_nomb: det.art_nomb,
+          art_cn: det.art_cn,
           art_pnet: det.art_pfin,  // Usar art_pfin como pnet para cálculos
           art_pfin: det.art_pfin,
           quantity: det.dpe_cant,  // Usar dpe_cant (cantidad pedida)
@@ -397,6 +399,11 @@ export default function OrdersPage() {
                               <h5 className="font-medium text-foreground line-clamp-2">
                                 {item.art_nomb}
                               </h5>
+                              {item.art_cn && (
+                                <p className="text-sm text-foreground mt-0.5">
+                                  Código: {item.art_cn}
+                                </p>
+                              )}
                               <p className="text-sm text-muted-foreground mt-1">
                                 Cantidad: {item.quantity} × {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))} c/u
                               </p>

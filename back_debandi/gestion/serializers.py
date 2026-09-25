@@ -313,6 +313,7 @@ class CarritoItemSerializer(serializers.ModelSerializer):
 class DetallePedidoSerializer(serializers.ModelSerializer):
     """Serializer para líneas de pedido con datos del artículo"""
     art_nomb = serializers.CharField(source='art_codi.art_nomb', read_only=True)
+    art_cn = serializers.CharField(source='art_codi.art_cn', read_only=True, allow_null=True)
     art_pnet = serializers.DecimalField(
         source='art_codi.art_pnet',
         max_digits=12,
@@ -335,10 +336,10 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = DetallePedido
         fields = [
-            'dpe_codi', 'ped_codi', 'art_codi', 'art_nomb', 'dpe_cant',
+            'dpe_codi', 'ped_codi', 'art_codi', 'art_nomb', 'art_cn', 'dpe_cant',
             'art_pnet', 'art_pfin', 'art_descu', 'art_stk', 'art_img1_url'
         ]
-        read_only_fields = ['dpe_codi', 'ped_codi', 'art_nomb', 'art_pnet', 'art_pfin', 'art_descu', 'art_stk', 'art_img1_url']
+        read_only_fields = ['dpe_codi', 'ped_codi', 'art_nomb', 'art_cn', 'art_pnet', 'art_pfin', 'art_descu', 'art_stk', 'art_img1_url']
 
     def get_art_pfin(self, obj):
         return obj.precio_final

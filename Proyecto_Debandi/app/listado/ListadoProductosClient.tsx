@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ShoppingCart, Eye, Search, X } from "lucide-react"
+import { ShoppingCart, Eye, Search, X, FileText, FileSpreadsheet } from "lucide-react"
 import SiteHeader from "@/components/site-header"
 import NavigationBar from "@/components/navigation-bar"
 import Footer from "@/components/footer"
@@ -119,40 +119,78 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
     setCurrentPage(1)
   }, [initialSearch])
 
-  const handleExportPDF = async () => {
-    setIsExporting(true)
-    setNotificationType("loading")
-    setNotificationMessage("Descargando PDF, espere...")
-    setShowNotification(true)
-    try {
-      await ExportUtils.exportarPDF()
-      setNotificationType("success")
-      setNotificationMessage("PDF descargado exitosamente")
-      setTimeout(() => setShowNotification(false), 3000)
-    } catch (error) {
-      console.error("Error al exportar PDF:", error)
-      setNotificationType("error")
-      setNotificationMessage("Error al exportar PDF")
-      setTimeout(() => setShowNotification(false), 5000)
-    } finally {
-      setIsExporting(false)
+  // Trae todos los productos de la búsqueda actual (el backend limita page_size a 100)
+  const fetchAllProductsForExport = async (): Promise<Product[]> => {
+    const pageSize = 100
+    const search = searchQuery.trim()
+    const buildUrl = (page: number) =>
+      search
+        ? `/articulos/?search=${encodeURIComponent(search)}&page=${page}&page_size=${pageSize}`
+        : `/articulos/?page=${page}&page_size=${pageSize}`
+
+    const first = await ApiService.get<any>(buildUrl(1))
+    const all: Product[] = [...(first?.results || [])]
+    const pages = Math.ceil((first?.count || 0) / pageSize)
+
+    // Pedir el resto de las páginas en tandas para no saturar el backend
+    const batchSize = 5
+    for (let start = 2; start <= pages; start += batchSize) {
+      const batch = []
+      for (let p = start; p < start + batchSize && p <= pages; p++) {
+        batch.push(ApiService.get<any>(buildUrl(p)))
+      }
+      const responses = await Promise.all(batch)
+      responses.forEach((r) => all.push(...(r?.results || [])))
     }
+    return all
   }
 
-  const handleExportExcel = async () => {
+  // Arma columnas y filas según la configuración de Mis Datos (IVA y márgenes; el descuento no se aplica)
+  const buildExportData = (list: Product[]) => {
+    const margen1 = Number(user?.cli_precs1 || 0)
+    const margen2 = Number(user?.cli_precs2 || 0)
+    const headers = ["Código", "Producto"]
+    if (user) {
+      headers.push(`Precio ${mostrarIVA ? "CON/ IVA" : "SIN/ IVA"}`)
+      if (margen1 > 0) headers.push("Precio Sugerido 1")
+      if (margen2 > 0) headers.push("Precio Sugerido 2")
+    }
+    const rows = list.map((p) => {
+      const row: Array<string | number> = [p.art_codi, p.art_nomb]
+      if (user) {
+        const base = Math.round(Number(mostrarIVA ? p.art_pfin : p.art_pnet) * 100) / 100
+        row.push(base)
+        if (margen1 > 0) row.push(calculatePriceWithMargin(base, margen1))
+        if (margen2 > 0) row.push(calculatePriceWithMargin(base, margen2))
+      }
+      return row
+    })
+    return { headers, rows }
+  }
+
+  const handleExport = async (tipo: "pdf" | "excel") => {
+    const label = tipo === "pdf" ? "PDF" : "Excel"
     setIsExporting(true)
     setNotificationType("loading")
-    setNotificationMessage("Descargando Excel, espere...")
+    setNotificationMessage(`Generando ${label}, espere...`)
     setShowNotification(true)
     try {
-      await ExportUtils.exportarExcel()
+      const list = await fetchAllProductsForExport()
+      const { headers, rows } = buildExportData(list)
+      if (tipo === "pdf") {
+        // En el PDF los precios van formateados; en el Excel quedan como números
+        const pdfRows = rows.map((r) => r.map((v, i) => (i >= 2 ? formatCurrencySpanish(Number(v)) : v)))
+        await ExportUtils.exportarListadoPDF(headers, pdfRows)
+      } else {
+        await ExportUtils.exportarListadoExcel(headers, rows)
+      }
       setNotificationType("success")
-      setNotificationMessage("Excel descargado exitosamente")
+      setNotificationMessage(`${label} descargado exitosamente`)
       setTimeout(() => setShowNotification(false), 3000)
     } catch (error) {
-      console.error("Error al exportar Excel:", error)
+      console.error(`Error al exportar ${label}:`, error)
       setNotificationType("error")
-      setNotificationMessage("Error al exportar Excel")
+      setNotificationMessage(`Error al exportar ${label}`)
       setTimeout(() => setShowNotification(false), 5000)
     } finally {
       setIsExporting(false)
@@ -414,7 +452,14 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {/* Export buttons commented out */}
+            <Button variant="outline" onClick={() => handleExport("pdf")} disabled={isExporting}>
+              <FileText className="w-4 h-4 mr-2" />
+              Exportar PDF
+            </Button>
+            <Button variant="outline" onClick={() => handleExport("excel")} disabled={isExporting}>
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Exportar Excel
+            </Button>
           </div>
         </div>
 

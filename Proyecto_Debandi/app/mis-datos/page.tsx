@@ -207,14 +207,31 @@ export default function MisDatosPage() {
 
       <main className="flex-1 container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-6 flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Volver
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Volver
+              </Button>
+            </Link>
+            <h1 className="text-2xl sm:text-3xl font-bold whitespace-nowrap">Mis Datos</h1>
+          </div>
+          {/* nuevo */}
+          <div className="flex gap-3 w-full sm:w-auto sm:ml-auto">
+            <Link href="/" className="flex-1 sm:flex-none">
+              <Button variant="outline" className="w-full">Cancelar</Button>
+            </Link>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 sm:flex-none gap-2 bg-primary hover:bg-primary/90"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "Guardando..." : "Guardar"}
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">Mis Datos</h1>
+          </div>
+          {/* nuevo */}
         </div>
 
         {/* Notificación - AL INICIO */}
@@ -379,7 +396,7 @@ export default function MisDatosPage() {
           </CardContent>
         </Card>
 
-        {/* Botones de acción */}
+        {/* Botones de acción
         <div className="flex gap-3">
           <Button
             onClick={handleSave}
@@ -392,7 +409,7 @@ export default function MisDatosPage() {
           <Link href="/">
             <Button variant="outline">Cancelar</Button>
           </Link>
-        </div>
+        </div> */}
       </main>
 
       <Footer />

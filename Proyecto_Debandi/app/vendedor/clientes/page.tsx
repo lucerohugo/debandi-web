@@ -278,7 +278,7 @@ export default function VendedorClientesPage() {
                   ) : (
                     clientes.map((cliente) => (
                       <TableRow key={cliente.cli_codi}>
-                        <TableCell className="font-mono text-sm">
+                        <TableCell className="font-medium text-sm">
                           {cliente.cli_codi}
                         </TableCell>
                         <TableCell className="font-medium">
