@@ -49,6 +49,14 @@ interface Cliente {
   cli_acti?: boolean | null
 }
 
+// Formatea el CUIT como XX-XXXXXXXX-X; si no tiene 11 dígitos lo muestra tal cual
+function formatCuit(cuit?: string) {
+  if (!cuit || cuit === "0") return "-"
+  const digits = cuit.replace(/\D/g, "")
+  if (digits.length !== 11) return cuit
+  return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
+}
+
 export default function VendedorClientesPage() {
   const router = useRouter()
   const { vendedor, isVendedorSession, loading: vendedorLoading, getClientes, impersonate } = useVendedor()
@@ -229,7 +237,7 @@ export default function VendedorClientesPage() {
                   <TableRow>
                     <TableHead>Código</TableHead>
                     <TableHead>Nombre</TableHead>
-                    <TableHead className="hidden md:table-cell">DNI/CUIT</TableHead>
+                    <TableHead className="hidden md:table-cell">CUIT</TableHead>
                     <TableHead className="hidden lg:table-cell">Email</TableHead>
                     <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
                     <TableHead className="hidden xl:table-cell">Localidad</TableHead>
@@ -285,7 +293,7 @@ export default function VendedorClientesPage() {
                           {cliente.cli_nomb || "-"}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {cliente.cli_ndoc || cliente.cli_cuit || "-"}
+                          {formatCuit(cliente.cli_cuit)}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                           {cliente.cli_emai || "-"}

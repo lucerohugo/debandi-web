@@ -152,7 +152,7 @@ def desactivar_clientes(modeladmin, request, queryset):
 
 @admin.register(Clientes)
 class ClientesAdmin(admin.ModelAdmin):
-    list_display = ['cli_codi', 'cli_nomb', 'cli_emai', 'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
+    list_display = ['cli_codi', 'cli_nomb', 'cli_emai','cli_cuit' ,'loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     list_filter = ['loc_codi', 'zon_codi', 'ven_codi', 'cli_acti']
     search_fields = ['cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_cuit', 'ven_codi__ven_nomb']
     readonly_fields = ['cli_fchc', 'cli_fmod']
