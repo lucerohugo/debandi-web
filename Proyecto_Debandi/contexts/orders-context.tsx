@@ -37,7 +37,7 @@ interface OrdersContextType {
   loading: boolean
   loadOrders: () => Promise<void>
   getOrder: (pedCodi: number) => Promise<Order | null>
-  updateOrder: (pedCodi: number, items: any[], formaPago?: string) => Promise<boolean>
+  updateOrder: (pedCodi: number, items: any[], formaPago?: string, observacion?: string | null) => Promise<boolean>
   deleteOrder: (pedCodi: number) => Promise<boolean>
 }
 
@@ -110,11 +110,13 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const updateOrder = async (pedCodi: number, items: any[], formaPago?: string): Promise<boolean> => {
+  const updateOrder = async (pedCodi: number, items: any[], formaPago?: string, observacion?: string | null): Promise<boolean> => {
     try {
       const payload = {
         cli_codi: items[0]?.cli_codi || 1, // Obtener cli_codi del contexto o usar el que viene
         ped_fpag: formaPago || 'CDO',
+        // Solo se envía si viene definida; string vacío limpia la observación
+        ...(observacion !== undefined && { ped_obse: observacion?.trim() || null }),
         detalles: items.map(item => ({
           art_codi: item.art_codi,
           dpe_cant: item.quantity || item.dpe_cant

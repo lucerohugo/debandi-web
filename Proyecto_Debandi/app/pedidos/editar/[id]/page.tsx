@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import SiteHeader from "@/components/site-header"
 import Footer from "@/components/footer"
@@ -12,6 +12,7 @@ import { useOrders } from "@/contexts/orders-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { formatCurrencySpanish } from "@/lib/format"
 import { ApiService } from "@/services/api.service"
 import { SearchService } from "@/services/search.service"
@@ -61,6 +62,12 @@ export default function EditOrderPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Observación del pedido (ped_obse)
+  const OBSERVACION_MAX_LENGTH = 110
+  const [observacion, setObservacion] = useState("")
+  const [originalObservacion, setOriginalObservacion] = useState("")
+  const observacionRef = useRef<HTMLTextAreaElement>(null)
   
   // Estado para búsqueda de productos
   const [showProductSearch, setShowProductSearch] = useState(false)
@@ -171,6 +178,8 @@ export default function EditOrderPage() {
       
       setItems(editableItems)
       setOriginalItems(JSON.parse(JSON.stringify(editableItems)))
+      setObservacion(order.ped_obse || "")
+      setOriginalObservacion(order.ped_obse || "")
     } catch (err) {
       setError("Error al cargar el pedido")
     } finally {
@@ -247,6 +256,17 @@ export default function EditOrderPage() {
     setTimeout(() => setNotification(null), 2000)
   }
 
+  const handleObservacionInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target
+    if (/[ñÑ]/.test(textarea.value)) {
+      textarea.setCustomValidity("La observación no puede contener la letra Ñ")
+    } else {
+      textarea.setCustomValidity("")
+    }
+    textarea.reportValidity()
+    setObservacion(textarea.value.slice(0, OBSERVACION_MAX_LENGTH))
+  }
+
   const activeItems = items.filter(item => !item.removed)
   
   const calculateTotal = () => {
@@ -254,6 +274,9 @@ export default function EditOrderPage() {
   }
 
   const hasChanges = () => {
+    // Si cambió la observación
+    if (observacion.trim() !== originalObservacion.trim()) return true
+
     // Si hay items nuevos, hay cambios
     if (activeItems.some(item => item.isNew)) return true
     
@@ -280,6 +303,13 @@ export default function EditOrderPage() {
       return
     }
 
+    if (/[ñÑ]/.test(observacion)) {
+      observacionRef.current?.setCustomValidity("La observación no puede contener la letra Ñ")
+      observacionRef.current?.reportValidity()
+      observacionRef.current?.focus()
+      return
+    }
+
     try {
       setSaving(true)
       
@@ -289,7 +319,7 @@ export default function EditOrderPage() {
         cli_codi: orderInfo?.cli_codi
       }))
       
-      const success = await updateOrder(pedCodi, itemsToSave, orderInfo?.ped_fpag)
+      const success = await updateOrder(pedCodi, itemsToSave, orderInfo?.ped_fpag, observacion)
       
       if (success) {
         setNotification({
@@ -618,6 +648,28 @@ export default function EditOrderPage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Observaciones agregado para cuando edita el pedido(ped_obse) */}
+        <Card className="mb-6">
+          <CardContent className="py-6 space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="ped_obse" className="text-sm font-medium text-foreground">
+                Observaciones <span className="text-muted-foreground font-normal">(opcional)</span>
+              </label>
+              <span className="text-xs text-muted-foreground">
+                {observacion.length}/{OBSERVACION_MAX_LENGTH}
+              </span>
+            </div>
+            <Textarea
+              id="ped_obse"
+              ref={observacionRef}
+              value={observacion}
+              onChange={handleObservacionInput}
+              maxLength={OBSERVACION_MAX_LENGTH}
+              className="w-full min-h-20 resize-none"
+            />
           </CardContent>
         </Card>
 
