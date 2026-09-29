@@ -292,7 +292,7 @@ class PedidosAdmin(admin.ModelAdmin):
     def cliente_info(self, obj):
         """Mostrar nombre y documento del cliente"""
         if obj.cli_codi:
-            return f"{obj.cli_codi.cli_nomb} ({obj.cli_codi.cli_ndoc})"
+            return f"{obj.cli_codi.cli_nomb} ({obj.cli_codi.cli_codi})" #que me muestre en pedidos el nomb cliente y codigo cliente
         return "-"
     cliente_info.short_description = "Cliente"
     
