@@ -451,16 +451,18 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
               Selecciona los productos que deseas y agrega al carrito
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => handleExport("pdf")} disabled={isExporting}>
-              <FileText className="w-4 h-4 mr-2" />
-              Exportar PDF
-            </Button>
-            <Button variant="outline" onClick={() => handleExport("excel")} disabled={isExporting}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Exportar Excel
-            </Button>
-          </div>
+          {user && (
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => handleExport("pdf")} disabled={isExporting}>
+                <FileText className="w-4 h-4 mr-2" />
+                Exportar PDF
+              </Button>
+              <Button variant="outline" onClick={() => handleExport("excel")} disabled={isExporting}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
