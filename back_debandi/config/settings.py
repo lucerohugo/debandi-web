@@ -168,8 +168,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://debandi-web.vercel.app",
     "https://www.ferreteradebandi.online", #nuevo dominio
-    "https://ferreteradebandi.online", #dominio raiz(recomendado)
-    
+    "https://ferreteradebandi.online", #dominio raiz(recomendado) a futuro voy a sacar este
+    #nuevo dominio frontend
+    "https://ferreteradebandi.com.ar"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
