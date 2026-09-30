@@ -86,7 +86,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   }
 
-  const handleDireccionEntregaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // type="email" no soporta selectionStart, solo reasignamos si hay mayusculas
+    const input = e.target
+    const lower = input.value.toLowerCase() //hago lowercase para que sea todo minisculas el loguin de reg_emai 
+    if (input.value !== lower) {
+      input.value = lower
+    }
+  }
+
+  const handleDireccionEntregaChange =(e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target
     if (/[ñÑ]/.test(input.value)) {
       input.setCustomValidity("La dirección de entrega no puede contener la letra Ñ")
@@ -159,7 +168,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setLoading(true)
 
     const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
+    const email = ((formData.get("email") as string) || "").trim().toLowerCase()
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirmPassword") as string
     const nombre = formData.get("nombre") as string
@@ -359,6 +368,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       name="email"
                       type="email"
                       placeholder="tu@email.com"
+                      className="lowercase"
+                      autoCapitalize="none"
+                      onChange={handleEmailChange}
                       required
                       disabled={loading}
                     />

@@ -211,7 +211,7 @@ export default function VendedorClientesPage() {
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nombre, DNI, email..."
+                  placeholder="Buscar por nombre, CUIT o email..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"

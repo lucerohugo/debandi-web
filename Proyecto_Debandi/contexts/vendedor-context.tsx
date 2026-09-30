@@ -126,7 +126,7 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
 
       const estadoParam = estado ? `&cli_acti=${estado}` : ''
       const data = await ApiService.get<any>(
-        `clientes/?ven_codi=${ven_codi}&search=${search}&page=${page}${estadoParam}`
+        `clientes/?ven_codi=${ven_codi}&search=${encodeURIComponent(search)}&page=${page}${estadoParam}`
       )
       return {
         clientes: data.results || data,

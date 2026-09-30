@@ -7,7 +7,8 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction, connection
-from django.db.models import Q, Min, Max
+from django.db.models import Q, Min, Max, Value
+from django.db.models.functions import Replace
 from datetime import datetime
 from django.http import FileResponse, JsonResponse
 from django.core.mail import send_mail
@@ -21,6 +22,7 @@ from .permissions import SimpleJWTAuthentication, APIKeyAuthentication, IsAuthen
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
+import re
 import logging
 import threading
 import time
@@ -576,7 +578,11 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     # no matchea los registros con cli_acti=NULL, que la UI también
     # considera "Inhabilitado".
     filterset_fields = ['loc_codi']
-    search_fields = ['cli_nomb', 'cli_ndoc', 'cli_emai']
+    # La búsqueda (?search=) se resuelve a mano en get_queryset: por nombre,
+    # email o CUIT, este último ignorando guiones/espacios para que
+    # "30-71699661-8" y "30716996618" matcheen igual sin importar cómo esté
+    # guardado. Sin search_fields, SearchFilter no vuelve a filtrar encima.
+    search_fields = []
     ordering = ['cli_nomb']
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -614,6 +620,23 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
                 queryset = queryset.filter(
                     Q(cli_acti=False) | Q(cli_acti__isnull=True)
                 )
+
+        # Búsqueda por nombre, CUIT o email (cada palabra debe matchear en
+        # alguno de los tres campos, igual que SearchFilter).
+        search = (self.request.query_params.get('search') or '').strip()
+        if search:
+            queryset = queryset.annotate(
+                cuit_digits=Replace(
+                    Replace('cli_cuit', Value('-'), Value('')),
+                    Value(' '), Value('')
+                )
+            )
+            for term in search.split():
+                cond = Q(cli_nomb__icontains=term) | Q(cli_emai__icontains=term)
+                cuit_term = re.sub(r'[\s-]', '', term)
+                if cuit_term:
+                    cond |= Q(cuit_digits__icontains=cuit_term)
+                queryset = queryset.filter(cond)
 
         return queryset
 
