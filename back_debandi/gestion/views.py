@@ -220,14 +220,36 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     ordering = ['art_nomb']
     authentication_classes = []
 
+    def _incluir_ocultos(self):
+        """
+        True si la request pide ?incluir_ocultos=1 y viene de un vendedor activo
+        (JWT con claim 'vendedor_suplantante'). Lo usa el Panel de Vendedor para ver
+        y exportar también los artículos con art_visw=False. El vendedor navegando la
+        tienda como cliente no manda el parámetro, así que ahí siguen ocultos.
+        """
+        if self.request.query_params.get('incluir_ocultos') not in ('1', 'true'):
+            return False
+        auth_header = self.request.META.get('HTTP_AUTHORIZATION', '')
+        if not auth_header.startswith('Bearer '):
+            return False
+        try:
+            token = AccessToken(auth_header[7:].strip())
+        except TokenError:
+            return False
+        ven_codi = token.get('vendedor_suplantante')
+        if not ven_codi:
+            return False
+        return Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1).exists()
+
     def get_queryset(self):
         """
         Oculta artículos con art_visw=False/NULL (S/N-vacío desde el importador) en
         todas las lecturas públicas del catálogo. retrieve/update/partial_update/destroy
         quedan sin filtrar para no bloquear la gestión interna (Django admin) de artículos ocultos.
+        El Panel de Vendedor ve todos (ver _incluir_ocultos).
         """
         queryset = super().get_queryset()
-        if self.action not in ('retrieve', 'update', 'partial_update', 'destroy'):
+        if self.action not in ('retrieve', 'update', 'partial_update', 'destroy') and not self._incluir_ocultos():
             queryset = queryset.filter(art_visw=True)
         return queryset
 
@@ -274,7 +296,9 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
         al publico sin iniciar sesion no incluye precios"""
         try:
             incluir_precios = bool(request.user and request.user.is_authenticated)
-            excel_file = ExcelService.generar_excel(incluir_precios=incluir_precios)
+            excel_file = ExcelService.generar_excel(
+                incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
+            )
 
             # Crear respuesta con descarga
             response = FileResponse(
@@ -299,7 +323,9 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
         al publico sin iniciar sesion no incluye precios"""
         try:
             incluir_precios = bool(request.user and request.user.is_authenticated)
-            pdf_file = PDFService.generar_pdf(incluir_precios=incluir_precios)
+            pdf_file = PDFService.generar_pdf(
+                incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
+            )
 
             # Crear respuesta con descarga
             response = FileResponse(

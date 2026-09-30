@@ -86,7 +86,8 @@ export default function VendedorArticulosPage() {
     setError("")
 
     try {
-      let url = `/articulos/?page=${page}&page_size=${limit}`
+      // incluir_ocultos: el vendedor ve también los artículos no visibles en web (art_visw=False)
+      let url = `/articulos/?page=${page}&page_size=${limit}&incluir_ocultos=1`
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}`
       }
@@ -127,9 +128,9 @@ export default function VendedorArticulosPage() {
     setError("")
     try {
       if (formato === "pdf") {
-        await ExportUtils.exportarPDF()
+        await ExportUtils.exportarPDF(true)
       } else {
-        await ExportUtils.exportarExcel()
+        await ExportUtils.exportarExcel(true)
       }
     } catch (err: any) {
       setError(err.message || `Error al exportar ${formato === "pdf" ? "PDF" : "Excel"}`)

@@ -61,18 +61,22 @@ class PDFService:
             return None
 
     @staticmethod
-    def generar_pdf(incluir_precios: bool = True):
+    def generar_pdf(incluir_precios: bool = True, incluir_ocultos: bool = False):
         """
         Genera un archivo PDF con todos los artículos en formato tabla.
 
         Args:
             incluir_precios: si es False, omite las columnas de precio
                 (usado para exportaciones públicas sin sesión iniciada).
+            incluir_ocultos: si es True, incluye también los artículos con
+                art_visw=False (usado por el Panel de Vendedor).
 
         Retorna: BytesIO con el contenido del archivo PDF
         """
-        
-        articulos = Articulo.objects.filter(art_visw=True)
+
+        articulos = Articulo.objects.all()
+        if not incluir_ocultos:
+            articulos = articulos.filter(art_visw=True)
         
         # Crear BytesIO
         output = BytesIO()

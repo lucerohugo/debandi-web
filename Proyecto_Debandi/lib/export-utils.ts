@@ -21,11 +21,12 @@ export class ExportUtils {
   /**
    * Exporta todos los artículos a Excel
    * Descarga automáticamente el archivo
+   * incluirOcultos: también los no visibles en web (solo Panel de Vendedor)
    */
-  static async exportarExcel(): Promise<void> {
+  static async exportarExcel(incluirOcultos = false): Promise<void> {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/${incluirOcultos ? '?incluir_ocultos=1' : ''}`,
         {
           method: 'GET',
           headers: await authHeaders(),
@@ -59,11 +60,12 @@ export class ExportUtils {
   /**
    * Exporta todos los artículos a PDF
    * Descarga automáticamente el archivo
+   * incluirOcultos: también los no visibles en web (solo Panel de Vendedor)
    */
-  static async exportarPDF(): Promise<void> {
+  static async exportarPDF(incluirOcultos = false): Promise<void> {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/${incluirOcultos ? '?incluir_ocultos=1' : ''}`,
         {
           method: 'GET',
           headers: await authHeaders(),
