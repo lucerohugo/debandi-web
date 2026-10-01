@@ -170,7 +170,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.ferreteradebandi.online", #nuevo dominio
     "https://ferreteradebandi.online", #dominio raiz(recomendado) a futuro voy a sacar este
     #nuevo dominio frontend
-    "https://ferreteradebandi.com.ar"
+    "https://www.ferreteradebandi.com.ar",
+    "https://ferreteradebandi.com.ar",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
