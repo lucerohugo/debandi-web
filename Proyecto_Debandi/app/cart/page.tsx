@@ -208,7 +208,7 @@ export default function CartPage() {
 
         {/* Sección de Exportación del Carrito */}
         {/* comentar dsp para no mezclar el exportar de mis pedidos ,que sea confuso con este */}
-        {items.length > 0 && (
+        {/* {items.length > 0 && (
           <div className="bg-card border border-border rounded-lg p-6 mt-8">
             <h2 className="text-xl font-bold text-foreground mb-4">Exportar Carrito</h2>
             <p className="text-muted-foreground mb-4">
@@ -231,7 +231,7 @@ export default function CartPage() {
               </Button>
             </div>
           </div>
-        )}
+        )} */}
       </main>
 
       <Footer />

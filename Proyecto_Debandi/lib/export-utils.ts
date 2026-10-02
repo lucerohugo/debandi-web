@@ -270,7 +270,8 @@ export class ExportUtils {
     orderNumber: string,
     orderDate?: string,
     orderTime?: string,
-    orderObs?: string | null
+    orderObs?: string | null,
+    cliente?: { cli_nomb?: string | null; loc_nomb?: string | null }
   ): Promise<void> {
     try {
       const jsPDF = (await import('jspdf')).jsPDF;
@@ -305,6 +306,24 @@ export class ExportUtils {
       doc.text(`Fecha: ${fechaDisplay}`, 20, 30);
       doc.text(`Hora: ${horaDisplay}`, 20, 37);
 
+      // Datos del cliente en una segunda columna, a la altura de fecha/hora
+      const clienteX = 105;
+      if (cliente?.cli_nomb) doc.text(`Cliente: ${cliente.cli_nomb}`, clienteX, 30);
+      if (cliente?.loc_nomb) doc.text(`Localidad: ${cliente.loc_nomb}`, clienteX, 37);
+
+      // Observaciones debajo de la hora (si es que hay); la tabla arranca después
+      let tablaY = 45;
+      if (orderObs && orderObs.trim()) {
+        const obsLabel = 'Observaciones: ';
+        doc.setFont('Helvetica', 'bold');
+        doc.text(obsLabel, 20, 44);
+        const labelWidth = doc.getTextWidth(obsLabel);
+        doc.setFont('Helvetica', 'normal');
+        const obsLines = doc.splitTextToSize(orderObs.trim(), doc.internal.pageSize.getWidth() - 40 - labelWidth);
+        doc.text(obsLines, 20 + labelWidth, 44);
+        tablaY = 44 + obsLines.length * 5 + 4;
+      }
+
       // Preparar datos de la tabla
       const tableData = items.map((item) => {
         const price = Number(item.price) || 0;
@@ -329,7 +348,7 @@ export class ExportUtils {
       autoTable(doc, {
         head: [['Codigo', 'Producto', 'Cantidad', 'Precio Unit.', 'Subtotal']],
         body: tableData,
-        startY: 45,
+        startY: tablaY,
         margin: { left: 14, right: 14 },
         styles: {
           fontSize: 8,
@@ -363,18 +382,6 @@ export class ExportUtils {
       doc.text(`TOTAL: $${total.toFixed(2)}`, doc.internal.pageSize.getWidth() - 30, finalY + 15, {
         align: 'right',
       });
-
-      // Observaciones del pedido (si las hay)
-      if (orderObs && orderObs.trim()) {
-        const obsY = finalY + 27;
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('Observaciones:', 20, obsY);
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(9);
-        const obsLines = doc.splitTextToSize(orderObs.trim(), doc.internal.pageSize.getWidth() - 40);
-        doc.text(obsLines, 20, obsY + 6);
-      }
 
       // Pie de página
       doc.setFont('Helvetica', 'normal');

@@ -359,7 +359,9 @@ export class ApiService {
     const response = await fetch(buildApiUrl(getApiUrl(), endpoint), fetchOptions)
 
     if (!response.ok) await throwForErrorResponse(response)
-    return response.json()
+    // DRF responde 204 sin cuerpo al eliminar; response.json() fallaría
+    const text = await response.text()
+    return (text ? JSON.parse(text) : null) as T
   }
 
   /**

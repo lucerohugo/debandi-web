@@ -362,6 +362,7 @@ class PedidosSerializer(serializers.ModelSerializer):
     cli_emai = serializers.CharField(source='cli_codi.cli_emai', read_only=True, allow_null=True)
     cli_tele = serializers.CharField(source='cli_codi.cli_tele', read_only=True, allow_null=True)
     cli_dire = serializers.CharField(source='cli_codi.cli_dire', read_only=True, allow_null=True)
+    loc_nomb = serializers.CharField(source='cli_codi.loc_codi.loc_nomb', read_only=True, allow_null=True)
     detalles = DetallePedidoSerializer(many=True, read_only=True)
     ped_fechCr = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
     ped_fechEd = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
@@ -369,14 +370,14 @@ class PedidosSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedidos
         fields = [
-            'ped_codi', 'ped_fech', 'ped_hora', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
+            'ped_codi', 'ped_fech', 'ped_hora', 'cli_codi', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire', 'loc_nomb',
             'ped_tota', 'ped_fpag', 'ped_obse',
             'ped_exp', 'ped_fexp',
             'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
             'detalles'
         ]
         read_only_fields = [
-            'ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire',
+            'ped_codi', 'ped_tota', 'ped_fexp', 'cli_nomb', 'cli_ndoc', 'cli_emai', 'cli_tele', 'cli_dire', 'loc_nomb',
             'ped_crea', 'ped_fechCr', 'ped_edit', 'ped_fechEd',
         ]
 

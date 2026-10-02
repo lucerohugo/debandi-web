@@ -772,6 +772,7 @@ class CarritoItemViewSet(BaseViewSet):
     serializer_class = CarritoItemSerializer
     filterset_fields = ['cli_codi']
     ordering = ['-carr_fmod']
+    pagination_class = None  # El frontend lee el carrito completo; paginado a 20 se perdían items
     permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
     authentication_classes = []
 
@@ -899,7 +900,7 @@ class PedidosViewSet(BaseViewSet):
         Filtrar pedidos por cliente y optimizar queries con select_related y prefetch_related
         """
         queryset = super().get_queryset().select_related(
-            'cli_codi'
+            'cli_codi__loc_codi'
         ).prefetch_related(
             'detalles__art_codi'
         )
@@ -961,6 +962,19 @@ class PedidosViewSet(BaseViewSet):
         self._marcar_edicion(pedido, request)
         return super().partial_update(request, *args, **kwargs)
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Permitir eliminar solo si el pedido está pendiente (ped_exp = False);
+        uno procesado ya fue exportado a GeneXus y borrarlo acá no lo anula allá
+        """
+        pedido = self.get_object()
+        if not pedido.puede_modificarse():
+            return Response(
+                {'detail': 'No se puede eliminar un pedido que ya ha sido procesado.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=False, methods=['get'])
     def cliente(self, request):
         """GET /pedidos/cliente/?cli_codi=1 - Pedidos de un cliente"""
@@ -970,7 +984,9 @@ class PedidosViewSet(BaseViewSet):
         
         try:
             cli_codi = int(cli_codi)
-            pedidos = Pedidos.objects.filter(cli_codi_id=cli_codi)
+            pedidos = Pedidos.objects.filter(cli_codi_id=cli_codi).select_related(
+                'cli_codi__loc_codi'
+            ).prefetch_related('detalles__art_codi')
             serializer = self.get_serializer(pedidos, many=True, context={'request': request})
             return Response(serializer.data)
         except Exception as e:

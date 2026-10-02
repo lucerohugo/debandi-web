@@ -11,7 +11,17 @@ import { useVendedor } from "@/contexts/vendedor-context"
 import { useOrders } from "@/contexts/orders-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Package, ChevronDown, ChevronUp, Download, RotateCw, Check, AlertCircle, Pencil } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { ArrowLeft, Package, ChevronDown, ChevronUp, Download, RotateCw, Check, AlertCircle, Pencil, Trash2 } from "lucide-react"
 import { ExportUtils } from "@/lib/export-utils"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 
@@ -40,6 +50,8 @@ interface Order {
   ped_edit?: 'C' | 'V'
   ped_fechEd?: string
   ped_obse?: string | null
+  cli_nomb?: string | null
+  loc_nomb?: string | null
   detalles: any[]
   items: OrderItem[]
 }
@@ -48,11 +60,13 @@ export default function OrdersPage() {
   const { user, loading, impersonation } = useAuth()
   const { vendedor, isVendedorSession } = useVendedor()
   const canSeeOrderOrigin = impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user?.ven_gere)
-  const { orders: backendOrders, loading: ordersLoading, loadOrders: reloadOrders } = useOrders()
+  const { orders: backendOrders, loading: ordersLoading, loadOrders: reloadOrders, deleteOrder } = useOrders()
   const router = useRouter()
   const [orders, setOrders] = useState<any[]>([])
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Recargar pedidos desde el backend cada vez que se entra a esta pantalla
   // (el contexto de pedidos solo carga una vez al iniciar sesión, por lo que
@@ -82,6 +96,8 @@ export default function OrdersPage() {
         ped_edit: ped.ped_edit,
         ped_fechEd: ped.ped_fechEd,
         ped_obse: ped.ped_obse,
+        cli_nomb: ped.cli_nomb,
+        loc_nomb: ped.loc_nomb,
         detalles: ped.detalles,
         items: ped.detalles.map((det: any) => ({
           art_codi: det.art_codi,
@@ -160,7 +176,10 @@ export default function OrdersPage() {
       }));
       
       // Exportar PDF del pedido específico (con la fecha/hora en que se realizó el pedido)
-      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time, order.ped_obse)
+      await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time, order.ped_obse, {
+        cli_nomb: order.cli_nomb,
+        loc_nomb: order.loc_nomb,
+      })
       
       // Mostrar notificación de éxito
       setNotification({
@@ -248,6 +267,22 @@ export default function OrdersPage() {
     }
   }
 
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return
+    setDeleting(true)
+    const ok = await deleteOrder(orderToDelete.ped_codi)
+    setDeleting(false)
+    setNotification({
+      type: ok ? 'success' : 'error',
+      message: ok
+        ? `Pedido ${orderToDelete.orderNumber} eliminado`
+        : `No se pudo eliminar el pedido ${orderToDelete.orderNumber}`
+    })
+    setTimeout(() => setNotification(null), 3000)
+    if (ok && expandedOrder === orderToDelete.id) setExpandedOrder(null)
+    setOrderToDelete(null)
+  }
+
   if (loading || ordersLoading) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -323,10 +358,19 @@ export default function OrdersPage() {
 
               return (
                 <Card key={order.id} className="overflow-hidden">
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() =>
                       setExpandedOrder(isExpanded ? null : order.id)
                     }
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setExpandedOrder(isExpanded ? null : order.id)
+                      }
+                    }}
                     className="w-full"
                   >
                     <CardHeader className="pb-3 hover:bg-muted/50 transition cursor-pointer">
@@ -357,7 +401,21 @@ export default function OrdersPage() {
                               {order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)} unidad{order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) !== 1 ? 'es' : ''}
                             </p>
                           </div>
-                          <div className="shrink-0">
+                          <div className="shrink-0 flex items-center gap-1">
+                            {order.status === 'pendiente' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOrderToDelete(order)
+                                }}
+                                className="p-2 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition"
+                                title="Eliminar pedido"
+                                aria-label={`Eliminar pedido ${order.orderNumber}`}
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            )}
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-muted-foreground" />
                             ) : (
@@ -367,7 +425,7 @@ export default function OrdersPage() {
                         </div>
                       </div>
                     </CardHeader>
-                  </button>
+                  </div>
 
                   {isExpanded && (
                     <CardContent className="pt-0 border-t">
@@ -460,7 +518,7 @@ export default function OrdersPage() {
                             className="flex-1 min-w-[140px] flex items-center justify-center gap-2"
                           >
                             <Download className="w-4 h-4" />
-                            Exportar PDF
+                            Imprimir Pedido
                           </Button>
                           <Button
                             onClick={() => handleRepeatOrder(order)}
@@ -482,6 +540,17 @@ export default function OrdersPage() {
                               Editar Pedido
                             </Button>
                           )}
+                          {order.status === 'pendiente' && (
+                            <Button
+                              onClick={() => setOrderToDelete(order)}
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Eliminar Pedido
+                            </Button>
+                          )}
                           {order.status === 'procesado' && (
                             <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-sm text-muted-foreground">
                               <AlertCircle className="w-4 h-4" />
@@ -498,6 +567,30 @@ export default function OrdersPage() {
           </div>
         )}
       </main>
+
+      <AlertDialog open={orderToDelete !== null} onOpenChange={(open) => { if (!open && !deleting) setOrderToDelete(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar el pedido #{orderToDelete?.orderNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se va a borrar el pedido con todos sus artículos. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteOrder()
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>
