@@ -29,10 +29,6 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Cooldown entre reintentos de auto-asignación de contraseña (endpoint
-# público /api/cliente-asignar-clave/) para el mismo email.
-ASIGNAR_CLAVE_COOLDOWN_MINUTOS = 10
-
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
@@ -462,7 +458,7 @@ class RegistroViewSet(BulkCreateMixin, BaseViewSet):
         # Verificar email único en Registros
         if Registro.objects.filter(reg_emai=data.get('reg_emai')).exists():
             return Response(
-                {'error': 'El email ya está registrado en el sistema'},
+                {'error': 'El email ya está registrado en el sistema, espere a que lo aprueben.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1536,28 +1532,19 @@ def cliente_login(request):
         # que poder asignarse una contraseña igual, y recién se entera de
         # que su cuenta está pendiente de activación cuando ya tiene
         # contraseña y efectivamente intenta iniciar sesión con ella.
-        # Excepción: si ya hay una solicitud pendiente en cooldown (ver
+        # Excepción: si ya hay una solicitud pendiente de aprobación (ver
         # cliente_asignar_clave), no lo mandamos de nuevo al formulario de
         # "Asignar nueva contraseña" -sin sin_contrasena, el front se queda
-        # en el login mostrando el aviso- porque ese reintento fallaría
-        # igual por el cooldown.
+        # en el login mostrando el aviso- porque solo se puede hacer una vez.
         if not cliente.cli_clav or not cliente.cli_clav.strip():
-            from django.utils import timezone
-
-            registro_pendiente = Registro.objects.filter(reg_emai=email, reg_clie=False).first()
-            if registro_pendiente is not None:
-                segundos_cooldown = ASIGNAR_CLAVE_COOLDOWN_MINUTOS * 60
-                segundos_transcurridos = (timezone.now() - registro_pendiente.reg_fmod).total_seconds()
-                if segundos_transcurridos < segundos_cooldown:
-                    minutos_restantes = int((segundos_cooldown - segundos_transcurridos) // 60) + 1
-                    return JsonResponse(
-                        {
-                            'success': False,
-                            'detail': f'Ya solicitaste una nueva contraseña para esta cuenta. '
-                                       f'Esperá {minutos_restantes} minuto(s) y volvé a intentar iniciar sesión.'
-                        },
-                        status=200
-                    )
+            if Registro.objects.filter(reg_emai=email, reg_clie=False).exists():
+                return JsonResponse(
+                    {
+                        'success': False,
+                        'detail': 'Ya está registrado. Espere a ser aprobado e iniciá sesión.'
+                    },
+                    status=200
+                )
 
             return JsonResponse(
                 {
@@ -1574,7 +1561,7 @@ def cliente_login(request):
         # loguearse, ahí sí se lo bloquea con este aviso.
         if not cliente.cli_acti:
             return JsonResponse(
-                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espera a que sea activada.'},
+                {'success': False, 'detail': 'Tu cuenta está pendiente de activación. Por favor, espere a que sea activada.'},
                 status=401
             )
 
@@ -1685,28 +1672,20 @@ def cliente_asignar_clave(request):
         )
 
     try:
-        from django.utils import timezone
-
         registro = Registro.objects.filter(reg_emai=email).first()
 
         # Si ya hay una solicitud pendiente (reg_clie=False) para este email,
-        # no dejar reintentar hasta que pase el cooldown: evita que se pueda
-        # sobrescribir la contraseña pendiente a repetición (spam/fuerza
-        # bruta) contra este endpoint público. reg_fmod se actualiza en cada
-        # save(), así que refleja el último intento.
+        # no se puede volver a hacer: solo una vez, hasta que sea aprobada.
+        # Evita que se sobrescriba la contraseña pendiente a repetición
+        # (spam/fuerza bruta) contra este endpoint público.
         if registro is not None and not registro.reg_clie:
-            segundos_cooldown = ASIGNAR_CLAVE_COOLDOWN_MINUTOS * 60
-            segundos_transcurridos = (timezone.now() - registro.reg_fmod).total_seconds()
-            if segundos_transcurridos < segundos_cooldown:
-                minutos_restantes = int((segundos_cooldown - segundos_transcurridos) // 60) + 1
-                return JsonResponse(
-                    {
-                        'success': False,
-                        'detail': f'Ya solicitaste un cambio de contraseña para este email. '
-                                   f'Esperá {minutos_restantes} minuto(s) antes de volver a intentarlo.'
-                    },
-                    status=429
-                )
+            return JsonResponse(
+                {
+                    'success': False,
+                    'detail': 'Ya está registrado. Espere a ser aprobado e iniciá sesión.'
+                },
+                status=409
+            )
 
         if registro is None:
             registro = Registro(reg_emai=email)

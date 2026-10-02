@@ -62,8 +62,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   useEffect(() => {
     if (!error) return
     setErrorVisible(true)
-    const hideTimer = setTimeout(() => setErrorVisible(false), 4000)
-    const clearTimer = setTimeout(() => setError(""), 4500)
+    const hideTimer = setTimeout(() => setErrorVisible(false), 5000)
+    const clearTimer = setTimeout(() => setError(""), 5500)
     return () => {
       clearTimeout(hideTimer)
       clearTimeout(clearTimer)
