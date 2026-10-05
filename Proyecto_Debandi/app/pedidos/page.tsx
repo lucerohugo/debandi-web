@@ -24,6 +24,7 @@ import {
 import { ArrowLeft, Package, ChevronDown, ChevronUp, Download, RotateCw, Check, AlertCircle, Pencil, Trash2 } from "lucide-react"
 import { ExportUtils } from "@/lib/export-utils"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 
 interface OrderItem {
   art_codi: number
@@ -58,6 +59,7 @@ interface Order {
 
 export default function OrdersPage() {
   const { user, loading, impersonation } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const { vendedor, isVendedorSession } = useVendedor()
   const canSeeOrderOrigin = impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user?.ven_gere)
   const { orders: backendOrders, loading: ordersLoading, loadOrders: reloadOrders, deleteOrder } = useOrders()
@@ -103,7 +105,7 @@ export default function OrdersPage() {
           art_codi: det.art_codi,
           art_nomb: det.art_nomb,
           art_cn: det.art_cn,
-          art_pnet: det.art_pfin,  // Usar art_pfin como pnet para cálculos
+          art_pnet: det.art_pnet,
           art_pfin: det.art_pfin,
           quantity: det.dpe_cant,  // Usar dpe_cant (cantidad pedida)
           price: det.art_pfin,  // Usar art_pfin como precio
@@ -170,16 +172,17 @@ export default function OrdersPage() {
       // Preparar datos del pedido para exportar (aplicando el descuento del cliente)
       const pedidoItems = order.items.map((item) => ({
         art_codi: item.art_codi,
+        art_cn: item.art_cn,
         art_nomb: item.art_nomb,
         quantity: item.quantity,
-        price: applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0),
+        price: applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0),
       }));
       
       // Exportar PDF del pedido específico (con la fecha/hora en que se realizó el pedido)
       await ExportUtils.exportarPedidoPDF(pedidoItems, order.orderNumber, order.date, order.time, order.ped_obse, {
         cli_nomb: order.cli_nomb,
         loc_nomb: order.loc_nomb,
-      })
+      }, mostrarIVA)
       
       // Mostrar notificación de éxito
       setNotification({
@@ -328,7 +331,15 @@ export default function OrdersPage() {
           </Link>
           <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-4">
             <Package className="w-6 h-6 sm:w-8 sm:h-8 text-primary shrink-0 mt-1 sm:mt-0" />
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Historial de Pedidos</h1>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Historial de Pedidos</h1>
+              <span
+                title={`Visualizando los pedidos ${mostrarIVA ? "CON" : "SIN"} IVA (se cambia en Mis Datos)`}
+                className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold leading-none whitespace-nowrap border-green-300 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
+              >
+                {mostrarIVA ? "CON IVA" : "SIN IVA"}
+              </span>
+            </div>
           </div>
           <p className="text-muted-foreground">
             {orders.length} pedido{orders.length !== 1 ? "s" : ""} realizado{orders.length !== 1 ? "s" : ""}
@@ -395,7 +406,7 @@ export default function OrdersPage() {
                         <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-4">
                           <div className="text-left sm:text-right">
                             <p className="text-lg sm:text-xl font-bold text-primary">
-                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
+                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity, 0))}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0)} unidad{order.items.reduce((sum: number, item: OrderItem) => sum + item.quantity, 0) !== 1 ? 'es' : ''}
@@ -463,10 +474,10 @@ export default function OrdersPage() {
                                 </p>
                               )}
                               <p className="text-sm text-muted-foreground mt-1">
-                                Cantidad: {item.quantity} × {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))} c/u
+                                Cantidad: {item.quantity} × {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0))} c/u
                               </p>
                               <p className="text-sm font-semibold text-foreground mt-2">
-                                {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
+                                {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity)}
                               </p>
                             </div>
                           </div>
@@ -476,7 +487,7 @@ export default function OrdersPage() {
                           <div className="flex justify-between items-center font-bold text-lg">
                             <span>Total</span>
                             <span className="text-primary">
-                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0))}
+                              {formatCurrencySpanish(order.items.reduce((sum: number, item: OrderItem) => sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity, 0))}
                             </span>
                           </div>
                         </div>

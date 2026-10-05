@@ -22,6 +22,7 @@ import { ApiService } from "@/services/api.service"
 import { ConfigService } from "@/services/config.service"
 import { CartService } from "@/services/cart.service"
 import { SearchService } from "@/services/search.service"
+import { useMostrarIVA } from "@/hooks/use-mostrar-iva"
 
 interface Product {
   art_codi: number
@@ -101,18 +102,10 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
   const [maxLimit, setMaxLimit] = useState(100)
   const [totalCount, setTotalCount] = useState(0)
   const [allProductsCache, setAllProductsCache] = useState<Map<number, Product>>(new Map())
-  const [mostrarIVA, setMostrarIVA] = useState(true)
+  const mostrarIVA = useMostrarIVA()
   const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map())
   const { user } = useAuth()
   const router = useRouter()
-
-  // Leer preferencia de mostrar IVA desde localStorage
-  useEffect(() => {
-    const mostrar = localStorage.getItem("mostrar_iva")
-    if (mostrar !== null) {
-      setMostrarIVA(mostrar === "true")
-    }
-  }, [])
 
   // Sincronizar searchQuery cuando initialSearch cambia (cuando el usuario navega desde el navbar)
   useEffect(() => {

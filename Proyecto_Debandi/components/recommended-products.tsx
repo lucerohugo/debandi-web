@@ -6,6 +6,7 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ApiService } from "@/services/api.service"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import { useAuth } from "@/contexts/auth-context"
 import ProductPreviewModal from "./product-preview-modal"
 import AuthModal from "./auth-modal"
@@ -38,6 +39,7 @@ export default function RecommendedProducts() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
+  const mostrarIVA = useMostrarIVA()
 
   const fetchRecommendedProducts = async () => {
     try {
@@ -151,7 +153,7 @@ export default function RecommendedProducts() {
                 </h3>
                 {user ? (
                   <p className="text-lg font-bold text-primary">
-                    {formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}
+                    {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(product, mostrarIVA), user?.cli_desc || 0))}
                   </p>
                 ) : (
                   <Button

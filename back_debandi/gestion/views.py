@@ -776,6 +776,15 @@ class CarritoItemViewSet(BaseViewSet):
     permission_classes = [AllowAny]  # ✅ permissions.py maneja la autenticación
     authentication_classes = []
 
+    def get_queryset(self):
+        # Con JWT, cada uno ve solo su carrito: el cliente el suyo (ven_codi NULL)
+        # y el vendedor el que arma para ese cliente. Sin JWT (admin/API Key) se ve todo.
+        qs = super().get_queryset()
+        hay_token, ven_codi = _carrito_token(self.request)
+        if hay_token:
+            qs = qs.filter(ven_codi_id=ven_codi)
+        return qs
+
     @action(detail=False, methods=['get'])
     def cliente(self, request):
         """GET /carrito/cliente/?cli_codi=1 - Carrito de un cliente"""
@@ -788,7 +797,7 @@ class CarritoItemViewSet(BaseViewSet):
         except (ValueError, TypeError):
             return Response([], status=status.HTTP_200_OK)
         
-        carrito = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+        carrito = _carrito_items(request, cli_codi)
         serializer = self.get_serializer(carrito, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -803,7 +812,7 @@ class CarritoItemViewSet(BaseViewSet):
         
         try:
             cli_codi = int(cli_codi)
-            carrito = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+            carrito = _carrito_items(request, cli_codi)
             
             # ✅ Usar Decimal para precisión (como en el backend)
             total = Decimal('0.00')
@@ -842,6 +851,29 @@ def _origen_pedido(request):
     if token.get('user_type') == 'cliente':
         return 'C'
     return None
+
+
+def _carrito_token(request):
+    """
+    Devuelve (hay_token, ven_codi) leyendo el JWT del header Authorization.
+    ven_codi es el vendedor suplantante (None si es el cliente logueado directo).
+    Se usa para que el carrito del cliente y el que arma un vendedor para ese
+    mismo cliente sean independientes (ver CarritoItem.ven_codi).
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return False, None
+    try:
+        token = AccessToken(auth_header[7:].strip())
+    except TokenError:
+        return False, None
+    return True, token.get('vendedor_suplantante')
+
+
+def _carrito_items(request, cli_codi):
+    """Items del carrito de cli_codi que pertenecen a quien hace la request."""
+    _, ven_codi = _carrito_token(request)
+    return CarritoItem.objects.filter(cli_codi_id=cli_codi, ven_codi_id=ven_codi)
 
 
 def _vendedor_suplantante_bloqueado(request, as_drf=False):
@@ -1087,7 +1119,7 @@ def crear_pedido_desde_carrito(request):
 
         # ✅ IMPORTANTE: Obtener items DIRECTAMENTE del carrito del cliente
         # Así aseguramos que usamos las cantidades correctas de la BD
-        carrito_items = CarritoItem.objects.filter(cli_codi_id=cli_codi)
+        carrito_items = _carrito_items(request, cli_codi)
         
         if not carrito_items.exists():
             return Response(
@@ -1124,7 +1156,7 @@ def crear_pedido_desde_carrito(request):
             )
         
         # Limpiar el carrito
-        CarritoItem.objects.filter(cli_codi_id=cli_codi).delete()
+        _carrito_items(request, cli_codi).delete()
         
         # Retornar el pedido creado
         serializer = PedidosSerializer(pedido, context={'request': request})
@@ -2229,6 +2261,9 @@ def carrito_manage(request):
     if vendedor_error:
         return vendedor_error
 
+    # Carrito de quien hace la request: el del cliente o el del vendedor que lo suplanta
+    _, ven_codi = _carrito_token(request)
+
     if request.method == 'POST':
         # Agregar item al carrito
         carr_cant = data.get('carr_cant', 1)
@@ -2251,6 +2286,7 @@ def carrito_manage(request):
         # Crear o actualizar item en carrito
         item, created = CarritoItem.objects.get_or_create(
             cli_codi=cliente,
+            ven_codi_id=ven_codi,
             art_codi=articulo,
             defaults={
                 'carr_cant': carr_cant,
@@ -2303,6 +2339,7 @@ def carrito_manage(request):
         # Obtener item del carrito
         item = CarritoItem.objects.filter(
             cli_codi=cliente,
+            ven_codi_id=ven_codi,
             art_codi=articulo
         ).first()
         
@@ -2334,6 +2371,7 @@ def carrito_manage(request):
         # Eliminar item del carrito
         item = CarritoItem.objects.filter(
             cli_codi=cliente,
+            ven_codi_id=ven_codi,
             art_codi=articulo
         ).first()
         

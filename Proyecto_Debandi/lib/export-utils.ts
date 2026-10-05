@@ -263,6 +263,7 @@ export class ExportUtils {
   static async exportarPedidoPDF(
     items: Array<{
       art_codi: number;
+      art_cn?: string | null;
       art_nomb: string;
       quantity: number;
       price: number;
@@ -271,7 +272,8 @@ export class ExportUtils {
     orderDate?: string,
     orderTime?: string,
     orderObs?: string | null,
-    cliente?: { cli_nomb?: string | null; loc_nomb?: string | null }
+    cliente?: { cli_nomb?: string | null; loc_nomb?: string | null },
+    preciosConIva?: boolean
   ): Promise<void> {
     try {
       const jsPDF = (await import('jspdf')).jsPDF;
@@ -311,25 +313,41 @@ export class ExportUtils {
       if (cliente?.cli_nomb) doc.text(`Cliente: ${cliente.cli_nomb}`, clienteX, 30);
       if (cliente?.loc_nomb) doc.text(`Localidad: ${cliente.loc_nomb}`, clienteX, 37);
 
-      // Observaciones debajo de la hora (si es que hay); la tabla arranca después
+      // Preferencia de IVA del cliente (Mis Datos): a la derecha, en la línea del cliente.
+      // Si el nombre del cliente es muy largo y se pisarían, va debajo de la localidad
+      let obsY = 44;
       let tablaY = 45;
+      if (preciosConIva !== undefined) {
+        const ivaText = `Precios CON IVA: ${preciosConIva ? 'SI' : 'NO'}`;
+        const rightX = doc.internal.pageSize.getWidth() - 20;
+        const clienteFin = cliente?.cli_nomb ? clienteX + doc.getTextWidth(`Cliente: ${cliente.cli_nomb}`) : clienteX;
+        if (clienteFin + 5 <= rightX - doc.getTextWidth(ivaText)) {
+          doc.text(ivaText, rightX, 30, { align: 'right' });
+        } else {
+          doc.text(ivaText, clienteX, 44);
+          obsY = 51;
+          tablaY = 52;
+        }
+      }
+
+      // Observaciones debajo de la hora (si es que hay); la tabla arranca después
       if (orderObs && orderObs.trim()) {
         const obsLabel = 'Observaciones: ';
         doc.setFont('Helvetica', 'bold');
-        doc.text(obsLabel, 20, 44);
+        doc.text(obsLabel, 20, obsY);
         const labelWidth = doc.getTextWidth(obsLabel);
         doc.setFont('Helvetica', 'normal');
         const obsLines = doc.splitTextToSize(orderObs.trim(), doc.internal.pageSize.getWidth() - 40 - labelWidth);
-        doc.text(obsLines, 20 + labelWidth, 44);
-        tablaY = 44 + obsLines.length * 5 + 4;
+        doc.text(obsLines, 20 + labelWidth, obsY);
+        tablaY = obsY + obsLines.length * 5 + 4;
       }
 
-      // Preparar datos de la tabla
+      // Preparar datos de la tabla (código DD = art_cn; si no tiene, el art_codi)
       const tableData = items.map((item) => {
         const price = Number(item.price) || 0;
         const quantity = Number(item.quantity) || 0;
         return [
-          item.art_codi,
+          item.art_cn || item.art_codi,
           item.art_nomb,
           quantity,
           `$${price.toFixed(2)}`,
@@ -367,7 +385,8 @@ export class ExportUtils {
           fillColor: [240, 240, 240],
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 16 },
+          // Ancho suficiente para el código DD (art_cn) en una sola línea
+          0: { halign: 'center', cellWidth: 22, overflow: 'visible' },
           1: { halign: 'left', cellWidth: 'auto' },
           2: { halign: 'center', cellWidth: 18 },
           3: { halign: 'right', cellWidth: 26 },

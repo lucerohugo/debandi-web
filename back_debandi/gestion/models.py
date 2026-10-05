@@ -430,6 +430,13 @@ class CarritoItem(models.Model):
     """Items del carrito de compras"""
     carr_codi = models.AutoField(primary_key=True)
     cli_codi = models.ForeignKey(Clientes, on_delete=models.CASCADE, related_name="carrito_items")
+    # NULL = carrito propio del cliente. Con valor = carrito que arma ese vendedor
+    # suplantando al cliente; así cliente y vendedor no se pisan los items.
+    ven_codi = models.ForeignKey(
+        'Vendedor', on_delete=models.CASCADE, null=True, blank=True,
+        related_name="carrito_items",
+        help_text="Vendedor que arma este carrito (vacío = el propio cliente)"
+    )
     art_codi = models.ForeignKey(Articulo, on_delete=models.CASCADE)
     carr_cant = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     carr_pnet = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -440,7 +447,17 @@ class CarritoItem(models.Model):
     class Meta:
         verbose_name = "Carrito Item"
         verbose_name_plural = "Carrito Items"
-        unique_together = ('cli_codi', 'art_codi')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cli_codi', 'art_codi'],
+                condition=models.Q(ven_codi__isnull=True),
+                name='carrito_unico_cliente',
+            ),
+            models.UniqueConstraint(
+                fields=['cli_codi', 'ven_codi', 'art_codi'],
+                name='carrito_unico_vendedor',
+            ),
+        ]
         ordering = ['-carr_fmod']
 
     def __str__(self):
@@ -502,12 +519,13 @@ class Pedidos(models.Model):
             self._congelar_precios()
 
     def _congelar_precios(self):
-        """Fija dpe_pfin de cada detalle con el precio actual del artículo, para que
-        cambios futuros en art_pfin no alteren pedidos ya procesados"""
+        """Fija dpe_pfin (con IVA) y dpe_pnet (sin IVA) de cada detalle con el precio actual
+        del artículo, para que cambios futuros en art_pfin/art_pnet no alteren pedidos ya procesados"""
         for detalle in self.detalles.select_related('art_codi').all():
             if detalle.dpe_pfin is None:
                 detalle.dpe_pfin = detalle.art_codi.art_pfin
-                detalle.save(update_fields=['dpe_pfin'])
+                detalle.dpe_pnet = detalle.art_codi.art_pnet
+                detalle.save(update_fields=['dpe_pfin', 'dpe_pnet'])
         self.actualizar_total()
 
     def actualizar_total(self):
@@ -548,6 +566,10 @@ class DetallePedido(models.Model):
         max_digits=12, decimal_places=2, null=True, blank=True,
         help_text="Precio final congelado al procesar el pedido. Null mientras el pedido está pendiente (usa el precio actual del artículo)"
     )
+    dpe_pnet = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Precio neto (sin IVA) congelado al procesar el pedido. Null mientras el pedido está pendiente (usa el precio actual del artículo)"
+    )
 
     class Meta:
         verbose_name = "Detalle Pedido"
@@ -559,6 +581,11 @@ class DetallePedido(models.Model):
     def precio_final(self):
         """Precio congelado si el pedido ya fue procesado, sino el precio actual del artículo"""
         return self.dpe_pfin if self.dpe_pfin is not None else self.art_codi.art_pfin
+
+    @property
+    def precio_neto(self):
+        """Precio sin IVA congelado si el pedido ya fue procesado, sino el precio neto actual del artículo"""
+        return self.dpe_pnet if self.dpe_pnet is not None else self.art_codi.art_pnet
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

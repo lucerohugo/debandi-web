@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Heart, ShoppingCart, ArrowLeft, X } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrencySpanish } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import ProductPreviewModal from "@/components/product-preview-modal"
 
 interface Product {
@@ -32,6 +33,7 @@ interface Product {
 export default function FavoritesPage() {
   const { favoritesList, loading: favoritesLoading, removeFavorite } = useFavorites()
   const { user } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [notification, setNotification] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
     show: false,
@@ -126,7 +128,7 @@ export default function FavoritesPage() {
                   </div>
 
                   <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-primary">{formatCurrencySpanish(product.art_pfin)}</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrencySpanish(precioSegunIVA(product, mostrarIVA))}</span>
                   </div>
 
                   <div className="flex gap-2">

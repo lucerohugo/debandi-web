@@ -287,7 +287,7 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarritoItem
         fields = [
-            'carr_codi', 'cli_codi', 'art_codi', 'art_nomb', 'art_desc',
+            'carr_codi', 'cli_codi', 'ven_codi', 'art_codi', 'art_nomb', 'art_desc',
             'art_pnet', 'art_pfin', 'art_tiva', 'art_stk', 'art_img',
             'mar_nomb', 'rub_nomb', 'sru_nomb',
             'carr_cant', 'carr_pnet', 'carr_pfin',
@@ -314,12 +314,7 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
     """Serializer para líneas de pedido con datos del artículo"""
     art_nomb = serializers.CharField(source='art_codi.art_nomb', read_only=True)
     art_cn = serializers.CharField(source='art_codi.art_cn', read_only=True, allow_null=True)
-    art_pnet = serializers.DecimalField(
-        source='art_codi.art_pnet',
-        max_digits=12,
-        decimal_places=2,
-        read_only=True
-    )
+    art_pnet = serializers.SerializerMethodField()
     art_pfin = serializers.SerializerMethodField()
     art_descu = serializers.DecimalField(
         source='art_codi.art_descu',
@@ -343,6 +338,9 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
 
     def get_art_pfin(self, obj):
         return obj.precio_final
+
+    def get_art_pnet(self, obj):
+        return obj.precio_neto
 
     def get_art_img1_url(self, obj):
         return build_media_url(self.context.get('request'), obj.art_codi.art_img1)

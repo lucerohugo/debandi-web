@@ -12,12 +12,14 @@ import { CheckCircle2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-reac
 import { CartService, type CartItem } from "@/services/cart.service"
 import { ApiService } from "@/services/api.service"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import { useAuth } from "@/contexts/auth-context"
 import { useVendedor } from "@/contexts/vendedor-context"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const { isVendedorSession } = useVendedor()
   const hasCreatedOrder = useRef(false)
   const hasAttemptedAutoCreate = useRef(false)
@@ -282,7 +284,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Total:</span>
                   <span className="font-semibold">{formatCurrencySpanish(
-                    finalOrderItems.reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
+                    finalOrderItems.reduce((sum, item) => sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
                   )}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -310,11 +312,11 @@ export default function CheckoutPage() {
                           <div className="flex-1">
                             <p className="font-medium text-foreground">{item.art_nomb}</p>
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
+                              {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0))}
                             </p>
                           </div>
                           <p className="font-semibold text-primary">
-                            {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
+                            {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity)}
                           </p>
                         </div>
                       ))}
@@ -351,11 +353,11 @@ export default function CheckoutPage() {
                       <div>
                         <p className="font-medium text-foreground">{item.art_nomb}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0))}
+                          {item.quantity} x {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0))}
                         </p>
                       </div>
                       <p className="font-semibold text-primary">
-                        {formatCurrencySpanish(applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity)}
+                        {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity)}
                       </p>
                     </div>
                   ))}
@@ -372,7 +374,7 @@ export default function CheckoutPage() {
                 <p className="text-3xl sm:text-4xl font-bold text-primary">
                   {/* Calcular total con descuento aplicado */}
                   {formatCurrencySpanish(
-                    getDisplayItems().reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
+                    getDisplayItems().reduce((sum, item) => sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0), 0)
                   )}
                 </p>
               </div>

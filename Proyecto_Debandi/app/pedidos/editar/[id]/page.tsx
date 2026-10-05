@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { formatCurrencySpanish } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import { ApiService } from "@/services/api.service"
 import { SearchService } from "@/services/search.service"
 
@@ -52,6 +53,7 @@ export default function EditOrderPage() {
   const pedCodi = Number(params.id)
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const { isVendedorSession } = useVendedor()
   const { getOrder, updateOrder, loadOrders } = useOrders()
   
@@ -270,7 +272,7 @@ export default function EditOrderPage() {
   const activeItems = items.filter(item => !item.removed)
   
   const calculateTotal = () => {
-    return activeItems.reduce((sum, item) => sum + (item.dpe_prec * item.quantity), 0)
+    return activeItems.reduce((sum, item) => sum + (precioSegunIVA(item, mostrarIVA) * item.quantity), 0)
   }
 
   const hasChanges = () => {
@@ -525,7 +527,7 @@ export default function EditOrderPage() {
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-semibold text-primary">{formatCurrencySpanish(product.art_pfin)}</p>
+                          <p className="font-semibold text-primary">{formatCurrencySpanish(precioSegunIVA(product, mostrarIVA))}</p>
                         </div>
                       </button>
                     ))}
@@ -579,7 +581,7 @@ export default function EditOrderPage() {
                         Código: {item.art_codi}{item.art_cint && ` • Cód. Interno: ${item.art_cint}`}
                       </p>
                       <p className="text-sm font-medium text-primary mt-1">
-                        {formatCurrencySpanish(item.dpe_prec)} c/u
+                        {formatCurrencySpanish(precioSegunIVA(item, mostrarIVA))} c/u
                       </p>
                     </div>
                   </div>
@@ -613,7 +615,7 @@ export default function EditOrderPage() {
                       {/* Subtotal */}
                       <div className="w-20 sm:w-28 text-right">
                         <p className="font-semibold text-foreground">
-                          {formatCurrencySpanish(item.dpe_prec * item.quantity)}
+                          {formatCurrencySpanish(precioSegunIVA(item, mostrarIVA) * item.quantity)}
                         </p>
                       </div>
 

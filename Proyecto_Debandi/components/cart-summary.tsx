@@ -2,6 +2,7 @@
 
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { useAuth } from "@/contexts/auth-context"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 
 interface CartItem {
   art_codi: number
@@ -19,13 +20,14 @@ interface CartSummaryProps {
 
 export default function CartSummary({ items }: CartSummaryProps) {
   const { user } = useAuth()
-  
+  const mostrarIVA = useMostrarIVA()
+
   const handleRealizeOrder = () => {
     // Ir a checkout
     window.location.href = "/checkout"
   }
 
-  const subtotal = items.reduce((sum, item) => sum + applyDiscountToPrice(item.art_pfin, user?.cli_desc || 0) * item.quantity, 0)
+  const subtotal = items.reduce((sum, item) => sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * item.quantity, 0)
   const total = subtotal
 
   return (

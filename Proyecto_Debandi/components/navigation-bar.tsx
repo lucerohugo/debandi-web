@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation"
 import { ChevronDown, Home, Sparkles, List, Layers, FileDown, Mail, Loader2 } from "lucide-react"
 import { ConfigService } from "@/services/config.service"
 import { ExportUtils } from "@/lib/export-utils"
+import { useAuth } from "@/contexts/auth-context"
+import { useMostrarIVA } from "@/hooks/use-mostrar-iva"
 
 interface Rubro {
   rub_codi: number
@@ -14,6 +16,8 @@ interface Rubro {
 
 export default function NavigationBar() {
   const pathname = usePathname()
+  const { user } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const [rubros, setRubros] = useState<Rubro[]>([])
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
@@ -208,6 +212,14 @@ export default function NavigationBar() {
           >
             <List className="w-4 h-4" />
             Listado de Productos
+            {user && (
+              <span
+                title={`Precios ${mostrarIVA ? "CON" : "SIN"} IVA (se cambia en Mis Datos)`}
+                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap border-green-300 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
+              >
+                {mostrarIVA ? "CON IVA" : "SIN IVA"}
+              </span>
+            )}
             {isActive("/listado") && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t" />}
           </Link>
 

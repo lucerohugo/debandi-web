@@ -6,6 +6,7 @@ import { ShoppingCart, Heart } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import { CartService } from "@/services/cart.service"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
@@ -40,6 +41,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [showPreview, setShowPreview] = useState(false)
 
   const { user } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
   const favorite = isFavorite(product.art_codi)
 
@@ -148,7 +150,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           {/* Precio */}
           <p className="text-lg font-bold text-foreground mb-3">
-            {formatCurrencySpanish(applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0))}
+            {formatCurrencySpanish(applyDiscountToPrice(precioSegunIVA(product, mostrarIVA), user?.cli_desc || 0))}
           </p>
 
           {/* Indicador de Stock */}

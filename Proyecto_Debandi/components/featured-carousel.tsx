@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "./ui/button"
 import { Badge } from "./ui/badge"
 import { formatCurrencySpanish } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import ProductPreviewModal from "./product-preview-modal"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -30,6 +31,7 @@ interface FeaturedCarouselProps {
 
 export default function FeaturedCarousel({ products, loading }: FeaturedCarouselProps) {
   const { user } = useAuth()
+  const mostrarIVA = useMostrarIVA()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [lastInteraction, setLastInteraction] = useState(0)
@@ -126,7 +128,7 @@ export default function FeaturedCarousel({ products, loading }: FeaturedCarousel
               {user && (
                 <div className={`flex items-baseline gap-3 transition-all duration-700 ease-in-out`}>
                   <span className="text-2xl md:text-4xl font-bold text-primary">
-                    {formatCurrencySpanish(currentProduct.art_pfin)}
+                    {formatCurrencySpanish(precioSegunIVA(currentProduct, mostrarIVA))}
                   </span>
                 </div>
               )}

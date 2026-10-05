@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
 import { CartService } from "@/services/cart.service"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import AuthModal from "./auth-modal"
 import NotificationToast from "./notification-toast"
 //import StockIndicator from "./stock-indicator"
@@ -47,6 +48,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
   const [notificationMessage, setNotificationMessage] = useState("")
   const [notificationType, setNotificationType] = useState<"success" | "error">("success")
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const mostrarIVA = useMostrarIVA()
 
   const { user } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites()
@@ -88,7 +90,8 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
     setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
   }
 
-  const finalPrice = user ? applyDiscountToPrice(product.art_pfin, user?.cli_desc || 0) : product.art_pfin
+  const basePrice = precioSegunIVA(product, mostrarIVA)
+  const finalPrice = user ? applyDiscountToPrice(basePrice, user?.cli_desc || 0) : basePrice
 
   const total = (finalPrice * quantity).toFixed(2)
 
@@ -260,7 +263,15 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
             {/* Precios */}
             <div className="flex items-baseline gap-3">
               {user && (
-                <span className="text-3xl md:text-4xl font-bold text-foreground">{formatCurrencySpanish(finalPrice)}</span>
+                <>
+                  <span className="text-3xl md:text-4xl font-bold text-foreground">{formatCurrencySpanish(finalPrice)}</span>
+                  <span
+                    title={`Precio ${mostrarIVA ? "CON" : "SIN"} IVA (se cambia en Mis Datos)`}
+                    className="inline-flex items-center self-center rounded-full border px-3 py-1 text-xs font-semibold leading-none whitespace-nowrap border-green-300 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
+                  >
+                    {mostrarIVA ? "CON IVA" : "SIN IVA"}
+                  </span>
+                </>
               )}
             </div>
 
@@ -304,7 +315,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
                 {/* Total */}
                 <div className="bg-muted p-4 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Total:</span>
+                    <span className="text-sm text-muted-foreground">Total {mostrarIVA ? "(con IVA)" : "(sin IVA)"}:</span>
                     <span className="text-xl font-bold">{formatCurrencySpanish(parseFloat(total))}</span>
                   </div>
                 </div>

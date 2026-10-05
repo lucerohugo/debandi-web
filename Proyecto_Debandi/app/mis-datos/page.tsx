@@ -9,6 +9,7 @@ import Footer from "@/components/footer"
 import { useAuth } from "@/contexts/auth-context"
 import { useVendedor } from "@/contexts/vendedor-context"
 import { ApiService } from "@/services/api.service"
+import { setMostrarIVA } from "@/hooks/use-mostrar-iva"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -157,7 +158,7 @@ export default function MisDatosPage() {
         }
 
         // Guardar preferencia de IVA en localStorage
-        localStorage.setItem("mostrar_iva", formData.mostrar_iva)
+        setMostrarIVA(formData.mostrar_iva)
 
         setNotification({
           type: "success",
@@ -321,7 +322,7 @@ export default function MisDatosPage() {
                     Mostrar precios con IVA
                   </label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Elige si deseas ver los precios con o sin IVA
+                    Elige si deseas ver los precios con o sin IVA (en toda la WEB)
                   </p>
                   <Select value={formData.mostrar_iva} onValueChange={handleSelectChange}>
                     <SelectTrigger className="w-full">
