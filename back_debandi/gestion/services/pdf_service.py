@@ -8,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
+from xml.sax.saxutils import escape
 from gestion.models import Articulo
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), '..', 'static', 'gestion', 'images', 'logo-def3.png')
@@ -164,7 +165,7 @@ class PDFService:
             fila = [
                 Paragraph(articulo.art_cn or f"DD{str(articulo.art_codi).zfill(5)}", center_style),
                 imagen if imagen else Paragraph("-", center_style),
-                Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
+                Paragraph(escape(articulo.art_nomb or ""), normal_style),
             ]
             if incluir_precios:
                 fila += [
