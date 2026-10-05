@@ -48,7 +48,7 @@ class ExcelService:
 
         # Agregar datos
         for row_num, articulo in enumerate(articulos, 2):
-            fila_datos = [articulo.art_codi, articulo.art_nomb]
+            fila_datos = [articulo.art_cn or f"DD{str(articulo.art_codi).zfill(5)}", articulo.art_nomb]
             if incluir_precios:
                 fila_datos += [
                     float(articulo.art_pnet) if articulo.art_pnet else 0,

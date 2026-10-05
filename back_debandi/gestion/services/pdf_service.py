@@ -162,7 +162,7 @@ class PDFService:
         for articulo in articulos:
             imagen = PDFService._imagen_articulo(articulo)
             fila = [
-                Paragraph(str(articulo.art_codi), center_style),
+                Paragraph(articulo.art_cn or f"DD{str(articulo.art_codi).zfill(5)}", center_style),
                 imagen if imagen else Paragraph("-", center_style),
                 Paragraph(articulo.art_nomb[:50], normal_style),  # Limitar a 50 caracteres
             ]
@@ -176,9 +176,9 @@ class PDFService:
         # Crear tabla con ancho dinámico
         if incluir_precios:
             col_widths = [
-                0.7*inch,  # Código
+                0.8*inch,  # Código
                 0.8*inch,  # Imagen
-                4.8*inch,  # Nombre
+                4.7*inch,  # Nombre
                 1.6*inch,  # Precio Neto
                 1.6*inch,  # Precio Final
             ]

@@ -65,6 +65,7 @@ interface ProductTabla {
   art_img1?: string
   art_img1_url?: string
   art_acti?: boolean
+  art_cn?: string
   cli_desc?: number | string
   cli_precs1?: number | string
   cli_precs2?: number | string
@@ -156,7 +157,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
       if (margen2 > 0) headers.push("Precio Sugerido 2")
     }
     const rows = list.map((p) => {
-      const row: Array<string | number> = [p.art_codi, p.art_nomb]
+      const row: Array<string | number> = [p.art_cn || p.art_codi, p.art_nomb]
       if (user) {
         const base = Math.round(Number(mostrarIVA ? p.art_pfin : p.art_pnet) * 100) / 100
         row.push(base)
@@ -530,7 +531,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                       const imageUrl = product.art_img1_url || product.art_img1 || product.art_img_url || product.art_img
                       return (
                         <tr key={product.art_codi} className="border-b hover:bg-muted/50">
-                          <td className="hidden md:table-cell py-3 px-4 font-medium">{product.art_codi}</td>
+                          <td className="hidden md:table-cell py-3 px-4 font-medium">{product.art_cn || product.art_codi}</td>
                           <td
                             className="py-3 px-4 cursor-pointer transition-colors duration-200 hover:text-blue-600 group"
                             onClick={() => {
