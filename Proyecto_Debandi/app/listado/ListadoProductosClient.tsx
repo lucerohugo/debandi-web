@@ -508,10 +508,10 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                           <>
                             <th className="text-right py-3 px-4">Precio {mostrarIVA ? "C/ IVA" : "(sin IVA)"}</th>
                             {Number(user?.cli_precs1 || 0) > 0 && (
-                              <th className="hidden lg:table-cell text-center py-3 px-4">Precio Sugerido 1</th>
+                              <th className="text-center py-3 px-4">Precio Sugerido 1</th>
                             )}
                             {Number(user?.cli_precs2 || 0) > 0 && (
-                              <th className="hidden xl:table-cell text-center py-3 px-4">Precio Sugerido 2</th>
+                              <th className="text-center py-3 px-4">Precio Sugerido 2</th>
                             )}
                             <th className="text-center py-3 px-4">Pedir</th>
                           </>
@@ -554,10 +554,10 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                             <>
                               <td className="py-3 px-4 text-right font-semibold">{formatCurrencySpanish(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)))}</td>
                               {Number(user?.cli_precs1 || 0) > 0 && (
-                                <td className="hidden lg:table-cell py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
+                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs1))}</td>
                               )}
                               {Number(user?.cli_precs2 || 0) > 0 && (
-                                <td className="hidden xl:table-cell py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
+                                <td className="py-3 px-4 text-center">{formatCurrencySpanish(calculatePriceWithMargin(applyCustomerDiscount(mostrarIVA ? product.art_pfin : product.art_pnet, Number(user?.cli_desc || 0)), user.cli_precs2))}</td>
                               )}
                               <td className="py-3 px-4">
                                 <div className="flex items-center justify-center gap-2">

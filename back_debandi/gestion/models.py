@@ -750,3 +750,20 @@ class Vendedor(models.Model):
         return self.ven_nomb
 
 
+#nuevo ventas para extracto cuenta corriente
+#ventas------------
+# class Ventas(models.Model):
+#     vta_codi = models.IntegerField(primary_key=True, editable=True)
+#     vta_fech = models.DateField(null=True, blank=True, help_text="Fecha Venta")
+#     vta_concR = models.CharField(max_length=60, blank=True, null=True, help_text="Concepto Venta")
+#     vta_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+#     com_deha = models.SmallIntegerField(default=1, choices=[(1, 'Debito'), (-1, 'Credito')], help_text="Debito / Credito Comprobante")
+#     cli_codi = models.ForeignKey(Clientes, on_delete=models.SET_NULL, null=True, blank=True, related_name='ventas')
+
+# #cobros------------
+# class Cobros(models.Model):
+#     cob_codi = models.IntegerField(primary_key=True, editable=True)
+#     cob_fech = models.DateField(null=True, blank=True, help_text="Fecha Cobro")
+#     cob_concR = models.CharField(max_length=60, blank=True, null=True, help_text="Concepto Cobro")
+#     cob_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+#     vta_codi = models.ForeignKey(Ventas, on_delete=models.SET_NULL, null=True, blank=True, related_name="cobros")
