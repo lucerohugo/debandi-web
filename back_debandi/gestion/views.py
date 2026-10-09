@@ -2104,9 +2104,13 @@ def cliente_cambiar_clave(request):
         # A diferencia de cliente_asignar_clave, acá sí se puede pisar una
         # solicitud pendiente: el cliente ya se autenticó con su clave
         # actual, así que si cambia de idea vale la última.
-        registro = Registro.objects.filter(reg_emai=cliente.cli_emai).first()
+        # iexact + strip: si el email del Registro difiere solo en
+        # mayúsculas/espacios del de Clientes, se pisa ese mismo Registro en
+        # vez de crear otro aparte (y dejar el original con la clave vieja).
+        email = cliente.cli_emai.strip()
+        registro = Registro.objects.filter(reg_emai__iexact=email).order_by('-reg_fmod').first()
         if registro is None:
-            registro = Registro(reg_emai=cliente.cli_emai)
+            registro = Registro(reg_emai=email)
 
         registro.reg_nomb = cliente.cli_nomb
         registro.set_password(new_password)
