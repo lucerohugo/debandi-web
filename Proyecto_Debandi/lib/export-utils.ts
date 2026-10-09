@@ -12,9 +12,26 @@ import { ApiService } from '@/services/api.service';
  * request como anónima; y un token vencido sin renovar también da 401 aunque
  * la sesión siga siendo válida.
  */
-async function authHeaders(): Promise<HeadersInit> {
-  const token = await ApiService.getValidToken();
+async function authHeaders(forceRefresh = false): Promise<HeadersInit> {
+  const token = await ApiService.getValidToken(forceRefresh);
   return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+/**
+ * GET con el token de la sesión. Si el backend responde 401 (token vencido
+ * según el reloj del servidor aunque el del celular diga que sigue vigente,
+ * típico en teléfonos con la hora mal configurada), fuerza la renovación del
+ * token y reintenta una vez.
+ */
+async function fetchConAuth(url: string): Promise<Response> {
+  const response = await fetch(url, { method: 'GET', headers: await authHeaders() });
+  if (response.status !== 401) return response;
+
+  const headers = await authHeaders(true);
+  if (!('Authorization' in headers)) {
+    throw new Error('Tu sesión venció. Volvé a iniciar sesión.');
+  }
+  return fetch(url, { method: 'GET', headers });
 }
 
 export class ExportUtils {
@@ -25,12 +42,8 @@ export class ExportUtils {
    */
   static async exportarExcel(incluirOcultos = false): Promise<void> {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/${incluirOcultos ? '?incluir_ocultos=1' : ''}`,
-        {
-          method: 'GET',
-          headers: await authHeaders(),
-        }
+      const response = await fetchConAuth(
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/${incluirOcultos ? '?incluir_ocultos=1' : ''}`
       );
 
       if (!response.ok) {
@@ -64,12 +77,8 @@ export class ExportUtils {
    */
   static async exportarPDF(incluirOcultos = false): Promise<void> {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/${incluirOcultos ? '?incluir_ocultos=1' : ''}`,
-        {
-          method: 'GET',
-          headers: await authHeaders(),
-        }
+      const response = await fetchConAuth(
+        `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/${incluirOcultos ? '?incluir_ocultos=1' : ''}`
       );
 
       if (!response.ok) {
@@ -116,10 +125,7 @@ export class ExportUtils {
         ? `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/?${queryString}`
         : `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-excel/`;
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: await authHeaders(),
-      });
+      const response = await fetchConAuth(url);
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: No se pudo generar el Excel`);
@@ -162,10 +168,7 @@ export class ExportUtils {
         ? `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/?${queryString}`
         : `${process.env.NEXT_PUBLIC_API_URL}/articulos/exportar-pdf/`;
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: await authHeaders(),
-      });
+      const response = await fetchConAuth(url);
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: No se pudo generar el PDF`);

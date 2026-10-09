@@ -409,16 +409,6 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                             </button>
                           </>
                         )}
-                        {/* <button
-                          onClick={() => {
-                            setShowChangePassword(true)
-                            setShowUserMenu(false)
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                        >
-                          <Key className="w-4 h-4 inline mr-3" />
-                          Cambiar Contraseña
-                        </button> */}
                         {!bannerData?.isImpersonating && (
                           <button
                             onClick={handleLogout}

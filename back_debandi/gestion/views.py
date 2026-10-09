@@ -1743,6 +1743,53 @@ def cliente_asignar_clave(request):
         registro.reg_clie = False
         registro.save()
 
+        # ================================================================
+        # ENVIAR NOTIFICACIÓN POR EMAIL (en thread separado), igual que
+        # el alta desde "Registrarse" (RegistroViewSet.create)
+        # ================================================================
+
+        def send_asignar_clave_email():
+            """Enviar email de notificación de clave asignada en background"""
+            try:
+                email_body = f"""
+Cliente existente asignó su contraseña desde la web (pendiente de aprobación)
+
+ID Registro: {registro.reg_codi}
+Código Cliente: {cliente.cli_codi}
+
+Nombre: {cliente.cli_nomb}
+
+CUIT: {cliente.cli_cuit or 'N/A'}
+Email: {email}
+Teléfono: {cliente.cli_celu or cliente.cli_tele or 'N/A'}
+Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
+
+Este registro está pendiente de aprobación.
+Revisa en el sistema para procesar esta solicitud.
+
+Saludos,
+Sistema Ferreterera Debandi
+                """
+
+                send_mail(
+                    subject='Nuevo Registro WEB - Asignación de clave',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=['soporte@ferreteradebandi.online'],
+                    fail_silently=True,
+                )
+
+                logger.info(f"✓ Email de asignación de clave enviado para registro {registro.reg_codi}")
+
+            except Exception as e:
+                logger.error(
+                    f"✗ Error enviando email de asignación de clave para registro {registro.reg_codi}: {str(e)}",
+                    exc_info=True
+                )
+
+        email_thread = threading.Thread(target=send_asignar_clave_email, daemon=True)
+        email_thread.start()
+
         return JsonResponse({
             'success': True,
             'message': 'Tu nueva contraseña fue registrada. En breve podrás iniciar sesión con ella.'
@@ -1959,6 +2006,172 @@ def cliente_update_password(request):
             {'success': False, 'detail': str(e)}, 
             status=500
         )
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def cliente_cambiar_clave(request):
+    """
+    POST /api/cliente-cambiar-clave/
+
+    Un cliente logueado cambia su propia contraseña. La nueva se graba
+    en dos lados, en la misma transacción:
+    - En Clientes.cli_clav (el hash de reg_clav), para que en la web
+      impacte al instante y ya pueda entrar con la clave nueva.
+    - En Registro (reg_clav/reg_clavf, reg_clie=False, reg_exp=False),
+      igual que cliente_asignar_clave, para que GeneXus la levante en el
+      próximo export y la guarde de su lado. OJO: si antes de eso llega
+      un /importar_datos/ con la clave vieja de GeneXus, la pisa.
+
+    Requiere JWT de cliente en header Authorization: Bearer <token>.
+    No se permite durante una suplantación de vendedor.
+
+    Body: {"current_password": "...", "new_password": "..."}
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return JsonResponse({'success': False, 'detail': 'Token requerido'}, status=401)
+
+    try:
+        access_token = AccessToken(auth_header.replace('Bearer ', '', 1))
+    except TokenError:
+        return JsonResponse(
+            {'success': False, 'detail': 'Token inválido o expirado. Intenta iniciar sesión de nuevo.'},
+            status=401
+        )
+
+    if access_token.get('user_type') != 'cliente':
+        return JsonResponse({'success': False, 'detail': 'Usuario no es cliente'}, status=403)
+
+    if access_token.get('vendedor_suplantante'):
+        return JsonResponse(
+            {'success': False, 'detail': 'No se puede cambiar la contraseña del cliente durante una suplantación'},
+            status=403
+        )
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'success': False, 'detail': 'JSON inválido'}, status=400)
+
+    current_password = data.get('current_password') or ''
+    new_password = data.get('new_password') or ''
+
+    if not current_password or not new_password:
+        return JsonResponse(
+            {'success': False, 'detail': 'Contraseña actual y nueva son requeridas'},
+            status=400
+        )
+
+    if len(new_password) < 3:
+        return JsonResponse(
+            {'success': False, 'detail': 'La nueva contraseña debe tener al menos 3 caracteres'},
+            status=400
+        )
+
+    # Misma regla que el registro (auth-modal.tsx): sin Ñ.
+    if re.search(r'[ñÑ]', new_password):
+        return JsonResponse(
+            {'success': False, 'detail': 'La contraseña no puede contener la letra Ñ'},
+            status=400
+        )
+
+    if current_password == new_password:
+        return JsonResponse(
+            {'success': False, 'detail': 'La nueva contraseña debe ser diferente a la actual'},
+            status=400
+        )
+
+    try:
+        cliente = Clientes.objects.get(cli_codi=access_token.get('user_id'))
+    except Clientes.DoesNotExist:
+        return JsonResponse({'success': False, 'detail': 'Cliente no encontrado'}, status=404)
+
+    if not cliente.cli_emai:
+        return JsonResponse(
+            {'success': False, 'detail': 'Tu cuenta no tiene email asociado. Contactate con soporte.'},
+            status=400
+        )
+
+    if not cliente.check_password(current_password):
+        return JsonResponse({'success': False, 'detail': 'La contraseña actual es incorrecta'}, status=400)
+
+    try:
+        # Se reutiliza el Registro del email si existe (reg_emai es único).
+        # A diferencia de cliente_asignar_clave, acá sí se puede pisar una
+        # solicitud pendiente: el cliente ya se autenticó con su clave
+        # actual, así que si cambia de idea vale la última.
+        registro = Registro.objects.filter(reg_emai=cliente.cli_emai).first()
+        if registro is None:
+            registro = Registro(reg_emai=cliente.cli_emai)
+
+        registro.reg_nomb = cliente.cli_nomb
+        registro.set_password(new_password)
+        registro.reg_clie = False
+        registro.reg_exp = False
+
+        with transaction.atomic():
+            registro.save()
+            # update() y no save(): se copia el hash tal cual (sin pasar
+            # por el re-hasheo de Clientes.save() ni sus signals).
+            Clientes.objects.filter(cli_codi=cliente.cli_codi).update(
+                cli_clav=registro.reg_clav, cli_fmod=timezone.now()
+            )
+
+        # ======================================================
+        # ENVIAR NOTIFICACIÓN POR EMAIL ( igual que
+        # cliente_asignar_clave )
+        # ================================================================
+
+        def send_cambiar_clave_email():
+            """Enviar email de notificación de cambio de clave en background"""
+            try:
+                email_body = f"""
+Cambio de clave: el cliente cambió su contraseña desde la web.
+
+Código Cliente: {cliente.cli_codi}
+
+Nombre: {cliente.cli_nomb}
+
+CUIT: {cliente.cli_cuit or 'N/A'}
+Email: {cliente.cli_emai}
+Teléfono: {cliente.cli_celu or cliente.cli_tele or 'N/A'}
+Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}
+
+Saludos,
+Sistema Ferreterera Debandi
+                """
+
+                send_mail(
+                    subject=f'Cambio de contraseña WEB - Cliente {cliente.cli_codi}',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=['soporte@ferreteradebandi.online'],
+                    fail_silently=True,
+                )
+
+                logger.info(f" Email de cambio de clave enviado para cliente {cliente.cli_codi}")
+
+            except Exception as e:
+                logger.error(
+                    f" Error enviando email de cambio de clave para cliente {cliente.cli_codi}: {str(e)}",
+                    exc_info=True
+                )
+
+        email_thread = threading.Thread(target=send_cambiar_clave_email, daemon=True)
+        email_thread.start()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Tu contraseña fue actualizada. Desde ahora iniciá sesión con tu nueva clave.'
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"Error registrando cambio de clave del cliente {cliente.cli_codi}: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'detail': 'Error al registrar la nueva contraseña'}, status=500)
 
 
 @csrf_exempt
@@ -3004,3 +3217,124 @@ def actualizar_precios(request):
         'tiempo_seg': round(time.monotonic() - inicio, 3),
     }, status=200)
 
+
+
+# ================================================================
+# ACTUALIZACIÓN MASIVA DE CLAVES DE CLIENTES (SOLO UPDATE, NUNCA CREA)
+# ================================================================
+
+# A diferencia de los precios, acá cada fila cuesta un hash PBKDF2
+# (cientos de ms), así que el techo es fijo y chico: es para las claves
+# que cambiaron desde el último sync, no para mandar el padrón entero.
+CLAVES_LIMITE_MAXIMO = 500
+
+
+@api_view(['POST'])
+@authentication_classes([APIKeyAuthentication])
+@permission_classes([_RequireRealAuth])
+def actualizar_claves(request):
+    """
+    POST /api/actualizar-claves/
+
+    Graba en bloque SOLO cli_clav de clientes que ya existen (nunca crea
+    clientes ni toca otros campos). Es la vuelta del cambio de clave
+    hecho desde la web (cliente_cambiar_clave / cliente_asignar_clave ->
+    Registro -> GeneXus): GeneXus manda acá la clave ya aprobada.
+
+    Solo API Key, sin bypass de API_DEBUG_MODE (como RegistroViewSet):
+    son credenciales, no alcanza con un JWT de la web.
+
+    Body esperado:
+    {
+        "clientes": [
+            {"cli_codi": 1023, "cli_clav": "clave en texto plano"},
+            ...
+        ]
+    }
+    """
+    try:
+        body = json.loads(request.body)
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'detail': f'JSON inválido: {str(e)}'},
+            status=400,
+        )
+
+    items = body.get('clientes')
+    if not isinstance(items, list):
+        return JsonResponse(
+            {'success': False, 'detail': "Falta 'clientes' (lista)"},
+            status=400,
+        )
+
+    if len(items) > CLAVES_LIMITE_MAXIMO:
+        return JsonResponse(
+            {
+                'success': False,
+                'detail': f'Máximo {CLAVES_LIMITE_MAXIMO} clientes por request, llegaron {len(items)}',
+            },
+            status=400,
+        )
+
+    inicio = time.monotonic()
+
+    # -------------------------------------------------------------
+    # 1) Parsear y validar cada fila en memoria (sin tocar la DB)
+    # -------------------------------------------------------------
+    validos = {}  # cli_codi -> clave en texto plano
+    invalidos = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            invalidos.append({'error': 'Item no es un objeto'})
+            continue
+
+        try:
+            cli_codi = int(item.get('cli_codi'))
+        except (TypeError, ValueError):
+            invalidos.append({'error': 'cli_codi inválido o ausente'})
+            continue
+
+        clave = item.get('cli_clav')
+        if not isinstance(clave, str) or not clave.strip():
+            invalidos.append({'cli_codi': cli_codi, 'error': 'Falta cli_clav'})
+            continue
+
+        validos[cli_codi] = clave
+
+    # -------------------------------------------------------------
+    # 2) Traer de una sola vez qué cli_codi existen (nunca se crea)
+    # -------------------------------------------------------------
+    codigos = list(validos.keys())
+    existentes = set(
+        Clientes.objects.filter(cli_codi__in=codigos).values_list('cli_codi', flat=True)
+    )
+    no_encontrados = [c for c in codigos if c not in existentes]
+    a_actualizar = [c for c in codigos if c in existentes]
+
+    # -------------------------------------------------------------
+    # 3) Hashear y grabar todo en una sola transacción. Por SQL
+    #    directo (como actualizar_precios) para no pasar por
+    #    Clientes.save() ni sus signals: acá solo cambia la clave.
+    # -------------------------------------------------------------
+    from django.contrib.auth.hashers import make_password
+
+    ahora = timezone.now()
+    filas = [
+        (make_password(validos[codigo]), ahora, codigo)
+        for codigo in a_actualizar
+    ]
+    sql = "UPDATE gestion_clientes SET cli_clav=%s, cli_fmod=%s WHERE cli_codi=%s"
+
+    with connection.cursor() as cursor:
+        with transaction.atomic():
+            cursor.executemany(sql, filas)
+
+    return JsonResponse({
+        'success': True,
+        'total_recibidos': len(items),
+        'actualizados': len(filas),
+        'no_encontrados': no_encontrados,
+        'invalidos': invalidos,
+        'tiempo_seg': round(time.monotonic() - inicio, 3),
+    }, status=200)

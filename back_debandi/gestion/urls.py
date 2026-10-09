@@ -7,7 +7,7 @@ from .views import (
     ClientesViewSet, VendedorViewSet, RegistroViewSet, FavoritosViewSet, CarritoItemViewSet,
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
     GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login,
-    importar_datos, actualizar_precios, cliente_login, cliente_asignar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
+    importar_datos, actualizar_precios, actualizar_claves, cliente_login, cliente_asignar_clave, cliente_cambiar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
     crear_pedido_desde_carrito, contacto_enviar
 )
@@ -55,6 +55,7 @@ urlpatterns = [
     path('cliente-login/', cliente_login, name='cliente-login'),
     path('cliente-asignar-clave/', cliente_asignar_clave, name='cliente-asignar-clave'),
     path('cliente-register/', cliente_register, name='cliente-register'),
+    path('cliente-cambiar-clave/', cliente_cambiar_clave, name='cliente-cambiar-clave'),
     path('cliente-update-password/', cliente_update_password, name='cliente-update-password'),
     path('cliente-update-parametros/', cliente_update_parametros, name='cliente-update-parametros'),
     path('contacto-enviar/', contacto_enviar, name='contacto-enviar'),
@@ -68,5 +69,6 @@ urlpatterns = [
     path('health/', health_check, name='health-check'),
     path('importar_datos/', importar_datos, name='importar-datos'),
     path('actualizar-precios/', actualizar_precios, name='actualizar-precios'),
+    path('actualizar-claves/', actualizar_claves, name='actualizar-claves'),
 ]
 

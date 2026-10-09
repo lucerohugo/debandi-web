@@ -128,10 +128,13 @@ let refreshInFlight: Promise<string | null> | null = null
  *   falló o venció, limpia la sesión y devuelve null (el request sigue sin
  *   Authorization, como un usuario anónimo).
  */
-const ensureValidAccessToken = async (): Promise<string | null> => {
+const ensureValidAccessToken = async (forceRefresh = false): Promise<string | null> => {
   const token = getJWTToken()
   if (!token) return null
-  if (!isTokenExpired(token)) return token
+  // forceRefresh: el backend rechazó el token (401) aunque localmente parecía
+  // vigente; pasa en celulares con el reloj atrasado, donde isTokenExpired
+  // nunca lo da por vencido
+  if (!forceRefresh && !isTokenExpired(token)) return token
 
   const refresh = getRefreshToken()
   if (!refresh) {
@@ -295,8 +298,8 @@ export class ApiService {
    * propios headers "a mano" (exports, fetch de blobs, etc.) en lugar de
    * pasar por ApiService.
    */
-  static async getValidToken(): Promise<string | null> {
-    return ensureValidAccessToken()
+  static async getValidToken(forceRefresh = false): Promise<string | null> {
+    return ensureValidAccessToken(forceRefresh)
   }
 
   static async get<T>(endpoint: string): Promise<T> {

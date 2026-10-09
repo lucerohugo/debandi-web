@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, CheckCircle } from "lucide-react"
-import { buildApiUrl } from "@/lib/utils"
+import { ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react"
+import { ApiService } from "@/services/api.service"
 
 interface ChangePasswordModalProps {
   onClose: () => void
@@ -17,9 +17,15 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [successMessage, setSuccessMessage] = useState(
+    "Tu contraseña fue actualizada. Desde ahora iniciá sesión con tu nueva clave."
+  )
 
   useEffect(() => {
     const original = document.body.style.overflow
@@ -28,6 +34,16 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
       document.body.style.overflow = original
     }
   }, [])
+
+  const handlePasswordInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    if (/[ñÑ]/.test(input.value)) {
+      input.setCustomValidity("La contraseña no puede contener la letra Ñ")
+    } else {
+      input.setCustomValidity("")
+    }
+    input.reportValidity()
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -44,8 +60,8 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
       return
     }
 
-    if (newPassword.length < 6) {
-      setError("La nueva contraseña debe tener al menos 6 caracteres")
+    if (newPassword.length < 3) {
+      setError("La nueva contraseña debe tener al menos 3 caracteres")
       return
     }
 
@@ -57,28 +73,13 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
     setLoading(true)
 
     try {
-      const response = await fetch(
-        buildApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api', 'auth/change-password/'),
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword,
-          }),
-        }
-      )
+      const data = await ApiService.post<{ message?: string }>('/cliente-cambiar-clave/', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Error al cambiar contraseña")
-      }
-
+      if (data?.message) setSuccessMessage(data.message)
       setSuccess(true)
-      setTimeout(() => {
-        onClose()
-      }, 2000)
     } catch (err: any) {
       setError(err.message || "Error desconocido")
     } finally {
@@ -99,7 +100,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Tu contraseña ha sido actualizada correctamente.
+                {successMessage}
               </p>
               <Button onClick={onClose} className="w-full">
                 Cerrar
@@ -137,41 +138,76 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Contraseña Actual</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <Input
+                    id="current-password"
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nueva Contraseña</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="Mínimo 3 caracteres"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    onInput={handlePasswordInput}
+                    className="pr-10"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar Nueva Contraseña</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onInput={handlePasswordInput}
+                    className="pr-10"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-2">

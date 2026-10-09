@@ -21,10 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Save, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Save, AlertCircle, CheckCircle, Key } from "lucide-react"
+import ChangePasswordModal from "@/components/change-password-modal"
 
 export default function MisDatosPage() {
-  const { user, loading, setUser } = useAuth()
+  const { user, loading, setUser, impersonation } = useAuth()
   const { isVendedorSession } = useVendedor()
   const router = useRouter()
   const [formData, setFormData] = useState({
@@ -40,6 +41,7 @@ export default function MisDatosPage() {
     cli_desc: "",
   })
   const [saving, setSaving] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
   const [notification, setNotification] = useState<{
     type: "success" | "error"
     message: string
@@ -399,6 +401,29 @@ export default function MisDatosPage() {
           </CardContent>
         </Card>
 
+        {/* Seguridad - TERCERO. No se ofrece durante una suplantación: el back lo rechaza igual */}
+        {!impersonation.isImpersonating && (
+          <Card className="mb-6 gap-3">
+            <CardHeader>
+              <CardTitle>Seguridad</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => setShowChangePassword(true)}
+                  className="w-full sm:w-fit gap-2 bg-primary hover:bg-primary/90"
+                >
+                  <Key className="w-4 h-4" />
+                  Cambiar Contraseña
+                </Button>
+                <p className="text-xs text-gray-600">
+                  Cambiá su clave con la que inicia sesión en la web.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Botones de acción
         <div className="flex gap-3">
           <Button
@@ -416,6 +441,8 @@ export default function MisDatosPage() {
       </main>
 
       <Footer />
+
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
     </div>
   )
 }
