@@ -787,17 +787,26 @@ class CarritoItemViewSet(BaseViewSet):
 
     @action(detail=False, methods=['get'])
     def cliente(self, request):
-        """GET /carrito/cliente/?cli_codi=1 - Carrito de un cliente"""
+        """
+        GET /carrito/cliente/?cli_codi=1 - Carrito de un cliente
+        GET /carrito/cliente/?cli_codi=1&origen=cliente - El vendedor ve el
+        carrito propio del cliente (solo lectura, lo usa para pedir por él).
+        """
         cli_codi = request.query_params.get('cli_codi')
         if not cli_codi:
             return Response([], status=status.HTTP_200_OK)
-        
+
         try:
             cli_codi = int(cli_codi)
         except (ValueError, TypeError):
             return Response([], status=status.HTTP_200_OK)
-        
-        carrito = _carrito_items(request, cli_codi)
+
+        del_cliente = _pide_carrito_del_cliente(request.query_params.get('origen'))
+        if del_cliente:
+            vendedor_error = _vendedor_suplantante_bloqueado(request, as_drf=True)
+            if vendedor_error:
+                return vendedor_error
+        carrito = _carrito_items(request, cli_codi, del_cliente=del_cliente)
         serializer = self.get_serializer(carrito, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -870,10 +879,21 @@ def _carrito_token(request):
     return True, token.get('vendedor_suplantante')
 
 
-def _carrito_items(request, cli_codi):
-    """Items del carrito de cli_codi que pertenecen a quien hace la request."""
+def _carrito_items(request, cli_codi, del_cliente=False):
+    """
+    Items del carrito de cli_codi que pertenecen a quien hace la request.
+    Con del_cliente=True, un vendedor suplantante lee el carrito propio del
+    cliente (ven_codi NULL) en lugar del suyo; para un cliente no cambia nada.
+    """
     _, ven_codi = _carrito_token(request)
+    if del_cliente:
+        ven_codi = None
     return CarritoItem.objects.filter(cli_codi_id=cli_codi, ven_codi_id=ven_codi)
+
+
+def _pide_carrito_del_cliente(valor):
+    """True si el parámetro origen pide el carrito propio del cliente."""
+    return str(valor or '').strip().lower() == 'cliente'
 
 
 def _vendedor_suplantante_bloqueado(request, as_drf=False):
@@ -1117,46 +1137,81 @@ def crear_pedido_desde_carrito(request):
         if vendedor_error:
             return vendedor_error
 
-        # ✅ IMPORTANTE: Obtener items DIRECTAMENTE del carrito del cliente
-        # Así aseguramos que usamos las cantidades correctas de la BD
-        carrito_items = _carrito_items(request, cli_codi)
-        
-        if not carrito_items.exists():
-            return Response(
-                {'success': False, 'detail': 'El carrito está vacío'},
-                status=status.HTTP_400_BAD_REQUEST
+        # origen="cliente": el vendedor pide con el carrito propio del cliente
+        # (no con el suyo). Manda items_esperados = lo que tiene en pantalla, para
+        # no pedir algo distinto si el cliente lo modificó mientras tanto.
+        del_cliente = _pide_carrito_del_cliente(request.data.get('origen'))
+        items_esperados = request.data.get('items_esperados')
+
+        with transaction.atomic():
+            # ✅ IMPORTANTE: Obtener items DIRECTAMENTE del carrito de la BD.
+            # select_for_update: si el cliente edita su carrito en este instante,
+            # espera a que el pedido termine (y viceversa).
+            carrito_items = list(
+                _carrito_items(request, cli_codi, del_cliente=del_cliente)
+                .select_related('art_codi')
+                .select_for_update()
             )
-        
-        # Calcular total del pedido usando los datos del carrito
-        ped_tota = Decimal('0')
-        for carrito_item in carrito_items:
-            cant = carrito_item.carr_cant  # ← Cantidad del carrito
-            pfin = Decimal(str(carrito_item.carr_pfin)) if carrito_item.carr_pfin else Decimal(str(carrito_item.art_codi.art_pfin))
-            ped_tota += Decimal(str(cant)) * pfin
-        
-        # Crear el pedido
-        ahora = timezone.now()
-        pedido = Pedidos.objects.create(
-            cli_codi=cliente,
-            ped_tota=ped_tota,
-            ped_fech=ahora.date(),  # ✅ .date() para DateField (no datetime)
-            ped_hora=ahora.time(),  # ✅ .time() para TimeField (solo hora)
-            ped_fpag=ped_fpag,
-            ped_obse=ped_obse,
-            ped_crea=_origen_pedido(request),
-            ped_fechCr=ahora
-        )
-        
-        # Crear detalles del pedido desde los items del carrito
-        for carrito_item in carrito_items:
-            DetallePedido.objects.create(
-                ped_codi=pedido,
-                art_codi=carrito_item.art_codi,
-                dpe_cant=carrito_item.carr_cant  # ← Cantidad correcta del carrito
+
+            if not carrito_items:
+                return Response(
+                    {
+                        'success': False,
+                        'detail': 'El carrito está vacío',
+                        'code': 'CARRITO_MODIFICADO' if del_cliente else None
+                    },
+                    status=status.HTTP_409_CONFLICT if del_cliente else status.HTTP_400_BAD_REQUEST
+                )
+
+            if del_cliente and items_esperados is not None:
+                try:
+                    esperado = {int(i['carr_codi']): int(i['carr_cant']) for i in items_esperados}
+                except (TypeError, ValueError, KeyError):
+                    return Response(
+                        {'success': False, 'detail': 'items_esperados inválido'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                actual = {item.carr_codi: item.carr_cant for item in carrito_items}
+                if esperado != actual:
+                    return Response(
+                        {
+                            'success': False,
+                            'detail': 'El cliente modificó su carrito. Revisá los cambios antes de confirmar o sincroniza nuevamente.',
+                            'code': 'CARRITO_MODIFICADO'
+                        },
+                        status=status.HTTP_409_CONFLICT
+                    )
+
+            # Calcular total del pedido usando los datos del carrito
+            ped_tota = Decimal('0')
+            for carrito_item in carrito_items:
+                cant = carrito_item.carr_cant  # ← Cantidad del carrito
+                pfin = Decimal(str(carrito_item.carr_pfin)) if carrito_item.carr_pfin else Decimal(str(carrito_item.art_codi.art_pfin))
+                ped_tota += Decimal(str(cant)) * pfin
+
+            # Crear el pedido
+            ahora = timezone.now()
+            pedido = Pedidos.objects.create(
+                cli_codi=cliente,
+                ped_tota=ped_tota,
+                ped_fech=ahora.date(),  # ✅ .date() para DateField (no datetime)
+                ped_hora=ahora.time(),  # ✅ .time() para TimeField (solo hora)
+                ped_fpag=ped_fpag,
+                ped_obse=ped_obse,
+                ped_crea=_origen_pedido(request),
+                ped_fechCr=ahora
             )
-        
-        # Limpiar el carrito
-        _carrito_items(request, cli_codi).delete()
+
+            # Crear detalles del pedido desde los items del carrito
+            for carrito_item in carrito_items:
+                DetallePedido.objects.create(
+                    ped_codi=pedido,
+                    art_codi=carrito_item.art_codi,
+                    dpe_cant=carrito_item.carr_cant  # ← Cantidad correcta del carrito
+                )
+
+            # Limpiar el carrito usado (el del cliente si origen="cliente")
+            CarritoItem.objects.filter(carr_codi__in=[i.carr_codi for i in carrito_items]).delete()
         
         # Retornar el pedido creado
         serializer = PedidosSerializer(pedido, context={'request': request})

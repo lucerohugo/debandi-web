@@ -371,9 +371,10 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Novedades)
 class NovedadesAdmin(admin.ModelAdmin):
-    list_display = ['nov_codi', 'nov_nomb', 'nov_cate', 'nov_fechi', 'nov_acti', 'colored_status']
+    list_display = ['nov_codi', 'nov_nomb', 'nov_cate', 'nov_fechi', 'nov_acti', 'colored_status', 'articulos_pedir']
     list_filter = ['nov_cate', 'nov_acti', 'nov_fechi']
     search_fields = ['nov_codi', 'nov_nomb', 'nov_titl']
+    autocomplete_fields = ['nov_arts']
     fieldsets = (
         ('Identificación', {
             'fields': ('nov_codi', 'nov_nomb'),
@@ -391,6 +392,10 @@ class NovedadesAdmin(admin.ModelAdmin):
             'fields': ('nov_acti',),
             'description': 'Activar/desactivar la visualización de esta novedad'
         }),
+        (' Botón Pedir', {
+            'fields': ('nov_arts',),
+            'description': 'Artículos que se agregan al carrito con el botón Pedir de la tarjeta'
+        }),
         (' Configuración Avanzada (Opcional)', {
             'fields': ('nov_fechf', 'art_carru', 'nov_bann', 'nov_prodr'),
             'description': 'Campos adicionales para banners y artículos destacados',
@@ -406,3 +411,18 @@ class NovedadesAdmin(admin.ModelAdmin):
         else:
             return ' Inactiva'
     colored_status.short_description = 'Estado'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('nov_arts')
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # En nov_arts solo se eligen artículos existentes: sin el "+" de crear artículo nuevo
+        if 'nov_arts' in form.base_fields:
+            form.base_fields['nov_arts'].widget.can_add_related = False
+        return form
+
+    def articulos_pedir(self, obj):
+        """Códigos DD de los artículos del botón Pedir"""
+        return ', '.join(a.art_cn or str(a.art_codi) for a in obj.nov_arts.all()) or '-'
+    articulos_pedir.short_description = 'Artículos (Pedir)'

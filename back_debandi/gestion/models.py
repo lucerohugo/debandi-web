@@ -157,6 +157,9 @@ class Articulo(models.Model):
         verbose_name_plural = "Artículos"
         ordering = ["art_nomb"]
 
+    def __str__(self):
+        return f"{self.art_cn or self.art_codi} - {self.art_nomb}"
+
     def get_iva_rate(self):
         """Obtiene el IVA del artículo"""
         return float(self.art_tiva) if self.art_tiva else 21
@@ -264,6 +267,7 @@ class Novedades(models.Model):
     nov_fechi = models.DateField(blank=True, null=True, help_text="Fecha de inicio banner")
     nov_fechf = models.DateField(blank=True, null=True, help_text="Fecha de final banner")
     nov_acti = models.BooleanField(default=True, help_text="¿Mostrar esta novedad?")
+    nov_arts = models.ManyToManyField(Articulo, blank=True, related_name="novedades_pedido", help_text="Artículos que se agregan al carrito con el botón Pedir")
 
     class Meta:
         verbose_name = "Novedad"
@@ -759,6 +763,7 @@ class Vendedor(models.Model):
 #     vta_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 #     com_deha = models.SmallIntegerField(default=1, choices=[(1, 'Debito'), (-1, 'Credito')], help_text="Debito / Credito Comprobante")
 #     cli_codi = models.ForeignKey(Clientes, on_delete=models.SET_NULL, null=True, blank=True, related_name='ventas')
+#     bandera(0/1)
 
 # #cobros------------
 # class Cobros(models.Model):
@@ -767,3 +772,4 @@ class Vendedor(models.Model):
 #     cob_concR = models.CharField(max_length=60, blank=True, null=True, help_text="Concepto Cobro")
 #     cob_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 #     vta_codi = models.ForeignKey(Ventas, on_delete=models.SET_NULL, null=True, blank=True, related_name="cobros")
+#     bandera (0/1)

@@ -21,6 +21,7 @@ interface Articulo {
   art_img2_url?: string | null
   art_img3?: string | null
   art_img3_url?: string | null
+  art_cn?: string | null
   art_carru?: boolean  // Para Nuevos Productos
   art_prodr?: boolean  // Para Productos Recomendados
 }
@@ -47,6 +48,15 @@ interface Novedad {
   nov_fechi?: string | null
   nov_fechf?: string | null
   art_carru?: Articulo | null
+  nov_arts?: number[]
+  articulos_pedido?: ArticuloPedido[]
+}
+
+interface ArticuloPedido {
+  art_codi: number
+  art_cn?: string | null
+  art_nomb: string
+  mar_nomb?: string | null
 }
 
 export default function GestorImagenes() {
@@ -103,6 +113,10 @@ export default function GestorImagenes() {
   const [novedades, setNovedades] = useState<Novedad[]>([])
   const [loadingNovedades, setLoadingNovedades] = useState(false)
   const [novedadEditando, setNovedadEditando] = useState<Novedad | null>(null)
+  const [novedadArticulos, setNovedadArticulos] = useState<ArticuloPedido[]>([])
+  const [searchArtNovedad, setSearchArtNovedad] = useState("")
+  const [resultadosArtNovedad, setResultadosArtNovedad] = useState<Articulo[]>([])
+  const [buscandoArtNovedad, setBuscandoArtNovedad] = useState(false)
 
   // Definir funciones ANTES de useEffect
   const getApiUrl = (): string => {
@@ -440,6 +454,35 @@ export default function GestorImagenes() {
     setLoadingNovedades(false)
   }
 
+  const buscarArticulosNovedad = async (search: string) => {
+    if (!search.trim()) {
+      setResultadosArtNovedad([])
+      return
+    }
+    setBuscandoArtNovedad(true)
+    try {
+      const apiUrl = getApiUrl()
+      const res = await fetch(`${apiUrl}/articulos/?page=1&search=${encodeURIComponent(search)}`)
+      const data: ArticulosResponse = await res.json()
+      setResultadosArtNovedad(data.results || [])
+    } catch (error) {
+      console.error("Error buscando artículos:", error)
+    }
+    setBuscandoArtNovedad(false)
+  }
+
+  const agregarArticuloNovedad = (art: Articulo) => {
+    setNovedadArticulos(prev =>
+      prev.some(a => a.art_codi === art.art_codi)
+        ? prev
+        : [...prev, { art_codi: art.art_codi, art_cn: art.art_cn, art_nomb: art.art_nomb, mar_nomb: art.mar_nomb }]
+    )
+  }
+
+  const quitarArticuloNovedad = (artCodi: number) => {
+    setNovedadArticulos(prev => prev.filter(a => a.art_codi !== artCodi))
+  }
+
   const guardarNovedad = async () => {
     if (!novedadTitulo.trim()) {
       alert("Por favor ingresa un título para la novedad")
@@ -464,6 +507,7 @@ export default function GestorImagenes() {
       }
       
       if (novedadFecha) body.nov_fechi = novedadFecha
+      const novArts = novedadArticulos.map(a => a.art_codi)
 
       let fetchOptions: RequestInit = {
         method,
@@ -481,10 +525,20 @@ export default function GestorImagenes() {
         fetchOptions.body = formData
       } else {
         fetchOptions.headers = { "Content-Type": "application/json" }
-        fetchOptions.body = JSON.stringify(body)
+        fetchOptions.body = JSON.stringify({ ...body, nov_arts: novArts })
       }
 
-      const res = await fetch(url, fetchOptions)
+      let res = await fetch(url, fetchOptions)
+
+      // Con FormData no se puede mandar una lista vacía: los artículos van en un PATCH JSON aparte
+      if (res.ok && novedadImagen) {
+        const guardada = await res.json()
+        res = await fetch(`${apiUrl}/novedades/${guardada.nov_codi}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nov_arts: novArts }),
+        })
+      }
       
       if (res.ok) {
         limpiarFormularioNovedad()
@@ -514,6 +568,9 @@ export default function GestorImagenes() {
     setNovedadCategoria(novedad.nov_cate || "otro")
     setNovedadActiva(novedad.nov_acti !== false)
     setNovedadImagen(null)
+    setNovedadArticulos(novedad.articulos_pedido || [])
+    setSearchArtNovedad("")
+    setResultadosArtNovedad([])
   }
 
   const eliminarNovedad = async (novCodi: number) => {
@@ -537,7 +594,16 @@ export default function GestorImagenes() {
     setNovedadCategoria("otro")
     setNovedadImagen(null)
     setNovedadActiva(true)
+    setNovedadArticulos([])
+    setSearchArtNovedad("")
+    setResultadosArtNovedad([])
   }
+
+  // Búsqueda de artículos para el botón Pedir mientras se escribe
+  useEffect(() => {
+    const timer = setTimeout(() => buscarArticulosNovedad(searchArtNovedad), 350)
+    return () => clearTimeout(timer)
+  }, [searchArtNovedad])
 
   useEffect(() => {
     setMounted(true)
@@ -1293,6 +1359,70 @@ export default function GestorImagenes() {
                     )}
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Artículos del botón "Pedir" (opcional)</label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Si agregás articulos, la tarjeta mostrará un botón "Pedir" con los articulos seleccionados.
+                    </p>
+                    <Input
+                      placeholder="Buscar artículo por nombre, código"
+                      value={searchArtNovedad}
+                      onChange={(e) => setSearchArtNovedad(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.preventDefault()
+                      }}
+                    />
+                    {buscandoArtNovedad && <p className="text-xs text-gray-500 mt-2">Buscando...</p>}
+                    {!buscandoArtNovedad && searchArtNovedad.trim() && resultadosArtNovedad.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-2">Sin resultados para "{searchArtNovedad}"</p>
+                    )}
+                    {!buscandoArtNovedad && resultadosArtNovedad.length > 0 && (
+                      <div className="mt-2 max-h-56 overflow-y-auto border border-gray-200 rounded-md bg-white divide-y">
+                        {resultadosArtNovedad.map((art) => {
+                          const yaAgregado = novedadArticulos.some(a => a.art_codi === art.art_codi)
+                          return (
+                            <div key={art.art_codi} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                              <span className="min-w-0 truncate">
+                                <span className="text-gray-500 mr-2">{art.art_cn || "-"}</span>
+                                {art.art_nomb}
+                                {art.mar_nomb && <span className="text-gray-400 ml-1">({art.mar_nomb})</span>}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant={yaAgregado ? "outline" : "default"}
+                                disabled={yaAgregado}
+                                onClick={() => agregarArticuloNovedad(art)}
+                                className="shrink-0"
+                              >
+                                {yaAgregado ? "Agregado" : "Agregar"}
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {novedadArticulos.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {novedadArticulos.map((art) => (
+                          <span
+                            key={art.art_codi}
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-800 text-xs px-3 py-1"
+                          >
+                            {art.art_cn || "-"} - {art.art_nomb}
+                            <button
+                              type="button"
+                              onClick={() => quitarArticuloNovedad(art.art_codi)}
+                              className="ml-1 font-bold hover:text-red-600"
+                              aria-label={`Quitar ${art.art_nomb}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={guardarNovedad}
@@ -1321,6 +1451,7 @@ export default function GestorImagenes() {
                         <th className="text-left py-2 px-3 font-semibold">Título</th>
                         <th className="text-left py-2 px-3 font-semibold">Categoría</th>
                         <th className="text-left py-2 px-3 font-semibold">Imagen</th>
+                        <th className="text-left py-2 px-3 font-semibold">Artículos</th>
                         <th className="text-left py-2 px-3 font-semibold">Estado</th>
                         <th className="text-left py-2 px-3 font-semibold">Acciones</th>
                       </tr>
@@ -1328,13 +1459,13 @@ export default function GestorImagenes() {
                     <tbody>
                       {loadingNovedades ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4 text-gray-500">
+                          <td colSpan={7} className="text-center py-4 text-gray-500">
                             Cargando...
                           </td>
                         </tr>
                       ) : novedades.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4 text-gray-500">
+                          <td colSpan={7} className="text-center py-4 text-gray-500">
                             No hay novedades creadas
                           </td>
                         </tr>
@@ -1376,6 +1507,11 @@ export default function GestorImagenes() {
                                 ) : (
                                   <span className="text-gray-400 text-xs">Sin imagen</span>
                                 )}
+                              </td>
+                              <td className="py-2 px-3 text-xs text-gray-600">
+                                {nov.articulos_pedido?.length
+                                  ? nov.articulos_pedido.map(a => a.art_cn || "-").join(", ")
+                                  : "-"}
                               </td>
                               <td className="py-2 px-3">
                                 {nov.nov_acti ? (

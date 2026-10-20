@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import { parseISO } from "date-fns"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "./ui/button"
 
@@ -46,8 +47,9 @@ export default function PromoBanner() {
         const activeBanners = (data.results || [])
           .filter((banner: Novedad) => {
             // Filtrar solo banners activos por fecha
-            const start = banner.nov_fechi ? new Date(banner.nov_fechi) : null
-            const end = banner.nov_fechf ? new Date(banner.nov_fechf) : null
+            // parseISO toma "YYYY-MM-DD" como fecha local (new Date() la toma en UTC y resta un día en Argentina)
+            const start = banner.nov_fechi ? parseISO(banner.nov_fechi) : null
+            const end = banner.nov_fechf ? parseISO(banner.nov_fechf) : null
             
             if (start && start > today) return false // No ha empezado
             if (end && end < today) return false // Ya terminó

@@ -571,6 +571,12 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                                       newQuantities.set(product.art_codi, newQty)
                                       setCartQuantities(newQuantities)
                                     }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") { //le da enter y es como si hiciera click
+                                        e.preventDefault()
+                                        handleAddSingleProductToCart(product.art_codi, quantity)
+                                      }
+                                    }}
                                     className="w-16 px-2 py-1 border rounded text-center"
                                   />
                                   <button

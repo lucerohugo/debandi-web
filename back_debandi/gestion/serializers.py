@@ -151,15 +151,17 @@ class NovedadesSerializer(serializers.ModelSerializer):
     """Serializer para Novedades"""
     articulo = ArticuloFrontendSerializer(source='art_carru', read_only=True)
     nov_img_url = serializers.SerializerMethodField()
+    nov_arts = serializers.PrimaryKeyRelatedField(many=True, queryset=Articulo.objects.all(), required=False)
+    articulos_pedido = serializers.SerializerMethodField()
 
     class Meta:
         model = Novedades
         fields = [
             'nov_codi', 'nov_nomb', 'nov_titl', 'nov_desc', 'nov_img', 'nov_img_url',
-            'nov_cate', 'nov_acti', 'art_carru', 'articulo', 'nov_bann', 'nov_prodr', 
-            'nov_fechi', 'nov_fechf'
+            'nov_cate', 'nov_acti', 'art_carru', 'articulo', 'nov_bann', 'nov_prodr',
+            'nov_fechi', 'nov_fechf', 'nov_arts', 'articulos_pedido'
         ]
-        read_only_fields = ['nov_codi', 'nov_img_url', 'articulo']
+        read_only_fields = ['nov_codi', 'nov_img_url', 'articulo', 'articulos_pedido']
         extra_kwargs = {
             'nov_img': {'write_only': True}  # Solo para recibir, no devolver
         }
@@ -172,6 +174,39 @@ class NovedadesSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.nov_img.url)
             return f"/media/{obj.nov_img.name}"
         return None
+
+    def create(self, validated_data):
+        """nov_codi no es autoincremental en Django: sin asignarlo, la instancia queda
+        sin PK tras el INSERT y no se pueden guardar los artículos (nov_arts)"""
+        if not validated_data.get('nov_codi'):
+            ultimo = Novedades.objects.order_by('-nov_codi').values_list('nov_codi', flat=True).first()
+            validated_data['nov_codi'] = (ultimo or 0) + 1
+        return super().create(validated_data)
+
+    def get_articulos_pedido(self, obj):
+        """Datos mínimos de los artículos del botón Pedir (para agregarlos al carrito)"""
+        request = self.context.get('request')
+        return [
+            {
+                'art_codi': art.art_codi,
+                'art_cn': art.art_cn,
+                'art_nomb': art.art_nomb,
+                'art_desc': art.art_desc,
+                'art_pnet': float(art.art_pnet) if art.art_pnet is not None else None,
+                'art_pfin': float(art.art_pfin) if art.art_pfin is not None else None,
+                'art_tiva': float(art.art_tiva) if art.art_tiva is not None else None,
+                'art_stk': art.art_stk,
+                'art_img': build_media_url(request, art.art_img1),
+                'art_img1_url': build_media_url(request, art.art_img1),
+                'art_img2_url': build_media_url(request, art.art_img2),
+                'art_img3_url': build_media_url(request, art.art_img3),
+                'mar_nomb': art.mar_codi.mar_nomb if art.mar_codi_id else None,
+                'sru_nomb': art.sru_codi.sru_nomb if art.sru_codi_id else None,
+                'rub_nomb': art.sru_codi.rub_codi.rub_nomb if art.sru_codi_id and art.sru_codi.rub_codi_id else None,
+                'art_acti': art.art_acti,
+            }
+            for art in obj.nov_arts.select_related('mar_codi', 'sru_codi__rub_codi').all()
+        ]
 
 
 # ================================================================

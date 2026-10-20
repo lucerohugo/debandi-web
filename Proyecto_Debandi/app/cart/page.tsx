@@ -8,13 +8,25 @@ import Footer from "@/components/footer"
 import CartItems from "@/components/cart-items"
 import CartSummary from "@/components/cart-summary"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useAuth } from "@/contexts/auth-context"
 import { useVendedor } from "@/contexts/vendedor-context"
 import { Button } from "@/components/ui/button"
 import { ExportUtils } from "@/lib/export-utils"
 import { CartService, type CartItem } from "@/services/cart.service"
 import NotificationToast from "@/components/notification-toast"
+import ClientCartView from "@/components/client-cart-view"
 
 interface Product extends CartItem {
   quantity: number
@@ -24,12 +36,17 @@ export default function CartPage() {
   const [items, setItems] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
   } | null>(null)
-  const { user } = useAuth()
+  const { user, impersonation } = useAuth()
   const { isVendedorSession } = useVendedor()
+  // Vendedor suplantando: además de su carrito puede ver el propio del cliente
+  const puedeVerCarritoCliente = Boolean(user && impersonation?.isImpersonating)
+  const [vista, setVista] = useState<'mio' | 'cliente'>('mio')
+  const verCliente = puedeVerCarritoCliente && vista === 'cliente'
   const router = useRouter()
 
   const handleExportPDF = async () => {
@@ -160,6 +177,29 @@ export default function CartPage() {
     }
   }
 
+  const handleClearCart = async () => {
+    setIsClearing(true)
+    try {
+      await CartService.clearCart()
+      setItems([])
+      setNotification({
+        type: 'success',
+        message: 'Carrito vaciado correctamente'
+      })
+    } catch (error) {
+      // Recargar para reflejar lo que haya quedado en el backend
+      const cartItems = await CartService.getCart().catch(() => [])
+      setItems(cartItems as any)
+      setNotification({
+        type: 'error',
+        message: 'No se pudo vaciar el carrito completamente'
+      })
+    } finally {
+      setIsClearing(false)
+      setTimeout(() => setNotification(null), 3000)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -178,18 +218,74 @@ export default function CartPage() {
       <NavigationBar />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
-        <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-75 transition mb-6">
+        <Link href="/listado" className="flex items-center gap-2 text-primary hover:opacity-75 transition mb-6">
           <ArrowLeft className="w-5 h-5" />
-          Volver al Catálogo
+          Seguir Comprando
         </Link>
 
-        <h1 className="text-3xl font-bold text-foreground mb-8">Tu Carrito</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {verCliente ? "Carrito del cliente" : "Tu Carrito"}
+          </h1>
 
-        {items.length === 0 ? (
+          {!verCliente && items.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isClearing}
+                  className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isClearing ? "Vaciando..." : "Vaciar carrito"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Vaciar el carrito?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se eliminarán todos los productos del carrito ({items.length}). Esta acción no se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleClearCart}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Sí, vaciar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+
+        {puedeVerCarritoCliente && (
+          <div className="flex mb-4 sm:mb-6 border-b border-border">
+            {([['mio', 'Mi carrito'], ['cliente', 'Carrito del cliente']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setVista(key)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 -mb-px border-b-2 text-sm sm:text-base font-medium whitespace-nowrap transition ${
+                  vista === key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {verCliente ? (
+          <ClientCartView />
+        ) : items.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-12 text-center">
             <p className="text-xl text-muted-foreground mb-4">Tu carrito está vacío</p>
             <Link
-              href="/"
+              href="/listado"
               className="inline-block bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:opacity-90 transition"
             >
               Seguir Comprando

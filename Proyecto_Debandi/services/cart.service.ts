@@ -115,6 +115,37 @@ class CartServiceClass {
   }
 
   /**
+   * Vendedor suplantando: leer el carrito PROPIO del cliente (no el del vendedor).
+   * Solo lectura; el vendedor lo usa para realizar el pedido en su nombre.
+   */
+  async getClientOwnCart(): Promise<CartItem[]> {
+    const clientId = this.getClientId()
+    if (!clientId) return []
+
+    const response = await ApiService.get<any>(`/carrito/cliente/?cli_codi=${clientId}&origen=cliente`)
+    const items = Array.isArray(response) ? response : (response?.results || [])
+    return items.map((item: any) => ({ ...item, quantity: item.carr_cant }))
+  }
+
+  /**
+   * Vendedor suplantando: crear el pedido con el carrito propio del cliente.
+   * items_esperados = lo que el vendedor tiene en pantalla; si el cliente lo
+   * cambió mientras tanto el backend responde 409 y no crea el pedido.
+   */
+  async createOrderFromClientCart(items: CartItem[], ped_obse?: string): Promise<any> {
+    const clientId = this.getClientId()
+    if (!clientId) throw new Error('No hay cliente logueado')
+
+    return ApiService.post<any>('/pedidos-crear-desde-carrito/', {
+      cli_codi: clientId,
+      ped_fpag: 'CDO',
+      ped_obse: ped_obse || undefined,
+      origen: 'cliente',
+      items_esperados: items.map(item => ({ carr_codi: item.carr_codi, carr_cant: item.carr_cant }))
+    })
+  }
+
+  /**
    * Agregar un producto al carrito (en la BD)
    */
   async addToCart(art_codi: number, cantidad: number = 1, producto?: Partial<CartItem>): Promise<void> {
@@ -235,23 +266,23 @@ class CartServiceClass {
       const cart = await this.getCart()
       
       // Eliminar todos los items usando /carrito-manage/
-      for (const item of cart) {
-        if (item.art_codi) {
-          const payload = {
-            cli_codi: clientId,
-            art_codi: item.art_codi
-          }
-          await ApiService.delete('/carrito-manage/', undefined, payload)
-        }
-      }
-      
+      await Promise.all(
+        cart
+          .filter(item => item.art_codi)
+          .map(item => ApiService.delete('/carrito-manage/', { cli_codi: clientId, art_codi: item.art_codi }))
+      )
+
       // Invalidar caché
       cacheManager.invalidate(`cart_${clientId}`)
-      
+
       // Disparar evento para actualizar UI (navbar)
       window.dispatchEvent(new Event('cart-updated'))
     } catch (error) {
       console.error('Error limpiando carrito:', error)
+      // Invalidar caché igual, por si se borró parcialmente
+      this.clearCartCache()
+      window.dispatchEvent(new Event('cart-updated'))
+      throw error
     }
   }
 

@@ -30,9 +30,11 @@ interface Product {
 
 interface ProductCardProps {
   product: Product
+  /** Muestra la imagen entera sobre fondo blanco (como en el detalle) en vez de recortarla */
+  imagenCompleta?: boolean
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, imagenCompleta = false }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showNotification, setShowNotification] = useState(false)
@@ -103,7 +105,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow group flex flex-col h-full">
         {/* Imagen del producto */}
         <div
-          className="relative w-full aspect-square bg-muted overflow-hidden cursor-pointer"
+          className={`relative w-full aspect-square overflow-hidden cursor-pointer ${imagenCompleta ? "bg-white" : "bg-muted"}`}
           onClick={() => setShowPreview(true)}
         >
           {product.art_img ? (
@@ -111,7 +113,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               src={product.art_img}
               alt={product.art_nomb}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`${imagenCompleta ? "object-contain p-3" : "object-cover"} group-hover:scale-105 transition-transform duration-300`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">Sin imagen</div>
@@ -166,28 +168,36 @@ export default function ProductCard({ product }: ProductCardProps) {
             disabled={isAdding}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-auto text-sm"
           >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            {isAdding ? "Agregando..." : "Agregar al Carrito"}
+            <ShoppingCart className="w-4 h-4 mr-2 shrink-0" />
+            {isAdding ? (
+              "Agregando..."
+            ) : imagenCompleta ? (
+              // Tarjetas angostas (ventana de Novedades): texto corto en celular
+              <>
+                <span className="sm:hidden">Agregar</span>
+                <span className="hidden sm:inline">Agregar al Carrito</span>
+              </>
+            ) : (
+              "Agregar al Carrito"
+            )}
           </Button>
         </div>
       </div>
 
       {/* Modales */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      {showNotification && (
-        <NotificationToast
-          message={notificationMessage}
-          type={notificationType}
-          onClose={() => setShowNotification(false)}
-        />
-      )}
-      {showPreview && (
-        <ProductPreviewModal
-          product={product}
-          isOpen={showPreview}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
+      <NotificationToast
+        message={notificationMessage}
+        type={notificationType}
+        isOpen={showNotification}
+        onClose={() => setShowNotification(false)}
+      />
+      {/* Siempre montado: al cerrarse tras agregar al carrito, su aviso tiene que seguir visible */}
+      <ProductPreviewModal
+        product={{ ...product, art_pnet: product.art_pnet ?? product.art_pfin }}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+      />
     </>
   )
 }

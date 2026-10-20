@@ -85,7 +85,7 @@ export default function NotificationToast({
 
   return (
     <div
-      className={`fixed right-4 z-40 animate-in slide-in-from-top-2 fade-in duration-300 ${
+      className={`fixed right-4 z-[80] animate-in slide-in-from-top-2 fade-in duration-300 ${
         isImpersonating ? 'top-[151px]' : 'top-24'
       }`}
     >

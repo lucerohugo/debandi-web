@@ -171,7 +171,18 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
     setTimeout(() => setShowNotification(false), 3000)
   }
 
-  if (!isOpen) return null
+  const toast = (
+    <NotificationToast
+      message={notificationMessage}
+      type={notificationType}
+      isOpen={showNotification}
+      onClose={() => setShowNotification(false)}
+      duration={3000}
+    />
+  )
+
+  // El modal se cierra a los 500ms de agregar al carrito: el aviso sigue visible igual
+  if (!isOpen) return toast
 
   return (
     <>
@@ -343,13 +354,7 @@ export default function ProductPreviewModal({ product, isOpen, onClose }: Produc
       </div>
 
       {showAuthModal && <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />}
-      <NotificationToast
-        message={notificationMessage}
-        type={notificationType}
-        isOpen={showNotification}
-        onClose={() => setShowNotification(false)}
-        duration={3000}
-      />
+      {toast}
     </div>
     </>
   )

@@ -11,6 +11,8 @@ import { useConfig } from "@/contexts/config-context"
 import { useVendedor } from "@/contexts/vendedor-context"
 import { useTheme } from "next-themes"
 import { CartService } from "@/services/cart.service"
+import { formatCurrencySpanish, applyDiscountToPrice } from "@/lib/format"
+import { useMostrarIVA, precioSegunIVA } from "@/hooks/use-mostrar-iva"
 import { SearchService } from "@/services/search.service"
 import AuthModal from "./auth-modal"
 import ChangePasswordModal from "./change-password-modal"
@@ -34,6 +36,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchingGlobal, setSearchingGlobal] = useState(false)
   const [cartCount, setCartCount] = useState(0)
+  const [cartItems, setCartItems] = useState<any[]>([])
+  const mostrarIVA = useMostrarIVA()
   const [favoritesCount, setFavoritesCount] = useState(favorites.length || 0)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -51,6 +55,45 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDropdownRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLElement>(null)
+
+  // Mobile: mantener presionado el carrito muestra el total
+  const [showCartTooltipMobile, setShowCartTooltipMobile] = useState(false)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hideTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggeredRef = useRef(false)
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const handleCartTouchStart = () => {
+    longPressTriggeredRef.current = false
+    cancelLongPress()
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true
+      setShowCartTooltipMobile(true)
+      if (hideTooltipTimerRef.current) clearTimeout(hideTooltipTimerRef.current)
+      hideTooltipTimerRef.current = setTimeout(() => setShowCartTooltipMobile(false), 3000)
+    }, 450)
+  }
+
+  const handleCartClickMobile = (e: React.MouseEvent) => {
+    // Si fue un "mantener presionado", no navegar al carrito
+    if (longPressTriggeredRef.current) {
+      e.preventDefault()
+      longPressTriggeredRef.current = false
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      cancelLongPress()
+      if (hideTooltipTimerRef.current) clearTimeout(hideTooltipTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -108,6 +151,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       const items = await CartService.getCart()
       const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || item.carr_cant || 0), 0)
       setCartCount(totalQuantity)
+      setCartItems(items)
     }
     if (mounted) {
       loadCart()
@@ -124,6 +168,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       const items = await CartService.getCart()
       const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || item.carr_cant || 0), 0)
       setCartCount(totalQuantity)
+      setCartItems(items)
     }
 
     window.addEventListener("cart-updated", handleCartUpdated)
@@ -198,6 +243,13 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   }, [showSearchDropdown])
 
   const currentTheme = theme || "light"
+
+  // Total del carrito (mismo cálculo que CartSummary: respeta preferencia de IVA y descuento del cliente)
+  const cartTotal = cartItems.reduce(
+    (sum, item) =>
+      sum + applyDiscountToPrice(precioSegunIVA(item, mostrarIVA), user?.cli_desc || 0) * (item.quantity || item.carr_cant || 0),
+    0
+  )
 
   return (
     <>
@@ -330,14 +382,34 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
 
               {/* Carrito - Solo si está logueado */}
               {user && (
-                <Link href="/cart" className="relative p-2 hover:bg-accent rounded-lg transition-colors" aria-label="Carrito">
-                  <ShoppingCart className="w-5 h-5" />
-                  {cartCount > 0 && (
-                    <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      {cartCount}
-                    </span>
-                  )}
-                </Link>
+                <div className="relative group">
+                  <Link href="/cart" className="relative block p-2 hover:bg-accent rounded-lg transition-colors" aria-label="Carrito">
+                    <ShoppingCart className="w-5 h-5" />
+                    {cartCount > 0 && (
+                      <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {cartCount}
+                      </span>
+                    )}
+                  </Link>
+                  {/* Tooltip con cantidad e importe total */}
+                  <div className="pointer-events-none absolute right-1/2 translate-x-1/2 top-full mt-2 z-50 hidden group-hover:block whitespace-nowrap bg-popover text-popover-foreground border border-border rounded-lg shadow-lg px-3 py-2 text-sm">
+                    {cartCount > 0 ? (
+                      <>
+                        {/* <p className="text-xs text-muted-foreground">
+                          {cartCount} {cartCount === 1 ? "unidad" : "unidades"}
+                        </p> */}
+                        <p className="font-semibold">
+                          Total: {formatCurrencySpanish(cartTotal)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {mostrarIVA ? "IVA incluido" : "Sin IVA"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Carrito vacío</p>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Auth / User Menu */}
@@ -446,14 +518,44 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
             {/* Carrito + Menú hamburguesa (solo mobile) */}
             <div className="flex md:hidden items-center gap-1 flex-shrink-0">
               {user && (
-                <Link href="/cart" className="relative p-2 hover:bg-accent rounded-lg transition-colors" aria-label="Carrito">
-                  <ShoppingCart className="w-5 h-5" />
-                  {cartCount > 0 && (
-                    <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      {cartCount}
-                    </span>
+                <div className="relative">
+                  <Link
+                    href="/cart"
+                    className="relative block p-2 hover:bg-accent rounded-lg transition-colors select-none"
+                    style={{ WebkitTouchCallout: "none" }}
+                    aria-label="Carrito"
+                    onTouchStart={handleCartTouchStart}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
+                    onTouchCancel={cancelLongPress}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onClick={handleCartClickMobile}
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    {cartCount > 0 && (
+                      <span className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {cartCount}
+                      </span>
+                    )}
+                  </Link>
+                  {/* Tooltip mobile (mantener presionado) */}
+                  {showCartTooltipMobile && (
+                    <div className="pointer-events-none absolute right-0 top-full mt-2 z-50 whitespace-nowrap bg-popover text-popover-foreground border border-border rounded-lg shadow-lg px-3 py-2 text-sm">
+                      {cartCount > 0 ? (
+                        <>
+                          <p className="font-semibold">
+                            Total: {formatCurrencySpanish(cartTotal)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {mostrarIVA ? "IVA incluido" : "Sin IVA"}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Carrito vacío</p>
+                      )}
+                    </div>
                   )}
-                </Link>
+                </div>
               )}
               <button
                 onClick={() => {
