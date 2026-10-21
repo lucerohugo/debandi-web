@@ -231,6 +231,20 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
         except TokenError:
             return None
 
+    def _incluir_precios_export(self):
+        """
+        Para exportar-pdf / exportar-excel: sin token (público) → sin precios
+        (ni neto ni final); token válido → con precios. Si manda un token pero
+        es inválido/vencido devuelve None y la vista responde 401 para que el
+        frontend lo renueve y reintente, en vez de bajarle el catálogo sin
+        precios a un cliente logueado.
+        """
+        if not self.request.META.get('HTTP_AUTHORIZATION', '').startswith('Bearer '):
+            return False
+        if self._access_token() is None:
+            return None
+        return True
+
     def _incluir_ocultos(self):
         """
         True si la request pide ?incluir_ocultos=1 y viene de un vendedor activo
@@ -301,8 +315,10 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     def exportar_excel(self, request):
         """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel.
         al publico sin iniciar sesion no incluye precios"""
+        incluir_precios = self._incluir_precios_export()
+        if incluir_precios is None:
+            return Response({'detail': 'Token inválido o vencido'}, status=status.HTTP_401_UNAUTHORIZED)
         try:
-            incluir_precios = self._access_token() is not None
             excel_file = ExcelService.generar_excel(
                 incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
             )
@@ -328,8 +344,10 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     def exportar_pdf(self, request):
         """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF.
         al publico sin iniciar sesion no incluye precios"""
+        incluir_precios = self._incluir_precios_export()
+        if incluir_precios is None:
+            return Response({'detail': 'Token inválido o vencido'}, status=status.HTTP_401_UNAUTHORIZED)
         try:
-            incluir_precios = self._access_token() is not None
             pdf_file = PDFService.generar_pdf(
                 incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
             )
