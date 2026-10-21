@@ -76,6 +76,7 @@ export default function VendedorArticulosPage() {
   const [articuloPreview, setArticuloPreview] = useState<Articulo | null>(null)
   const [imagenIndex, setImagenIndex] = useState(0)
   const [exportando, setExportando] = useState<"pdf" | "excel" | null>(null)
+  const [aviso, setAviso] = useState("")
 
   const limit = 20
 
@@ -86,8 +87,8 @@ export default function VendedorArticulosPage() {
     setError("")
 
     try {
-      // incluir_ocultos: el vendedor ve también los artículos no visibles en web (art_visw=False)
-      let url = `/articulos/?page=${page}&page_size=${limit}&incluir_ocultos=1`
+      // Solo artículos visibles en web (art_visw=True), igual que el ccatalogo publico
+      let url = `/articulos/?page=${page}&page_size=${limit}`
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}`
       }
@@ -124,16 +125,21 @@ export default function VendedorArticulosPage() {
   const imagenesPreview = articuloPreview ? getImagenes(articuloPreview) : []
 
   const exportarCatalogo = async (formato: "pdf" | "excel") => {
+    const nombre = formato === "pdf" ? "PDF" : "Excel"
     setExportando(formato)
     setError("")
+    setAviso(`Descargando ${nombre}, espere...`)
     try {
       if (formato === "pdf") {
-        await ExportUtils.exportarPDF(true)
+        await ExportUtils.exportarPDF()
       } else {
-        await ExportUtils.exportarExcel(true)
+        await ExportUtils.exportarExcel()
       }
+      setAviso(`${nombre} descargado exitosamente`)
+      setTimeout(() => setAviso(""), 3000)
     } catch (err: any) {
-      setError(err.message || `Error al exportar ${formato === "pdf" ? "PDF" : "Excel"}`)
+      setAviso("")
+      setError(err.message || `Error al exportar ${nombre}`)
     } finally {
       setExportando(null)
     }
@@ -316,6 +322,18 @@ export default function VendedorArticulosPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Notificación de exportación */}
+      {aviso && (
+        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center gap-2">
+          {exportando ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileDown className="w-4 h-4" />
+          )}
+          {aviso}
+        </div>
+      )}
 
       {/* Vista previa de imagen */}
       <Dialog open={articuloPreview !== null} onOpenChange={(open) => !open && setArticuloPreview(null)}>
