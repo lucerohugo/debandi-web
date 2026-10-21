@@ -216,6 +216,21 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
     ordering = ['art_nomb']
     authentication_classes = []
 
+    def _access_token(self):
+        """
+        AccessToken válido del header Authorization, o None si no hay / es inválido.
+        No se usa SimpleJWTAuthentication porque el JWT del cliente lleva
+        user_id=cli_codi (no un User de Django) y esa clase responde 401 al no
+        encontrar el usuario.
+        """
+        auth_header = self.request.META.get('HTTP_AUTHORIZATION', '')
+        if not auth_header.startswith('Bearer '):
+            return None
+        try:
+            return AccessToken(auth_header[7:].strip())
+        except TokenError:
+            return None
+
     def _incluir_ocultos(self):
         """
         True si la request pide ?incluir_ocultos=1 y viene de un vendedor activo
@@ -225,12 +240,8 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
         """
         if self.request.query_params.get('incluir_ocultos') not in ('1', 'true'):
             return False
-        auth_header = self.request.META.get('HTTP_AUTHORIZATION', '')
-        if not auth_header.startswith('Bearer '):
-            return False
-        try:
-            token = AccessToken(auth_header[7:].strip())
-        except TokenError:
+        token = self._access_token()
+        if token is None:
             return False
         ven_codi = token.get('vendedor_suplantante')
         if not ven_codi:
@@ -285,13 +296,13 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 
     @action(
         detail=False, methods=['get'], url_path='exportar-excel',
-        permission_classes=[AllowAny], authentication_classes=[SimpleJWTAuthentication],
+        permission_classes=[AllowAny],
     )
     def exportar_excel(self, request):
         """GET /articulos/exportar-excel/ - Exporta todos los artículos a Excel.
         al publico sin iniciar sesion no incluye precios"""
         try:
-            incluir_precios = bool(request.user and request.user.is_authenticated)
+            incluir_precios = self._access_token() is not None
             excel_file = ExcelService.generar_excel(
                 incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
             )
@@ -312,13 +323,13 @@ class ArticuloViewSet(BulkCreateMixin, BaseViewSet):
 
     @action(
         detail=False, methods=['get'], url_path='exportar-pdf',
-        permission_classes=[AllowAny], authentication_classes=[SimpleJWTAuthentication],
+        permission_classes=[AllowAny],
     )
-    def exportar_pdf(self, request):    
+    def exportar_pdf(self, request):
         """GET /articulos/exportar-pdf/ - Exporta todos los artículos a PDF.
         al publico sin iniciar sesion no incluye precios"""
         try:
-            incluir_precios = bool(request.user and request.user.is_authenticated)
+            incluir_precios = self._access_token() is not None
             pdf_file = PDFService.generar_pdf(
                 incluir_precios=incluir_precios, incluir_ocultos=self._incluir_ocultos()
             )
