@@ -350,6 +350,7 @@ class Clientes(models.Model):
     cli_precs2 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio venta (%)")
     cli_acti = models.BooleanField(default=False, help_text="Cliente activo (requerido para iniciar sesión)",null=True)
     
+    
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
     cli_rtok = models.CharField(max_length=255, blank=True, null=True, help_text="Token de recuperación")
@@ -655,6 +656,10 @@ class General(models.Model):
     gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
     gen_emai = models.EmailField(blank=True, default='contacto@debandi.com', help_text="Email")
     gen_dola = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cotización")#campo nuevo
+    #gen_civN = models.CharField(max_length=50, blank=True, null=True, help_text="condicion de iva") 
+    #gen_leye = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas")
+    #gen_leye2 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas2")
+    #gen_leye3 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas3"
 
     class Meta:
         verbose_name = "General"
@@ -757,7 +762,7 @@ class Vendedor(models.Model):
 #nuevo ventas para extracto cuenta corriente
 #ventas------------
 # class Ventas(models.Model):
-#     vta_codi = models.IntegerField(primary_key=True, editable=True)
+#     vta_codi = models.AutoField(primary_key=True, editable=True) //autoenumerado
 #     vta_fech = models.DateField(null=True, blank=True, help_text="Fecha Venta")
 #     vta_concR = models.CharField(max_length=60, blank=True, null=True, help_text="Concepto Venta")
 #     vta_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
@@ -767,9 +772,105 @@ class Vendedor(models.Model):
 
 # #cobros------------
 # class Cobros(models.Model):
-#     cob_codi = models.IntegerField(primary_key=True, editable=True)
+#     cob_codi = models.AutoField(primary_key=True, editable=True) //autonumerado
 #     cob_fech = models.DateField(null=True, blank=True, help_text="Fecha Cobro")
 #     cob_concR = models.CharField(max_length=60, blank=True, null=True, help_text="Concepto Cobro")
 #     cob_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 #     vta_codi = models.ForeignKey(Ventas, on_delete=models.SET_NULL, null=True, blank=True, related_name="cobros")
 #     bandera (0/1)
+
+#21/10/26--------
+#hacer una sola base que sea comprobantes, ahi dentro tengo factura,nota credito,remito (ventas)
+#y otra(cobros)
+
+#ventas
+#fecha
+#venta/cobro
+#concepto
+#factura -> cuerpo -> cabecera(totales)
+
+#comprobante id-> venta codi o cob_codi
+
+#booleano si es venta o cobro (V o C)
+#concepto
+#condicion si es cobro que sea fijo CTC pero si es venta CTO(contado), etc
+#com_deha debito y credito
+#total 
+
+#facturas
+#gravado, iva, ingresos brutos, etc
+
+
+#cobro
+
+#subnivel donde van a estar el detalle de la factura
+#detalle factura
+#vta_Codi (cod_compro)
+#cob_id
+#art_codi (no relacionado)
+#cantidad
+#precio unitario
+#precio total
+
+
+#cobros, ventas y comprobantes 
+#Ventas------------
+#vta_codi
+#vta_fech
+#vta_concR
+#vta_tota
+#com_deha (debito=1 / credito=-1)(com_codi) 
+#cli_codi
+#gen_codi
+#art_codi
+#vta_band
+ #/
+#vta_igra
+#vta_iexe
+#vta_iiva
+#vta_iRNI
+#vta_iiin
+#vta_ibts
+#vta_itot   
+
+#Cobros--------------
+#cob_codi
+#cob_fech
+#cob_concR
+#cob_tota
+#vta_codi
+#cob_band
+
+#Comprobantes---------
+#com_codi
+#com_deha
+#vta_codi
+#cob_codi
+
+
+#Subnivel que seria el detalle de la factura-----
+#detalle_factura
+#det_codi
+#vta_codi
+#cob_Codi
+#art_codi
+#det_cant
+#det_precU
+#det_tota
+
+
+
+#26/10/26#
+#Comprobantes(#hacer una sola base que sea comprobantes, ahi dentro tengo factura,nota credito,remito (ventas)) y otra (cobros) que va a tener
+#com_codi
+#com_nomb
+#com_letr
+#com_deha
+#com_afip
+
+#DetalleComprobante
+    #do case Tipo = V  //ventas
+    #entra a las ventas
+
+    #do case Tipo = C //cobros
+    #entra a los cobros

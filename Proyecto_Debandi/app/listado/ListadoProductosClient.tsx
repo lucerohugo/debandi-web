@@ -103,7 +103,7 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
   const [totalCount, setTotalCount] = useState(0)
   const [allProductsCache, setAllProductsCache] = useState<Map<number, Product>>(new Map())
   const mostrarIVA = useMostrarIVA()
-  const [cartQuantities, setCartQuantities] = useState<Map<number, number>>(new Map())
+  const [cartQuantities, setCartQuantities] = useState<Map<number, number | "">>(new Map())
   const { user } = useAuth()
   const router = useRouter()
 
@@ -520,7 +520,8 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                     </thead>
                     <tbody>
                       {productsTabla.map((product) => {
-                      const quantity = cartQuantities.get(product.art_codi) || 0
+                      const quantityValue = cartQuantities.get(product.art_codi) ?? 0
+                      const quantity = Number(quantityValue) || 0
                       const imageUrl = product.art_img1_url || product.art_img1 || product.art_img_url || product.art_img
                       return (
                         <tr key={product.art_codi} className="border-b hover:bg-muted/50">
@@ -564,9 +565,11 @@ export default function ListadoProductosClient({ initialSearch }: Props) {
                                   <input
                                     type="number"
                                     min="1"
-                                    value={quantity}
+                                    value={quantityValue}
+                                    onFocus={(e) => e.target.select()} // al entrar selecciona todo, asi lo que escribe reemplaza
                                     onChange={(e) => {
-                                      const newQty = Math.max(1, parseInt(e.target.value) || 1)
+                                      // permitir vacio mientras escribe, sino no se puede borrar el numero
+                                      const newQty = e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0)
                                       const newQuantities = new Map(cartQuantities)
                                       newQuantities.set(product.art_codi, newQty)
                                       setCartQuantities(newQuantities)
