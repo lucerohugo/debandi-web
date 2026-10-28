@@ -62,7 +62,6 @@ export default function PromoBanner() {
               id: banner.nov_codi,
               title: banner.nov_titl || "Oferta Especial",
               description: banner.nov_desc || "Aprovecha esta oportunidad",
-              cta: "Ver ofertas",
               image: banner.nov_img_url,
               startDate: banner.nov_fechi,
               endDate: banner.nov_fechf,
