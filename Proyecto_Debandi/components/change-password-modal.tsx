@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react"
 import { ApiService } from "@/services/api.service"
+import PasswordLengthHint, { PASSWORD_MAX_LENGTH } from "./password-length-hint"
 
 interface ChangePasswordModalProps {
   onClose: () => void
@@ -170,6 +171,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     onInput={handlePasswordInput}
+                    maxLength={PASSWORD_MAX_LENGTH}
                     className="pr-10"
                     required
                     disabled={loading}
@@ -183,6 +185,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <PasswordLengthHint length={newPassword.length} />
               </div>
 
               <div className="space-y-2">
@@ -195,6 +198,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     onInput={handlePasswordInput}
+                    maxLength={PASSWORD_MAX_LENGTH}
                     className="pr-10"
                     required
                     disabled={loading}
@@ -208,6 +212,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <PasswordLengthHint length={confirmPassword.length} />
               </div>
 
               <div className="flex gap-2">

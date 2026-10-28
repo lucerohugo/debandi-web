@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, Eye, EyeOff } from "lucide-react"
 import { RegistroService } from "@/services/registro.service"
+import PasswordLengthHint, { PASSWORD_MAX_LENGTH } from "./password-length-hint"
 
 interface AssignPasswordModalProps {
   email: string
@@ -124,7 +125,7 @@ export default function AssignPasswordModal({ email, onClose, onBack }: AssignPa
                     onInput={handlePasswordInput}
                     required
                     disabled={loading}
-                    maxLength={128}
+                    maxLength={PASSWORD_MAX_LENGTH}
                     className="pr-10"
                   />
                   <button
@@ -136,6 +137,7 @@ export default function AssignPasswordModal({ email, onClose, onBack }: AssignPa
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <PasswordLengthHint length={password.length} />
               </div>
 
               <div className="space-y-2">
@@ -150,7 +152,7 @@ export default function AssignPasswordModal({ email, onClose, onBack }: AssignPa
                     onInput={handlePasswordInput}
                     required
                     disabled={loading}
-                    maxLength={128}
+                    maxLength={PASSWORD_MAX_LENGTH}
                     className="pr-10"
                   />
                   <button
@@ -162,6 +164,7 @@ export default function AssignPasswordModal({ email, onClose, onBack }: AssignPa
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <PasswordLengthHint length={confirmPassword.length} />
               </div>
 
               <div className="flex gap-2">

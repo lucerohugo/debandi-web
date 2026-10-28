@@ -22,6 +22,7 @@ import ForgotPasswordModal from "./forgot-password-modal"
 import RegisterSuccessModal from "./register-success-modal"
 import AssignPasswordModal from "./assign-password-modal"
 import { RegistroService } from "@/services/registro.service"
+import PasswordLengthHint, { PASSWORD_MAX_LENGTH } from "./password-length-hint"
 
 interface AuthModalProps {
   isOpen: boolean
@@ -47,6 +48,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showVendedorPassword, setShowVendedorPassword] = useState(false)
+  const [registerPasswordLength, setRegisterPasswordLength] = useState(0)
+  const [confirmPasswordLength, setConfirmPasswordLength] = useState(0)
 
   // Bloquear scroll del body mientras el modal está abierto (evita scroll-chaining en mobile)
   useEffect(() => {
@@ -70,9 +73,19 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   }, [error])
 
+  // Los inputs de contraseña se desmontan al cerrar el modal o cambiar de pestaña,
+  // así que el contador de caracteres tiene que volver a 0 junto con ellos
+  useEffect(() => {
+    if (isOpen) return
+    setRegisterPasswordLength(0)
+    setConfirmPasswordLength(0)
+  }, [isOpen])
+
   const handleTabChange = (value: string) => {
     setActiveTab(value)
     setError("")
+    setRegisterPasswordLength(0)
+    setConfirmPasswordLength(0)
   }
 
   if (!isOpen) return null
@@ -210,6 +223,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Limpiar el formulario
       form.reset()
       setRegCiva("")
+      setRegisterPasswordLength(0)
+      setConfirmPasswordLength(0)
     } catch (err: any) {
       setError(err.message || "Error al registrarse. Intenta de nuevo.")
     } finally {
@@ -396,11 +411,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         id="register-password"
                         name="password"
                         type={showRegisterPassword ? "text" : "password"}
+                        maxLength={PASSWORD_MAX_LENGTH}
                         placeholder="••••••••"
                         required
                         disabled={loading}
                         className="pr-10"
                         onInput={handlePasswordInput}
+                        onChange={(e) => setRegisterPasswordLength(e.target.value.length)}
                       />
                       <button
                         type="button"
@@ -411,6 +428,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <PasswordLengthHint length={registerPasswordLength} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
@@ -419,11 +437,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         id="confirmPassword"
                         name="confirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
+                        maxLength={PASSWORD_MAX_LENGTH}
                         placeholder="••••••••"
                         required
                         disabled={loading}
                         className="pr-10"
                         onInput={handlePasswordInput}
+                        onChange={(e) => setConfirmPasswordLength(e.target.value.length)}
                       />
                       <button
                         type="button"
@@ -434,6 +454,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <PasswordLengthHint length={confirmPasswordLength} />
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1" disabled={loading}>
