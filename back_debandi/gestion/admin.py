@@ -1,8 +1,14 @@
+import re
+from datetime import date, timedelta
+from decimal import Decimal
+
 from django.contrib import admin
+from django.db.models import Q, Exists, OuterRef
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades,
+    TipoComprobantes, Comprobante, DetalleComprobante
 )
 
 
@@ -345,13 +351,17 @@ class GeneralAdmin(admin.ModelAdmin):
             'fields': ('gen_logo', 'gen_loge', 'gen_colo')
         }),
         ('Ubicación', {
-            'fields': ('gen_loc', 'gen_dire')
+            'fields': ('loc_codi', 'gen_dire')
         }),
         ('Contacto', {
             'fields': ('gen_tele', 'gen_emai')
         }),
         ('Cotización', {
             'fields': ('gen_dola',)
+        }),
+        ('Facturación', {
+            'fields': ('gen_civa', 'gen_ingB', 'gen_inia', 'gen_leye', 'gen_leye2', 'gen_leye3'),
+            'description': 'Datos que se imprimen en facturas y extracto de cuenta corriente'
         }),
     )
 
@@ -426,3 +436,308 @@ class NovedadesAdmin(admin.ModelAdmin):
         """Códigos DD de los artículos del botón Pedir"""
         return ', '.join(a.art_cn or str(a.art_codi) for a in obj.nov_arts.all()) or '-'
     articulos_pedir.short_description = 'Artículos (Pedir)'
+
+
+# ================================================================
+# CUENTA CORRIENTE
+# ================================================================
+# Los comprobantes los carga el importador desde GeneXus; el admin es
+# para consultas.
+
+@admin.register(TipoComprobantes)
+class TipoComprobantesAdmin(admin.ModelAdmin):
+    list_display = ['com_codi', 'com_nomb', 'com_letr', 'com_deha', 'com_afip', 'com_fele']
+    list_filter = ['com_deha', 'com_letr']
+    search_fields = ['com_codi', 'com_nomb']
+    ordering = ['com_codi']
+
+
+class DetalleComprobanteInline(admin.TabularInline):
+    """Renglones del comprobante (artículos en ventas, conceptos cancelados en cobros)"""
+    model = DetalleComprobante
+    extra = 0
+    fields = ['dcp_fech', 'art_codi', 'dcp_nomb', 'dcp_cant', 'dcp_precU', 'dcp_tiva', 'dcp_boni', 'dcp_tota', 'dcp_band']
+
+
+# ---------- filtros personalizados del listado de comprobantes ----------
+
+class LetraComprobanteFilter(admin.SimpleListFilter):
+    """Letra del comprobante (A, B, C, X...) según el tipo"""
+    title = 'letra'
+    parameter_name = 'letra'
+
+    def lookups(self, request, model_admin):
+        letras = (TipoComprobantes.objects.exclude(com_letr__isnull=True).exclude(com_letr='')
+                  .values_list('com_letr', flat=True).distinct().order_by('com_letr'))
+        return [(l, l) for l in letras]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            codigos = TipoComprobantes.objects.filter(com_letr=self.value()).values_list('com_codi', flat=True)
+            return queryset.filter(com_codi_id__in=list(codigos))
+        return queryset
+
+
+class DebeHaberFilter(admin.SimpleListFilter):
+    """Débito (suma al saldo) o Crédito (resta) según el tipo de comprobante"""
+    title = 'débito / crédito'
+    parameter_name = 'deha'
+
+    def lookups(self, request, model_admin):
+        return [('1', 'Débito'), ('-1', 'Crédito')]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            codigos = TipoComprobantes.objects.filter(com_deha=int(self.value())).values_list('com_codi', flat=True)
+            return queryset.filter(com_codi_id__in=list(codigos))
+        return queryset
+
+
+class PrefijoFilter(admin.SimpleListFilter):
+    """Punto de venta (cpb_pref)"""
+    title = 'punto de venta'
+    parameter_name = 'pref'
+
+    def lookups(self, request, model_admin):
+        prefijos = (Comprobante.objects.exclude(cpb_pref__isnull=True).exclude(cpb_pref='')
+                    .values_list('cpb_pref', flat=True).distinct().order_by('cpb_pref'))
+        return [(p, p) for p in prefijos] + [('__vacio__', 'Sin prefijo')]
+
+    def queryset(self, request, queryset):
+        if self.value() == '__vacio__':
+            return queryset.filter(Q(cpb_pref__isnull=True) | Q(cpb_pref=''))
+        if self.value():
+            return queryset.filter(cpb_pref=self.value())
+        return queryset
+
+
+class VendedorFilter(admin.SimpleListFilter):
+    """Vendedor de la venta (vtas_pers, texto libre)"""
+    title = 'vendedor'
+    parameter_name = 'vend'
+
+    def lookups(self, request, model_admin):
+        vendedores = (Comprobante.objects.exclude(vtas_pers__isnull=True).exclude(vtas_pers='')
+                      .values_list('vtas_pers', flat=True).distinct().order_by('vtas_pers'))
+        return [(v, v) for v in vendedores]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(vtas_pers=self.value())
+        return queryset
+
+
+class ImporteFilter(admin.SimpleListFilter):
+    """Rangos de importe total"""
+    title = 'importe total'
+    parameter_name = 'importe'
+
+    RANGOS = {
+        'r1': (Decimal('0.01'), Decimal('10000')),
+        'r2': (Decimal('10000'), Decimal('100000')),
+        'r3': (Decimal('100000'), Decimal('1000000')),
+        'r4': (Decimal('1000000'), None),
+    }
+
+    def lookups(self, request, model_admin):
+        return [
+            ('cero', 'En cero'),
+            ('neg', 'Negativo'),
+            ('r1', 'Hasta $10.000'),
+            ('r2', '$10.000 a $100.000'),
+            ('r3', '$100.000 a $1.000.000'),
+            ('r4', 'Más de $1.000.000'),
+        ]
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        if v == 'cero':
+            return queryset.filter(cpb_tota=0)
+        if v == 'neg':
+            return queryset.filter(cpb_tota__lt=0)
+        if v in self.RANGOS:
+            desde, hasta = self.RANGOS[v]
+            queryset = queryset.filter(cpb_tota__gte=desde)
+            return queryset.filter(cpb_tota__lt=hasta) if hasta is not None else queryset
+        return queryset
+
+
+class VencimientoFilter(admin.SimpleListFilter):
+    """Estado de vencimiento de las ventas (vtas_fven)"""
+    title = 'vencimiento'
+    parameter_name = 'venc'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('vencido', 'Vencidos'),
+            ('semana', 'Vencen en 7 días'),
+            ('vigente', 'No vencidos'),
+            ('sin', 'Sin vencimiento'),
+        ]
+
+    def queryset(self, request, queryset):
+        hoy = date.today()
+        v = self.value()
+        if v == 'vencido':
+            return queryset.filter(vtas_fven__lt=hoy)
+        if v == 'semana':
+            return queryset.filter(vtas_fven__gte=hoy, vtas_fven__lte=hoy + timedelta(days=7))
+        if v == 'vigente':
+            return queryset.filter(vtas_fven__gte=hoy)
+        if v == 'sin':
+            return queryset.filter(vtas_fven__isnull=True)
+        return queryset
+
+
+class ElectronicoFilter(admin.SimpleListFilter):
+    """Comprobantes con CAE (factura electrónica) o sin CAE"""
+    title = 'CAE (electrónico)'
+    parameter_name = 'cae'
+
+    def lookups(self, request, model_admin):
+        return [('si', 'Con CAE'), ('no', 'Sin CAE')]
+
+    def queryset(self, request, queryset):
+        sin_cae = Q(vtas_ncae__isnull=True) | Q(vtas_ncae='')
+        if self.value() == 'si':
+            return queryset.exclude(sin_cae)
+        if self.value() == 'no':
+            return queryset.filter(sin_cae)
+        return queryset
+
+
+class PedidoWebFilter(admin.SimpleListFilter):
+    """Ventas que vienen de un pedido (vtas_nped cargado)"""
+    title = 'pedido asociado'
+    parameter_name = 'ped'
+
+    def lookups(self, request, model_admin):
+        return [('si', 'Con pedido'), ('no', 'Sin pedido')]
+
+    def queryset(self, request, queryset):
+        sin_ped = Q(vtas_nped__isnull=True) | Q(vtas_nped=0)
+        if self.value() == 'si':
+            return queryset.exclude(sin_ped)
+        if self.value() == 'no':
+            return queryset.filter(sin_ped)
+        return queryset
+
+
+class DetalleFilter(admin.SimpleListFilter):
+    """Comprobantes con o sin renglones de detalle"""
+    title = 'detalle'
+    parameter_name = 'det'
+
+    def lookups(self, request, model_admin):
+        return [('si', 'Con renglones'), ('no', 'Sin renglones')]
+
+    def queryset(self, request, queryset):
+        hay = Exists(DetalleComprobante.objects.filter(cpb_codi_id=OuterRef('pk')))
+        if self.value() == 'si':
+            return queryset.filter(hay)
+        if self.value() == 'no':
+            return queryset.filter(~hay)
+        return queryset
+
+
+class ClienteExisteFilter(admin.SimpleListFilter):
+    """cli_codi sin db_constraint: detecta comprobantes cuyo cliente no existe en Clientes"""
+    title = 'cliente cargado'
+    parameter_name = 'cli_ok'
+
+    def lookups(self, request, model_admin):
+        return [('si', 'Cliente existente'), ('no', 'Cliente inexistente')]
+
+    def queryset(self, request, queryset):
+        existe = Exists(Clientes.objects.filter(cli_codi=OuterRef('cli_codi_id')))
+        if self.value() == 'si':
+            return queryset.filter(existe)
+        if self.value() == 'no':
+            return queryset.filter(~existe)
+        return queryset
+
+
+@admin.register(Comprobante)
+class ComprobanteAdmin(admin.ModelAdmin):
+    inlines = [DetalleComprobanteInline]
+    list_display = ['cpb_codi', 'cpb_fech', 'tipo', 'numero', 'cliente_info', 'cpb_cvta', 'cpb_tota', 'vtas_pers', 'cpb_band']
+    list_filter = [
+        'cpb_tipo',
+        ('cpb_fech', admin.DateFieldListFilter),
+        'cpb_cvta',
+        'cpb_band',
+        'com_codi',
+        LetraComprobanteFilter,
+        DebeHaberFilter,
+        PrefijoFilter,
+        VendedorFilter,
+        ImporteFilter,
+        VencimientoFilter,
+        ElectronicoFilter,
+        PedidoWebFilter,
+        DetalleFilter,
+        ClienteExisteFilter,
+        'vtas_band',
+        'cob_band',
+    ]
+    search_fields = [
+        'cpb_nume', 'cpb_pref', 'cpb_conc', 'com_codi__com_codi',
+        'cli_codi__cli_nomb', 'cli_codi__cli_codi',
+        'vtas_pers', 'vtas_ncae', 'vtas_nped',
+    ]
+    search_help_text = 'Cliente (nombre o código), número, "0001-00000442", concepto, vendedor, CAE o nro. de pedido'
+    raw_id_fields = ['cli_codi']  # evita cargar todos los clientes en un desplegable
+    date_hierarchy = 'cpb_fech'
+    ordering = ['-cpb_fech', '-cpb_codi']
+    list_per_page = 50
+
+    def get_search_results(self, request, queryset, search_term):
+        """Además de la búsqueda normal, acepta el número tal como se imprime: 0001-00000442 (o 1-442)"""
+        resultados, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        m = re.match(r'^\s*(\d{1,4})\s*-\s*(\d{1,8})\s*$', search_term or '')
+        if m:
+            pref, nume = m.group(1).zfill(4), int(m.group(2))
+            resultados = resultados | queryset.filter(cpb_pref=pref, cpb_nume=nume)
+        return resultados, may_have_duplicates
+
+    fieldsets = (
+        ('Comprobante', {
+            'fields': ('cpb_tipo', 'com_codi', 'cpb_pref', 'cpb_nume', 'cpb_fech', 'cpb_conc', 'cpb_cvta', 'cpb_tota', 'cpb_band')
+        }),
+        ('Cliente', {
+            'fields': ('cli_codi', 'cpb_civN')
+        }),
+        ('Ventas', {
+            'fields': (
+                'vtas_fven', 'vtas_nped', 'vtas_pers', 'vtas_ncae', 'vtas_CVto',
+                'vtas_igra', 'vtas_iexe', 'vtas_iiva', 'vtas_iv105', 'vtas_iv21',
+                'vtas_iRNI', 'vtas_iiin', 'vtas_ibts', 'vtas_band'
+            ),
+            'classes': ('collapse',),
+            'description': 'Solo comprobantes de venta (V)'
+        }),
+        ('Cobros', {
+            'fields': ('cob_ifac', 'cob_iint', 'cob_iade', 'cob_icade', 'cob_band'),
+            'classes': ('collapse',),
+            'description': 'Solo cobros (C)'
+        }),
+    )
+
+    # com_codi / cli_codi sin db_constraint: no se usa select_related (INNER JOIN)
+    # porque ocultaría los comprobantes cuyo tipo o cliente todavía no llegó
+
+    def tipo(self, obj):
+        return obj.com_codi_id
+    tipo.short_description = "Tipo"
+
+    def numero(self, obj):
+        """Prefijo-número como se imprime (0001-00001520); sin prefijo (recibos) solo el número"""
+        numero = str(obj.cpb_nume).zfill(8)
+        return f"{obj.cpb_pref}-{numero}" if obj.cpb_pref else numero
+    numero.short_description = "Número"
+
+    def cliente_info(self, obj):
+        """Nombre y código del cliente (cli_codi sin db_constraint: puede no existir)"""
+        cliente = Clientes.objects.filter(cli_codi=obj.cli_codi_id).only('cli_nomb').first()
+        return f"{cliente.cli_nomb} ({obj.cli_codi_id})" if cliente else f"({obj.cli_codi_id})"
+    cliente_info.short_description = "Cliente"

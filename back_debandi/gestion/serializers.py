@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades,
+    TipoComprobantes, Comprobante, DetalleComprobante
 )
 
 
@@ -540,7 +541,8 @@ class GeneralSerializer(serializers.ModelSerializer):
         fields = [
             'gen_codi', 'gen_nomb', 'gen_raz', 'gen_logo', 'gen_logo_url',
             'gen_loge', 'gen_loge_url', 'gen_cuit', 'gen_colo',
-            'gen_loc', 'gen_dire', 'gen_tele', 'gen_emai', 'gen_dola'
+            'loc_codi', 'gen_dire', 'gen_tele', 'gen_emai', 'gen_dola',
+            'gen_civa', 'gen_ingB', 'gen_inia', 'gen_leye', 'gen_leye2', 'gen_leye3'
         ]
         read_only_fields = ['gen_codi', 'gen_logo_url', 'gen_loge_url']
 
@@ -570,3 +572,43 @@ class UsuarioSerializer(serializers.ModelSerializer):
         read_only_fields = ['usu_fcre']
 
 
+# ================================================================
+# CUENTA CORRIENTE (comprobantes importados de GeneXus, solo lectura)
+# ================================================================
+
+class TipoComprobantesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoComprobantes
+        fields = ['com_codi', 'com_nomb', 'com_letr', 'com_deha', 'com_afip', 'com_fele']
+
+
+class DetalleComprobanteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DetalleComprobante
+        fields = [
+            'dcp_codi', 'cpb_codi', 'dcp_tota',
+            'art_codi', 'dcp_nomb', 'dcp_tiva', 'dcp_cant', 'dcp_precU', 'dcp_boni', 'dcp_fech', 'dcp_band'
+        ]
+
+
+class ComprobanteSerializer(serializers.ModelSerializer):
+    com_nomb = serializers.CharField(source='com_codi.com_nomb', read_only=True, default=None)
+    com_deha = serializers.IntegerField(source='com_codi.com_deha', read_only=True, default=None)
+    cli_nomb = serializers.CharField(source='cli_codi.cli_nomb', read_only=True, default=None)
+    detalles = DetalleComprobanteSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Comprobante
+        fields = [
+            # comunes
+            'cpb_codi', 'cpb_tipo', 'cpb_fech', 'cpb_pref', 'cpb_nume', 'cpb_conc',
+            'cpb_cvta', 'cpb_tota', 'cpb_band', 'com_codi', 'com_nomb', 'com_deha',
+            'cli_codi', 'cli_nomb', 'cpb_civN',
+            # solo ventas
+            'vtas_fven', 'vtas_nped', 'vtas_pers', 'vtas_ncae', 'vtas_CVto',
+            'vtas_igra', 'vtas_iexe', 'vtas_iiva', 'vtas_iv105', 'vtas_iv21',
+            'vtas_iRNI', 'vtas_iiin', 'vtas_ibts', 'vtas_band',
+            # solo cobros
+            'cob_ifac', 'cob_iint', 'cob_iade', 'cob_icade', 'cob_band',
+            'detalles',
+        ]

@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction, connection
+from django.db import transaction, connection, models
 from django.db.models import Q, Min, Max, Value
 from django.db.models.functions import Replace
 from datetime import datetime
@@ -17,6 +17,8 @@ from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
+from .services.cuenta_corriente_service import CuentaCorrienteService
+from .services.comprobante_service import ComprobanteService
 from rest_framework.permissions import BasePermission
 from .permissions import SimpleJWTAuthentication, APIKeyAuthentication, IsAuthenticatedWithJWTOrAPIKey
 from django.views.decorators.http import require_http_methods
@@ -32,7 +34,8 @@ logger = logging.getLogger(__name__)
 from .models import (
     Provincia, Localidad, Zona, Marca, Rubro, SubRubro, Articulo,
     Clientes, Favoritos, CarritoItem, Pedidos, DetallePedido,
-    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades
+    CuentaBancaria, General, Usuario, Vendedor, Registro, Novedades,
+    TipoComprobantes, Comprobante, DetalleComprobante
 )
 from .serializers import (
     ProvinciaSerializer, LocalidadSerializer, LocalidadFrontendSerializer, ZonaSerializer,
@@ -40,7 +43,8 @@ from .serializers import (
     ClientesSerializer, VendedorSerializer, FavoritosSerializer, CarritoItemSerializer,
     PedidosSerializer, PedidosCompletoSerializer, PedidosCreateUpdateSerializer,
     DetallePedidoSerializer, DetallePedidoWriteSerializer,
-    CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer, RegistroSerializer
+    CuentaBancariaSerializer, GeneralSerializer, UsuarioSerializer, RegistroSerializer,
+    TipoComprobantesSerializer, ComprobanteSerializer
 )
 from .filters import ArticuloFilterSet, SubrubroFilterSet
 
@@ -628,7 +632,7 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     # nullable, el filtro automático de DjangoFilterBackend con cli_acti=false
     # no matchea los registros con cli_acti=NULL, que la UI también
     # considera "Inhabilitado".
-    filterset_fields = ['loc_codi']
+    filterset_fields = ['loc_codi', 'zon_codi']
     # La búsqueda (?search=) se resuelve a mano en get_queryset: por nombre,
     # email o CUIT, este último ignorando guiones/espacios para que
     # "30-71699661-8" y "30716996618" matcheen igual sin importar cómo esté
@@ -638,12 +642,7 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    def get_queryset(self):
-        """
-        Filtrar clientes por vendedor si es un vendedor logueado
-        """
-        queryset = super().get_queryset()
-
+    def _filtrar_por_vendedor(self, queryset):
         # Si hay un parámetro ven_codi (vendedor), filtrar por ese vendedor,
         # salvo que sea un Vendedor Gerente (ven_gere=True): en ese caso ve
         # TODOS los clientes, tenga o no cartera propia asignada.
@@ -658,6 +657,13 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
                     queryset = queryset.filter(ven_codi_id=ven_codi_int)
             except (ValueError, TypeError):
                 pass
+        return queryset
+
+    def get_queryset(self):
+        """
+        Filtrar clientes por vendedor si es un vendedor logueado
+        """
+        queryset = self._filtrar_por_vendedor(super().get_queryset())
 
         # Filtrar por estado de cuenta (habilitado/inhabilitado). cli_acti
         # es nullable, y la UI trata NULL igual que False ("Inhabilitado"),
@@ -705,6 +711,45 @@ class ClientesViewSet(BulkCreateMixin, BaseViewSet):
         if vendedor_error:
             return vendedor_error
         return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'], url_path='filtros')
+    def filtros(self, request):
+        """
+        GET /clientes/filtros/?ven_codi=X
+        Opciones para los filtros de Zona y Localidad del panel vendedor
+        (independientes entre sí): solo las zonas/localidades que tienen
+        clientes en la cartera del vendedor (o de todos, si es Gerente).
+        """
+        vendedor_error = _vendedor_suplantante_bloqueado(request, as_drf=True)
+        if vendedor_error:
+            return vendedor_error
+
+        cartera = self._filtrar_por_vendedor(Clientes.objects.all())
+
+        zonas = (
+            cartera.filter(zon_codi__isnull=False)
+            .values('zon_codi', 'zon_codi__zon_nomb')
+            .distinct()
+            .order_by('zon_codi__zon_nomb')
+        )
+
+        localidades = (
+            cartera.filter(loc_codi__isnull=False)
+            .values('loc_codi', 'loc_codi__loc_nomb')
+            .distinct()
+            .order_by('loc_codi__loc_nomb')
+        )
+
+        return Response({
+            'zonas': [
+                {'zon_codi': z['zon_codi'], 'zon_nomb': z['zon_codi__zon_nomb']}
+                for z in zonas
+            ],
+            'localidades': [
+                {'loc_codi': l['loc_codi'], 'loc_nomb': l['loc_codi__loc_nomb']}
+                for l in localidades
+            ],
+        })
 
     # El envío del correo de activación (transición cli_acti False -> True)
     # se maneja centralizado en signals.py, disparado por Model.save() sin
@@ -1292,6 +1337,48 @@ class UsuarioViewSet(BaseViewSet):
 
 
 # ================================================================
+# CUENTA CORRIENTE (solo lectura: los comprobantes los carga importar_datos)
+# ================================================================
+
+class TipoComprobantesViewSet(viewsets.ReadOnlyModelViewSet):
+    """GET /tipos-comprobante/ - Tipos de comprobante (FACT A, N.CR B, RECI X...)"""
+    queryset = TipoComprobantes.objects.all()
+    serializer_class = TipoComprobantesSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['com_codi', 'com_nomb']
+    ordering = ['com_codi']
+    pagination_class = None
+
+
+class ComprobanteViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    GET /comprobantes/?cli_codi=277&cpb_tipo=V&desde=2026-09-01&hasta=2026-09-30
+    Comprobantes con sus renglones. Filtros: cli_codi, cpb_tipo, com_codi,
+    cpb_cvta, cpb_band y rango de fechas desde/hasta (AAAA-MM-DD).
+    """
+    serializer_class = ComprobanteSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['cli_codi', 'cpb_tipo', 'com_codi', 'cpb_cvta', 'cpb_band']
+    search_fields = ['cpb_conc']
+    ordering_fields = ['cpb_fech', 'cpb_nume', 'cpb_tota']
+    ordering = ['-cpb_fech', '-cpb_codi']
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        # prefetch y no select_related: com_codi / cli_codi no tienen db_constraint
+        # y el INNER JOIN ocultaría los comprobantes cuyo tipo o cliente no llegó
+        queryset = Comprobante.objects.prefetch_related('com_codi', 'cli_codi', 'detalles')
+        for param, lookup in (('desde', 'cpb_fech__gte'), ('hasta', 'cpb_fech__lte')):
+            valor = self.request.query_params.get(param)
+            if valor:
+                try:
+                    queryset = queryset.filter(**{lookup: datetime.strptime(valor, '%Y-%m-%d').date()})
+                except ValueError:
+                    pass
+        return queryset
+
+
+# ================================================================
 # VENDEDOR LOGIN (SIN CSRF)
 # ================================================================
 
@@ -1539,7 +1626,7 @@ def vendedor_check_impersonation(request):
             "isImpersonating": False,
             "vendedor": None
         }, status=200)
-    
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1547,6 +1634,105 @@ def vendedor_check_impersonation(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+# ================================================================
+# CUENTA CORRIENTE
+# ================================================================
+
+@require_http_methods(['GET', 'OPTIONS'])
+def cuenta_corriente_pdf(request):
+    """
+    GET /cuenta-corriente/pdf/?cli_codi=12,34&desde=2026-09-01&hasta=2026-09-30
+    Extracto de cuenta corriente en PDF, un cliente por página (como &MSelec en Clieext).
+    cli_codi acepta lista separada por comas o el parámetro repetido.
+    Por ahora solo un vendedor gerente activo (ven_gere=True; JWT con
+    'vendedor_suplantante') puede exportar, de cualquier cliente. Los clientes
+    y los vendedores no gerentes reciben 403.
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return JsonResponse({'success': False, 'detail': 'Token requerido'}, status=401)
+    try:
+        token = AccessToken(auth_header[7:].strip())
+    except TokenError:
+        return JsonResponse({'success': False, 'detail': 'Token inválido o vencido'}, status=401)
+    ven_codi = token.get('vendedor_suplantante')
+    es_gerente = bool(ven_codi) and Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1, ven_gere=True).exists()
+    if not es_gerente:
+        return JsonResponse({'success': False, 'detail': 'Solo los vendedores gerentes pueden exportar la cuenta corriente'}, status=403)
+
+    try:
+        desde = datetime.strptime(request.GET.get('desde', ''), '%Y-%m-%d').date()
+        hasta = datetime.strptime(request.GET.get('hasta', ''), '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'detail': 'desde y hasta son requeridos (AAAA-MM-DD)'}, status=400)
+    if desde > hasta:
+        return JsonResponse({'success': False, 'detail': 'desde no puede ser mayor que hasta'}, status=400)
+
+    try:
+        codigos = [int(c) for valor in request.GET.getlist('cli_codi') for c in valor.split(',') if c.strip()] #ver bien dsp esto que me da mal 
+    except ValueError:
+        return JsonResponse({'success': False, 'detail': 'cli_codi inválido'}, status=400)
+    if not codigos:
+        return JsonResponse({'success': False, 'detail': 'cli_codi requerido'}, status=400)
+
+    por_codigo = Clientes.objects.select_related('loc_codi', 'zon_codi').in_bulk(codigos)
+    clientes = [por_codigo[c] for c in dict.fromkeys(codigos) if c in por_codigo]  # orden pedido, sin repetidos
+    if not clientes:
+        return JsonResponse({'success': False, 'detail': 'Cliente no encontrado'}, status=404)
+
+    try:
+        pdf_file = CuentaCorrienteService.generar_pdf(clientes, desde, hasta)
+    except Exception as e:
+        logger.exception('Error al generar extracto de cuenta corriente')
+        return JsonResponse({'success': False, 'detail': f'Error al generar PDF: {e}'}, status=500)
+
+    nombre = f"cuenta_corriente_{clientes[0].cli_codi if len(clientes) == 1 else 'varios'}_{desde:%Y%m%d}_{hasta:%Y%m%d}.pdf"
+    return FileResponse(pdf_file, as_attachment=True, filename=nombre, content_type='application/pdf')
+
+
+@require_http_methods(['GET', 'OPTIONS'])
+def comprobante_pdf(request, cpb_codi):
+    """
+    GET /comprobantes/<cpb_codi>/pdf/
+    Impresión de un comprobante de venta (factura, remito, nota de crédito/débito).
+    Lo puede pedir el cliente dueño del comprobante y cualquier vendedor activo.
+    """
+    if request.method == 'OPTIONS':
+        return JsonResponse({'status': 'ok'})
+
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return JsonResponse({'success': False, 'detail': 'Token requerido'}, status=401)
+    try:
+        token = AccessToken(auth_header[7:].strip())
+    except TokenError:
+        return JsonResponse({'success': False, 'detail': 'Token inválido o vencido'}, status=401)
+
+    cpb = Comprobante.objects.filter(cpb_codi=cpb_codi).first()
+    if cpb is None:
+        return JsonResponse({'success': False, 'detail': 'Comprobante no encontrado'}, status=404)
+
+    ven_codi = token.get('vendedor_suplantante')
+    es_vendedor = bool(ven_codi) and Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1).exists()
+    if not es_vendedor and str(token.get('user_id')) != str(cpb.cli_codi_id):
+        return JsonResponse({'success': False, 'detail': 'No tiene acceso a este comprobante'}, status=403)
+
+    if cpb.cpb_tipo != 'V':
+        return JsonResponse({'success': False, 'detail': 'Por ahora solo se imprimen comprobantes de venta'}, status=400)
+
+    try:
+        pdf_file = ComprobanteService.generar_pdf(cpb)
+    except Exception as e:
+        logger.exception('Error al generar el PDF del comprobante')
+        return JsonResponse({'success': False, 'detail': f'Error al generar PDF: {e}'}, status=500)
+
+    nombre = f"{cpb.com_codi_id}_{cpb.cpb_pref or ''}-{str(cpb.cpb_nume or 0).zfill(8)}.pdf".replace(' ', '_')
+    return FileResponse(pdf_file, as_attachment=False, filename=nombre, content_type='application/pdf')
 
 
 # ================================================================
@@ -2696,6 +2882,92 @@ def carrito_manage(request):
 # IMPORTACIÓN BULK DE DATOS
 # ================================================================
 
+def _importar_detalles_comprobante(items, cache_comprobantes):
+    """
+    Renglones de comprobantes ("dcomprobante" de importar_datos).
+    Cada renglón trae com_codi + cpb_pref + cpb_nume de su comprobante (Django
+    no conoce el código de GeneXus); con eso se busca y se arma cpb_codi.
+    Se procesan agrupados por comprobante y cada grupo es todo o nada: borra
+    los renglones que tenía y crea los recibidos. Así, reenviar el mismo lote
+    (reintento del script) no duplica renglones, y si un renglón falla el
+    comprobante no queda a medias. El script manda todos los renglones de un
+    comprobante en el mismo lote.
+    """
+    resultado = {"total": len(items), "ok": 0, "error": 0, "detalle": []}
+
+    grupos = {}
+
+    for item in items:
+
+        data_item = {
+            k: ((v.strip() or None) if isinstance(v, str) else v)
+            for k, v in item.items()
+        }
+
+        clave = (
+            data_item.pop("com_codi", None),
+            data_item.pop("cpb_pref", None) or "",  # '' y no NULL, igual que en el comprobante
+            data_item.pop("cpb_nume", None),
+        )
+
+        grupos.setdefault(clave, []).append((item, data_item))
+
+    for clave, renglones in grupos.items():
+
+        comprobante = cache_comprobantes.get(clave)
+
+        if comprobante is None:
+
+            comprobante = Comprobante.objects.filter(
+                com_codi_id=clave[0], cpb_pref=clave[1], cpb_nume=clave[2]
+            ).first()
+
+        if comprobante is None:
+
+            resultado["error"] += len(renglones)
+
+            resultado["detalle"].append({
+                "error": "Comprobante no encontrado (com_codi + cpb_pref + cpb_nume)",
+                "comprobante": list(clave),
+            })
+
+            continue
+
+        try:
+
+            with transaction.atomic():
+
+                comprobante.detalles.all().delete()
+
+                for item, data_item in renglones:
+
+                    if data_item.get("dcp_tota") is None:
+                        data_item["dcp_tota"] = Decimal("0")
+
+                    # dcp_boni vacío -> default (0)
+                    if data_item.get("dcp_boni") is None:
+                        data_item.pop("dcp_boni", None)
+
+                    # dcp_band vacío (ventas, conceptos cancelados) -> False
+                    if data_item.get("dcp_band") is None:
+                        data_item["dcp_band"] = False
+
+                    DetalleComprobante.objects.create(cpb_codi=comprobante, **data_item)
+
+            resultado["ok"] += len(renglones)
+
+        except Exception as e:
+
+            resultado["error"] += len(renglones)
+
+            resultado["detalle"].append({
+                "error": str(e),
+                "comprobante": list(clave),
+            })
+
+    return resultado
+
+
 @csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
 def importar_datos(request):
@@ -2732,9 +3004,17 @@ def importar_datos(request):
         "localidades": (Localidad, "loc_codi"),
         "vendedores": (Vendedor, "ven_codi"),
         "zonas": (Zona, "zon_codi"),
+
+        # cuenta corriente: en este orden (el detalle busca su comprobante)
+        "tcomprobante": (TipoComprobantes, "com_codi"),
+        "comprobante": (Comprobante, None),     # clave: com_codi + cpb_pref + cpb_nume
+        "dcomprobante": (DetalleComprobante, None),
     }
 
     resultados = {}
+
+    # comprobantes ya buscados en esta request, para no consultar uno por renglón
+    cache_comprobantes = {}
 
     try:
 
@@ -2748,6 +3028,18 @@ def importar_datos(request):
             print("IMPORTANDO:", key)
 
             items = data.get(key, [])
+
+            # renglones de comprobantes: van agrupados por comprobante, no registro por registro
+            if key == "dcomprobante":
+
+                resultados[key] = _importar_detalles_comprobante(items, cache_comprobantes)
+
+                print(
+                    f"OK: {resultados[key]['ok']} | "
+                    f"ERROR: {resultados[key]['error']}"
+                )
+
+                continue
 
             resultados[key] = {
 
@@ -2993,6 +3285,127 @@ def importar_datos(request):
 
                                 defaults=data_item
                             )
+
+                            resultados[key]["ok"] += 1
+
+                            continue
+
+                        # =====================================================
+                        # GENERAL
+                        # =====================================================
+                        # Textos vacíos -> '' (gen_cuit, gen_dire, gen_tele,
+                        # gen_emai no aceptan NULL): si uno solo fallara, el
+                        # registro entero no se guarda y tampoco se actualiza
+                        # la cotización (gen_dola). Sigue en RESTO.
+
+                        if key == "general":
+
+                            for field in model._meta.fields:
+
+                                if (
+                                    isinstance(field, models.CharField)
+                                    and not field.null
+                                    and field.name in data_item
+                                    and data_item[field.name] is None
+                                ):
+                                    data_item[field.name] = ""
+
+                        # =====================================================
+                        # TIPOS DE COMPROBANTE
+                        # =====================================================
+
+                        if key == "tcomprobante":
+
+                            lookup_value = data_item.pop("com_codi", None)
+
+                            if lookup_value is None:
+
+                                resultados[key]["error"] += 1
+
+                                resultados[key]["detalle"].append({
+
+                                    "error": "Falta com_codi",
+                                    "data": item
+
+                                })
+
+                                continue
+
+                            # com_fele no acepta NULL; com_deha vacío -> default (1)
+                            if data_item.get("com_fele") is None:
+                                data_item["com_fele"] = ""
+
+                            if data_item.get("com_deha") is None:
+                                data_item.pop("com_deha", None)
+
+                            model.objects.update_or_create(
+
+                                com_codi=lookup_value,
+
+                                defaults=data_item
+                            )
+
+                            resultados[key]["ok"] += 1
+
+                            continue
+
+                        # =====================================================
+                        # COMPROBANTES
+                        # =====================================================
+                        # Se identifican por com_codi + cpb_pref + cpb_nume
+                        # (unique_together): cpb_codi es autonumérico de
+                        # Django y GeneXus no lo conoce.
+
+                        if key == "comprobante":
+
+                            com_codi = data_item.pop("com_codi_id", None)
+
+                            # '' y no NULL: dos NULL no se consideran iguales
+                            # y el mismo comprobante se duplicaría
+                            cpb_pref = data_item.pop("cpb_pref", None) or ""
+
+                            cpb_nume = data_item.pop("cpb_nume", None)
+
+                            if com_codi is None or cpb_nume is None:
+
+                                resultados[key]["error"] += 1
+
+                                resultados[key]["detalle"].append({
+
+                                    "error": "Falta com_codi o cpb_nume",
+                                    "data": item
+
+                                })
+
+                                continue
+
+                            # banderas vacías = False (no aceptan NULL)
+                            for campo_band in ("cpb_band", "vtas_band", "cob_band"):
+
+                                if data_item.get(campo_band) is None:
+                                    data_item[campo_band] = False
+
+                            if data_item.get("cpb_tota") is None:
+                                data_item["cpb_tota"] = Decimal("0")
+
+                            # cpb_cvta vacío -> default 'CTC'
+                            if data_item.get("cpb_cvta") is None:
+                                data_item.pop("cpb_cvta", None)
+
+                            obj, created = model.objects.update_or_create(
+
+                                com_codi_id=com_codi,
+                                cpb_pref=cpb_pref,
+                                cpb_nume=cpb_nume,
+
+                                defaults=data_item
+                            )
+
+                            # Los renglones NO se borran acá: si se reenvía solo la
+                            # cabecera (ej. una anulación) el comprobante conserva sus
+                            # renglones. Cuando llegan renglones, _importar_detalles_comprobante
+                            # reemplaza los del comprobante (el script nunca los parte en dos lotes).
+                            cache_comprobantes[(com_codi, cpb_pref, cpb_nume)] = obj
 
                             resultados[key]["ok"] += 1
 

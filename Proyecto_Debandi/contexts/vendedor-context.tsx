@@ -12,7 +12,7 @@ interface VendedorContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   stopImpersonation: () => Promise<void>
-  getClientes: (search: string, page: number, estado?: string) => Promise<any>
+  getClientes: (search: string, page: number, estado?: string, zona?: string, localidad?: string) => Promise<any>
   impersonate?: (cli_codi: number) => Promise<void>
 }
 
@@ -116,7 +116,7 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
     router.push('/vendedor/clientes')
   }
 
-  const getClientes = useCallback(async (search: string, page: number, estado?: string) => {
+  const getClientes = useCallback(async (search: string, page: number, estado?: string, zona?: string, localidad?: string) => {
     try {
       const ven_codi = vendedor?.ven_codi
 
@@ -125,8 +125,10 @@ export function VendedorProvider({ children }: { children: React.ReactNode }) {
       }
 
       const estadoParam = estado ? `&cli_acti=${estado}` : ''
+      const zonaParam = zona ? `&zon_codi=${zona}` : ''
+      const localidadParam = localidad ? `&loc_codi=${localidad}` : ''
       const data = await ApiService.get<any>(
-        `clientes/?ven_codi=${ven_codi}&search=${encodeURIComponent(search)}&page=${page}${estadoParam}`
+        `clientes/?ven_codi=${ven_codi}&search=${encodeURIComponent(search)}&page=${page}${estadoParam}${zonaParam}${localidadParam}`
       )
       return {
         clientes: data.results || data,

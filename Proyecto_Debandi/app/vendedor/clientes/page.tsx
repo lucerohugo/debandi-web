@@ -25,6 +25,17 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import IntervaloDialog from "@/components/intervalo-dialog"
+import { ExportUtils } from "@/lib/export-utils"
 import {
   Loader2,
   Search,
@@ -33,8 +44,13 @@ import {
   ChevronRight,
   PlayCircle,
   User,
-  ChevronDown
+  ChevronDown,
+  ChevronsUpDown,
+  Check,
+  Download,
+  X
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Cliente {
   cli_codi: number
@@ -57,6 +73,87 @@ function formatCuit(cuit?: string) {
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
 }
 
+// Reportes por intervalo de fechas: cada uno es un botón en la columna Acción.
+// Solo los ven los vendedores gerentes (ven_gere = true).
+// Para sumar uno nuevo (saldos, etc.) se agrega acá y su caso en
+// handleIntervaloConfirm.
+const REPORTES = [
+  { value: "cuenta-corriente", label: "Cuenta Corriente", boton: "Cta. Corriente", accion: "Exportar Cuenta Corriente" },
+] as const
+
+type Reporte = typeof REPORTES[number]["value"]
+
+interface OpcionFiltro {
+  value: string
+  label: string
+}
+
+// Combo con buscador para los filtros de Zona y Localidad.
+// value "" = sin filtro.
+function FiltroCombobox({
+  placeholder,
+  todosLabel,
+  options,
+  value,
+  onChange,
+}: {
+  placeholder: string
+  todosLabel: string
+  options: OpcionFiltro[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full sm:w-56 justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : todosLabel}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder} />
+          <CommandList>
+            <CommandEmpty>Sin resultados</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value={`__todos__ ${todosLabel}`}
+                onSelect={() => { onChange(""); setOpen(false) }}
+              >
+                <Check className={cn("h-4 w-4", value === "" ? "opacity-100" : "opacity-0")} />
+                {todosLabel}
+              </CommandItem>
+              {options.map(opt => (
+                <CommandItem
+                  key={opt.value}
+                  // El label va primero para que cmdk busque por nombre; el
+                  // código evita colisiones entre nombres repetidos.
+                  value={`${opt.label} ${opt.value}`}
+                  onSelect={() => { onChange(opt.value); setOpen(false) }}
+                >
+                  <Check className={cn("h-4 w-4", value === opt.value ? "opacity-100" : "opacity-0")} />
+                  {opt.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export default function VendedorClientesPage() {
   const router = useRouter()
   const { vendedor, isVendedorSession, loading: vendedorLoading, getClientes, impersonate } = useVendedor()
@@ -69,18 +166,26 @@ export default function VendedorClientesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [impersonating, setImpersonating] = useState<number | null>(null)
+  const [zonaFiltro, setZonaFiltro] = useState("")
+  const [localidadFiltro, setLocalidadFiltro] = useState("")
+  const [zonas, setZonas] = useState<OpcionFiltro[]>([])
+  const [localidades, setLocalidades] = useState<OpcionFiltro[]>([])
+
+  // Reporte por intervalo de fechas: el botón del reporte en cada cliente abre
+  // el intervalo para ese reporte.
+  const [intervalo, setIntervalo] = useState<{ cliente: Cliente; accion: Reporte } | null>(null)
 
   const limit = 20
 
   const loadClientes = useCallback(async () => {
     if (!isVendedorSession) return
-    
+
     setLoading(true)
     setError("")
-    
+
     try {
       const estado = estadoFiltro === "todos" ? undefined : estadoFiltro
-      const data = await getClientes(search, page, estado)
+      const data = await getClientes(search, page, estado, zonaFiltro || undefined, localidadFiltro || undefined)
       setClientes(data.clientes)
       setTotal(data.total)
     } catch (err: any) {
@@ -88,7 +193,19 @@ export default function VendedorClientesPage() {
     } finally {
       setLoading(false)
     }
-  }, [isVendedorSession, search, page, estadoFiltro, getClientes])
+  }, [isVendedorSession, search, page, estadoFiltro, zonaFiltro, localidadFiltro, getClientes])
+
+  // Opciones de Zona/Localidad (independientes entre sí): solo las que tienen
+  // clientes en la cartera.
+  useEffect(() => {
+    if (!isVendedorSession || !vendedor?.ven_codi) return
+    ApiService.get<any>(`clientes/filtros/?ven_codi=${vendedor.ven_codi}`)
+      .then(data => {
+        setZonas((data.zonas || []).map((z: any) => ({ value: String(z.zon_codi), label: z.zon_nomb || `Zona ${z.zon_codi}` })))
+        setLocalidades((data.localidades || []).map((l: any) => ({ value: String(l.loc_codi), label: l.loc_nomb || `Localidad ${l.loc_codi}` })))
+      })
+      .catch(err => console.error("Error cargando filtros de clientes:", err))
+  }, [isVendedorSession, vendedor?.ven_codi])
 
   useEffect(() => {
     // Solo redirigir a inicio si no hay sesión de vendedor Y no estamos impersonando
@@ -112,10 +229,22 @@ export default function VendedorClientesPage() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Reset page cuando cambia el filtro de estado
+  // Reset page cuando cambia algún filtro
   useEffect(() => {
     setPage(1)
-  }, [estadoFiltro])
+  }, [estadoFiltro, zonaFiltro, localidadFiltro])
+
+  const handleIntervaloConfirm = async (desde: string, hasta: string) => {
+    if (!intervalo) return
+    try {
+      if (intervalo.accion === "cuenta-corriente") {
+        await ExportUtils.exportarCuentaCorriente(intervalo.cliente.cli_codi, desde, hasta)
+      }
+      setIntervalo(null)
+    } catch (err: any) {
+      setError(err.message || "Error al generar el reporte")
+    }
+  }
 
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
@@ -223,6 +352,32 @@ export default function VendedorClientesPage() {
                 ? "Podes visualizar todos los clientes. Selecciona uno para ingresar al sistema como supervisor"
                 : "Selecciona un cliente para ingresar al sistema como supervisor"}
             </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2">
+              <FiltroCombobox
+                placeholder="Buscar zona..."
+                todosLabel="Todas las zonas"
+                options={zonas}
+                value={zonaFiltro}
+                onChange={setZonaFiltro}
+              />
+              <FiltroCombobox
+                placeholder="Buscar localidad..."
+                todosLabel="Todas las localidades"
+                options={localidades}
+                value={localidadFiltro}
+                onChange={setLocalidadFiltro}
+              />
+              {(zonaFiltro || localidadFiltro) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setZonaFiltro(""); setLocalidadFiltro("") }}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {error && (
@@ -278,7 +433,12 @@ export default function VendedorClientesPage() {
                         )}
                         {estadoFiltro !== "todos" && (
                           <p className="text-sm mt-1">
-                            Cambie el filtro de estado de cuenta 
+                            Cambie el filtro de estado de cuenta
+                          </p>
+                        )}
+                        {(zonaFiltro || localidadFiltro) && (
+                          <p className="text-sm mt-1">
+                            Cambie el filtro de zona o localidad
                           </p>
                         )}
                       </TableCell>
@@ -295,7 +455,10 @@ export default function VendedorClientesPage() {
                         <TableCell className="hidden md:table-cell">
                           {formatCuit(cliente.cli_cuit)}
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                        <TableCell
+                          className="hidden lg:table-cell text-sm text-muted-foreground max-w-[160px] truncate"
+                          title={cliente.cli_emai || undefined}
+                        >
                           {cliente.cli_emai || "-"}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell text-sm">
@@ -315,22 +478,38 @@ export default function VendedorClientesPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            onClick={() => handleImpersonate(cliente.cli_codi)}
-                            disabled={impersonating !== null || !cliente.cli_acti}
-                            title={!cliente.cli_acti ? "Cliente inactivo: no se puede ingresar" : undefined}
-                          >
-                            {impersonating === cliente.cli_codi ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <PlayCircle className="w-4 h-4 mr-1" />
-                                Ingresar
-                              </>
-                            )}
-                          </Button>
+                        <TableCell className="text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => handleImpersonate(cliente.cli_codi)}
+                              disabled={impersonating !== null || !cliente.cli_acti}
+                              title={!cliente.cli_acti ? "Cliente inactivo: no se puede ingresar" : "Ingresar"}
+                              aria-label="Ingresar"
+                            >
+                              {impersonating === cliente.cli_codi ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <PlayCircle className="w-4 h-4 mr-1" />
+                                  Ingresar
+                                </>
+                              )}
+                            </Button>
+                            {vendedor?.ven_gere && REPORTES.map(r => (
+                              <Button
+                                key={r.value}
+                                variant="outline"
+                                size="sm"
+                                title={r.accion}
+                                aria-label={r.accion}
+                                onClick={() => setIntervalo({ cliente, accion: r.value })}
+                              >
+                                <Download className="w-4 h-4 mr-1" />
+                                {r.boton}
+                              </Button>
+                            ))}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -368,6 +547,14 @@ export default function VendedorClientesPage() {
           </CardContent>
         </Card>
       </div>
+
+      <IntervaloDialog
+        open={intervalo !== null}
+        onOpenChange={(open) => { if (!open) setIntervalo(null) }}
+        descripcion={REPORTES.find(r => r.value === intervalo?.accion)?.label}
+        confirmLabel="Exportar"
+        onConfirm={handleIntervaloConfirm}
+      />
     </div>
   )
 }

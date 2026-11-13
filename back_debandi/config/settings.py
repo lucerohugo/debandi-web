@@ -45,6 +45,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "api.ferreteradebandi.online",
+    "26.89.68.236", #Radmin VPN (acceso remoto en desarrollo)
 ]
 
 
@@ -172,6 +173,7 @@ CORS_ALLOWED_ORIGINS = [
     #nuevo dominio frontend
     "https://www.ferreteradebandi.com.ar",
     "https://ferreteradebandi.com.ar",
+    "http://26.89.68.236:3000", #Radmin VPN (acceso remoto en desarrollo)
 ]
 
 CORS_ALLOW_CREDENTIALS = True

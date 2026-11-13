@@ -350,6 +350,7 @@ class Clientes(models.Model):
     cli_precs2 = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Precio venta (%)")
     cli_acti = models.BooleanField(default=False, help_text="Cliente activo (requerido para iniciar sesión)",null=True)
     
+ 
     
 
     cli_clav = models.CharField(max_length=128, blank=True, help_text="Contraseña/Clave (hasheada)", null=True)
@@ -651,16 +652,17 @@ class General(models.Model):
     gen_loge = models.ImageField(upload_to='logos/', blank=True, null=True, help_text="Logo de BrixSoft")
     gen_cuit = models.CharField(max_length=20, default='00-00000000-0', help_text="CUIT de la empresa")
     gen_colo = models.CharField(max_length=7, default='#0A53BF', help_text="Color principal (HEX)")
-    gen_loc = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True)
+    loc_codi = models.ForeignKey(Localidad, on_delete=models.SET_NULL, null=True, blank=True)
     gen_dire = models.CharField(max_length=150, blank=True, help_text="Dirección")
     gen_tele = models.CharField(max_length=20, blank=True, help_text="Teléfono")
     gen_emai = models.EmailField(blank=True, default='contacto@debandi.com', help_text="Email")
     gen_dola = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cotización")
-    #gen_civN = models.CharField(max_length=50, blank=True, null=True, help_text="condicion de iva") #campo nuevo
-    #gen_leye = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas") #campo nuevo
-    #gen_leye2 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas2") #campo nuevo
-    #gen_leye3 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas3") #campo nuevo
-    #gen_ingB = models.CharField(max_length=15, blank=True, null=True, help_text="Ingresos Brutos") #campo nuevo
+    gen_civa = models.CharField(max_length=50, blank=True, null=True, help_text="condicion de iva emp") #campo nuevo
+    gen_leye = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas") #campo nuevo
+    gen_leye2 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas2") #campo nuevo
+    gen_leye3 = models.CharField(max_length=80, blank=True, null=True, help_text="Leyenda en vtas3") #campo nuevo
+    gen_ingB = models.CharField(max_length=15, blank=True, null=True, help_text="Ingresos Brutos") #campo nuevo
+    gen_inia = models.DateField(blank=True, null=True, help_text="Fecha inicio")#campo nuevo
 
     class Meta:
         verbose_name = "General"
@@ -758,4 +760,89 @@ class Vendedor(models.Model):
 
     def __str__(self):
         return self.ven_nomb
+
+
+
+#------------------------ nuevo
+class TipoComprobantes(models.Model):
+    com_codi = models.CharField(max_length=6, primary_key=True) #codigo comprobante. FACT A, N.CR B, REMI X, RECI X, etc
+    com_nomb = models.CharField(max_length=30, blank=True, null=True) #Factura, nota de credito, remito, recibo
+    com_letr = models.CharField(max_length=1, blank=True, null=True) #A,B,C,X,Z
+    com_deha = models.SmallIntegerField(default=1, choices=[(1, 'Debito'), (-1, 'Credito')], help_text="Debito / Credito") #debe haber
+    com_afip = models.SmallIntegerField(blank=True, null=True) #Codigo comprobante afip (para qr). 1, 6, 11, 201...
+    com_fele = models.CharField(max_length=3, blank=True, editable=True) #comprobante factura electronica 
+
+    class Meta:
+        verbose_name = "Tipo de comprobante"
+        verbose_name_plural = "Tipos de comprobante"
+
+    def __str__(self):
+        return self.com_codi
+
+
+#--------------------------nuevo
+class Comprobante(models.Model):
+    #---------- comunes (venta y cobro) ----------
+    cpb_codi = models.AutoField(primary_key=True) #codigo comprobante
+    cpb_tipo = models.CharField(max_length=1, choices=[('V', 'Venta'), ('C', 'Cobro')]) #para ver si es venta o cobro
+    cpb_fech = models.DateField(null=True, blank=True)
+    cpb_pref = models.CharField(max_length=4, blank=True, null=True)  #prefijo
+    cpb_nume = models.IntegerField(default=0)                          #numero (vta_nume). al imprimir str(cpb_nume).zfill(8)
+    cpb_conc = models.CharField(max_length=60, blank=True, null=True)  #concepto
+    cpb_cvta = models.CharField(max_length=3, default='CTC')           #condicion (CDO, CTC, CHQ, CRA). Cobro siempre CTC
+    cpb_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0)  #total
+    cpb_band = models.BooleanField(default=False)                      #bandera. por ahora = anulado (vta_anul): el extracto solo toma cpb_band=False
+    #relaciones
+    com_codi = models.ForeignKey(TipoComprobantes, on_delete=models.DO_NOTHING, db_constraint=False, related_name='comprobantes') #---relacion tipo de comprobante
+    cli_codi = models.ForeignKey(Clientes, on_delete=models.DO_NOTHING, db_constraint=False, related_name='comprobantes') #---relacion cliente (nombre, domicilio, localidad, cuit)
+    cpb_civN = models.CharField(max_length=30, blank=True, null=True) #condicion de iva del cliente
+
+    #---------- solo ventas (V) ----------
+    vtas_fven = models.DateField(blank=True, null=True)                 #vencimiento
+    vtas_nped = models.IntegerField(blank=True, null=True)              #numero de pedido
+    vtas_pers = models.CharField(max_length=30, blank=True, null=True)  #vendedor (sin relacion)
+    vtas_ncae = models.CharField(max_length=14, blank=True, null=True)  #numero CAE
+    vtas_CVto = models.DateField(blank=True, null=True)                 #vencimiento CAE
+    vtas_igra = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #gravado
+    vtas_iexe = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #exento
+    vtas_iiva = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #IVA total
+    vtas_iv105 = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True) #IVA 10,5
+    vtas_iv21 = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #IVA 21
+    vtas_iRNI = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #IVA no categorizado
+    vtas_iiin = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #impuesto interno
+    vtas_ibts = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #ingresos brutos
+    vtas_band = models.BooleanField(default=False)                      #bandera ventas. por ahora = vta_tipo 'M': el saldo suma cpb_tota sin multiplicar por com_deha
+
+    #---------- solo cobros (C) ----------
+    cob_ifac = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #total facturas canceladas (recibo)
+    cob_iint = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #interes / descuento
+    cob_iade = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #adelantado
+    cob_icade = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True) #adelantos previos descontados
+    cob_band = models.BooleanField(default=False)                       #bandera cobros (libre)
+
+    class Meta:
+        unique_together = [('com_codi', 'cpb_pref', 'cpb_nume')]  #no se puede importar dos veces el mismo comprobante (FACT A 0001 00001520)
+        indexes = [models.Index(fields=['cli_codi', 'cpb_fech'])]  #extracto de cuenta corriente: comprobantes del cliente por fecha
+
+    def __str__(self):
+        return f"{self.com_codi_id} {self.cpb_pref or ''}-{str(self.cpb_nume).zfill(8)}"
+
+
+class DetalleComprobante(models.Model):
+    dcp_codi = models.AutoField(primary_key=True)
+    cpb_codi = models.ForeignKey(Comprobante, on_delete=models.CASCADE, db_constraint=False, related_name='detalles') #la arma el .py, no viene de la trweb
+    dcp_tota = models.DecimalField(max_digits=12, decimal_places=2, default=0)  #total del renglon (venta) o importe cancelado (cobro)
+
+    #---------- si el comprobante es V: articulo vendido ----------
+    art_codi = models.IntegerField(blank=True, null=True)              #articulo sin relacion
+    dcp_nomb = models.CharField(max_length=70, blank=True, null=True)  #nombre del articulo
+    dcp_tiva = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)  #% IVA art
+    dcp_cant = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True) #cantidad 
+    dcp_precU = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)  #precio unitario
+    dcp_boni = models.DecimalField(max_digits=5, decimal_places=2, default=0)  #% bonificacion del renglon (a futuro)
+
+    #---------- si el comprobante es C: concepto cancelado ----------
+    dcp_fech = models.DateField(blank=True, null=True)  #fecha del comprobante cancelado (solo para imprimir el recibo)
+    dcp_band = models.BooleanField(default=False)  #bandera. por ahora en cobros = renglon de cob_FacD / cob_RemD: el extracto lo resta ("└ N.CR A 0005 00005775"). En ventas libre
+
 

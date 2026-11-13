@@ -17,6 +17,8 @@ import { SearchService } from "@/services/search.service"
 import AuthModal from "./auth-modal"
 import ChangePasswordModal from "./change-password-modal"
 import ProductPreviewModal from "./product-preview-modal"
+import IntervaloDialog from "./intervalo-dialog"
+import { ExportUtils } from "@/lib/export-utils"
 import { Button } from "./ui/button"
 
 interface SiteHeaderProps {
@@ -51,6 +53,12 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const [bannerData, setBannerData] = useState<{ isImpersonating: boolean; vendedor?: { ven_nomb: string } } | null>(null)
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
   const [overlayTop, setOverlayTop] = useState<number | null>(null)
+  // Exportar cuenta corriente del cliente logueado (pide intervalo de fechas).
+  // Por ahora solo para vendedores gerentes (ven_gere) supervisando al cliente;
+  // el cliente por sí solo no la ve.
+  const puedeExportarCtaCte = Boolean(impersonation?.isImpersonating && impersonation?.vendedor?.ven_gere)
+  const [showCtaCte, setShowCtaCte] = useState(false)
+  const [ctaCteError, setCtaCteError] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDropdownRef = useRef<HTMLDivElement>(null)
@@ -218,6 +226,26 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
     } catch (error) {
       console.error("Error al cerrar sesión:", error)
       router.push("/")
+    }
+  }
+
+  const abrirCuentaCorriente = () => {
+    setCtaCteError(null)
+    setShowCtaCte(true)
+  }
+
+  const handleCuentaCorrienteConfirm = async (desde: string, hasta: string) => {
+    const cliCodi = Number(user?.cli_codi ?? user?.id)
+    if (!cliCodi) {
+      setCtaCteError("No se pudo identificar el cliente")
+      return
+    }
+    try {
+      setCtaCteError(null)
+      await ExportUtils.exportarCuentaCorriente(cliCodi, desde, hasta)
+      setShowCtaCte(false)
+    } catch (err: any) {
+      setCtaCteError(err?.message || "Error al generar la cuenta corriente")
     }
   }
 
@@ -457,30 +485,28 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                           <UserCog className="w-4 h-4 inline mr-3" />
                           Mis Datos
                         </Link>
-                        {(impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user.ven_gere)) && (
-                          <>
-                            <button
-                              onClick={() => {
-                                // Exportar Cuenta Corriente
-                                setShowUserMenu(false)
-                              }}
-                              className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                            >
-                              <Download className="w-4 h-4 inline mr-3" />
-                              Exportar Cuenta Corriente
-                            </button>
-                            <button
-                              onClick={() => {
-                                // Exportar Facturas PDF
-                                setShowUserMenu(false)
-                              }}
-                              className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                            >
-                              <FileText className="w-4 h-4 inline mr-3" />
-                              Exportar Facturas PDF
-                            </button>
-                          </>
+                        {puedeExportarCtaCte && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false)
+                              abrirCuentaCorriente()
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                          >
+                            <Download className="w-4 h-4 inline mr-3" />
+                            Exportar Cuenta Corriente
+                          </button>
                         )}
+                        <button
+                          onClick={() => {
+                            // Exportar Facturas PDF
+                            setShowUserMenu(false)
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        >
+                          <FileText className="w-4 h-4 inline mr-3" />
+                          Exportar Facturas PDF
+                        </button>
                         {!bannerData?.isImpersonating && (
                           <button
                             onClick={handleLogout}
@@ -637,24 +663,25 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                     <UserCog className="w-5 h-5" />
                     Mis Datos
                   </Link>
-                  {(impersonation.isImpersonating ? Boolean(vendedor?.ven_gere) : Boolean(user.ven_gere)) && (
-                    <>
-                      <button
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
-                      >
-                        <Download className="w-5 h-5" />
-                        Exportar Cuenta Corriente
-                      </button>
-                      <button
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
-                      >
-                        <FileText className="w-5 h-5" />
-                        Exportar Facturas PDF
-                      </button>
-                    </>
+                  {puedeExportarCtaCte && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false)
+                        abrirCuentaCorriente()
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
+                    >
+                      <Download className="w-5 h-5" />
+                      Exportar Cuenta Corriente
+                    </button>
                   )}
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
+                  >
+                    <FileText className="w-5 h-5" />
+                    Exportar Facturas PDF
+                  </button>
                   {!bannerData?.isImpersonating && (
                     <button
                       onClick={() => {
@@ -696,6 +723,19 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       {/* Modales */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      <IntervaloDialog
+        open={showCtaCte}
+        onOpenChange={setShowCtaCte}
+        confirmLabel="Descargar"
+        descripcion={
+          ctaCteError ? (
+            <span className="text-destructive">{ctaCteError}</span>
+          ) : (
+            "Seleccione el período de la cuenta corriente a descargar."
+          )
+        }
+        onConfirm={handleCuentaCorrienteConfirm}
+      />
       {showPreviewModal && selectedProduct && (
         <ProductPreviewModal
           product={selectedProduct}

@@ -6,10 +6,10 @@ from .views import (
     MarcaViewSet, RubroViewSet, SubrubroViewSet, ArticuloViewSet, NovedadesViewSet,
     ClientesViewSet, VendedorViewSet, RegistroViewSet, FavoritosViewSet, CarritoItemViewSet,
     PedidosViewSet, DetallePedidoViewSet, CuentaBancariaViewSet,
-    GeneralViewSet, UsuarioViewSet, get_csrf_token, health_check, vendedor_login,
+    GeneralViewSet, UsuarioViewSet, TipoComprobantesViewSet, ComprobanteViewSet, get_csrf_token, health_check, vendedor_login,
     importar_datos, actualizar_precios, actualizar_claves, cliente_login, cliente_asignar_clave, cliente_cambiar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
-    crear_pedido_desde_carrito, contacto_enviar
+    crear_pedido_desde_carrito, contacto_enviar, cuenta_corriente_pdf, comprobante_pdf
 )
 
 # 👇 CLAVE: agregar trailing_slash opcional
@@ -45,7 +45,13 @@ router.register(r'cuentas-bancarias', CuentaBancariaViewSet, basename='cuenta-ba
 router.register(r'general', GeneralViewSet, basename='general')
 router.register(r'usuarios', UsuarioViewSet, basename='usuario')
 
+# Cuenta corriente (solo lectura)
+router.register(r'tipos-comprobante', TipoComprobantesViewSet, basename='tipo-comprobante')
+router.register(r'comprobantes', ComprobanteViewSet, basename='comprobante')
+
 urlpatterns = [
+    # antes del router para que 'comprobantes/<id>/pdf/' no lo tome el ViewSet
+    path('comprobantes/<int:cpb_codi>/pdf/', comprobante_pdf, name='comprobante-pdf'),
     path('', include(router.urls)),
     # JWT Token endpoints
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -65,6 +71,7 @@ urlpatterns = [
     path('vendedor/impersonate/', vendedor_impersonate, name='vendedor-impersonate'),
     path('vendedor/stop-impersonation/', vendedor_stop_impersonation, name='vendedor-stop-impersonation'),
     path('vendedor/check-impersonation/', vendedor_check_impersonation, name='vendedor-check-impersonation'),
+    path('cuenta-corriente/pdf/', cuenta_corriente_pdf, name='cuenta-corriente-pdf'),
     path('csrf/', get_csrf_token, name='csrf-token'),
     path('health/', health_check, name='health-check'),
     path('importar_datos/', importar_datos, name='importar-datos'),
