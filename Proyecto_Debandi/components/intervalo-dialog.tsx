@@ -24,19 +24,23 @@ function toInputDate(date: Date) {
 }
 
 // Diálogo genérico para pedir un intervalo de fechas (Desde/Hasta) antes de
-// generar un reporte: cuenta corriente, saldos, etc. Al abrirse propone del
-// primer día del mes en curso a hoy.
+// generar un reporte: cuenta corriente, etc. Al abrirse propone del primer día
+// del mes en curso a hoy.
+// Con fechaUnica pide una sola fecha (ej. saldos al día), propone hoy y llama
+// a onConfirm(fecha, fecha).
 export default function IntervaloDialog({
   open,
   onOpenChange,
   descripcion,
   confirmLabel = "Aceptar",
+  fechaUnica = false,
   onConfirm,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   descripcion?: React.ReactNode
   confirmLabel?: string
+  fechaUnica?: boolean
   onConfirm: (desde: string, hasta: string) => void | Promise<void>
 }) {
   const [desde, setDesde] = useState("")
@@ -51,13 +55,13 @@ export default function IntervaloDialog({
     }
   }, [open])
 
-  const invalido = !desde || !hasta || desde > hasta
+  const invalido = fechaUnica ? !hasta : !desde || !hasta || desde > hasta
 
   const handleConfirm = async () => {
     if (invalido) return
     setProcesando(true)
     try {
-      await onConfirm(desde, hasta)
+      await onConfirm(fechaUnica ? hasta : desde, hasta)
     } finally {
       setProcesando(false)
     }
@@ -67,9 +71,20 @@ export default function IntervaloDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ingrese Intervalo</DialogTitle>
+          <DialogTitle>{fechaUnica ? "Ingrese Fecha" : "Ingrese Intervalo"}</DialogTitle>
           {descripcion && <DialogDescription>{descripcion}</DialogDescription>}
         </DialogHeader>
+        {fechaUnica ? (
+          <div className="space-y-2 py-2">
+            <Label htmlFor="intervalo-fecha">Fecha</Label>
+            <Input
+              id="intervalo-fecha"
+              type="date"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+            />
+          </div>
+        ) : (
         <div className="grid grid-cols-2 gap-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="intervalo-desde">Desde</Label>
@@ -92,7 +107,8 @@ export default function IntervaloDialog({
             />
           </div>
         </div>
-        {desde && hasta && desde > hasta && (
+        )}
+        {!fechaUnica && desde && hasta && desde > hasta && (
           <p className="text-sm text-destructive">La fecha "Desde" no puede ser mayor que "Hasta".</p>
         )}
         <DialogFooter>

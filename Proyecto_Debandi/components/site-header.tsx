@@ -54,9 +54,9 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false)
   const [overlayTop, setOverlayTop] = useState<number | null>(null)
   // Exportar cuenta corriente del cliente logueado (pide intervalo de fechas).
-  // Por ahora solo para vendedores gerentes (ven_gere) supervisando al cliente;
+  // Para cualquier vendedor supervisando al cliente (no depende de ven_gere);
   // el cliente por sí solo no la ve.
-  const puedeExportarCtaCte = Boolean(impersonation?.isImpersonating && impersonation?.vendedor?.ven_gere)
+  const puedeExportarCtaCte = Boolean(impersonation?.isImpersonating)
   const [showCtaCte, setShowCtaCte] = useState(false)
   const [ctaCteError, setCtaCteError] = useState<string | null>(null)
 

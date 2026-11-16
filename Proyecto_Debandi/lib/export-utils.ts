@@ -629,5 +629,33 @@ export class ExportUtils {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
+  // SALDOS AL DIA: comentado hasta habilitarlo
+//   /**
+//    * Descarga el listado de saldos de clientes (PDF) al día `fecha` (YYYY-MM-DD).
+//    * Solo Panel de Vendedores: cartera del vendedor (todos si es gerente), con los
+//    * filtros opcionales de zona y localidad.
+//    */
+//   static async exportarSaldosClientes(fecha: string, zona?: string, localidad?: string): Promise<void> {
+//     const params = new URLSearchParams({ fecha });
+//     if (zona) params.set('zon_codi', zona);
+//     if (localidad) params.set('loc_codi', localidad);
+//     const response = await fetchConAuth(`${process.env.NEXT_PUBLIC_API_URL}/saldos-clientes/pdf/?${params}`);
+
+//     if (!response.ok) {
+//       const data = await response.json().catch(() => null);
+//       throw new Error(data?.detail || `Error ${response.status}: No se pudo generar el listado de saldos`);
+//     }
+
+//     const blob = await response.blob();
+//     const url = window.URL.createObjectURL(blob);
+//     const link = document.createElement('a');
+//     link.href = url;
+//     link.download = `saldos_clientes_${fecha}.pdf`;
+//     document.body.appendChild(link);
+//     link.click();
+//     document.body.removeChild(link);
+//     window.URL.revokeObjectURL(url);
+//   }
 }
 

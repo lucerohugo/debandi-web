@@ -18,6 +18,8 @@ from decimal import Decimal, InvalidOperation
 from .services.excel_service import ExcelService
 from .services.pdf_service import PDFService
 from .services.cuenta_corriente_service import CuentaCorrienteService
+# SALDOS AL DIA: comentado hasta habilitarlo
+# from .services.saldos_service import SaldosService
 from .services.comprobante_service import ComprobanteService
 from rest_framework.permissions import BasePermission
 from .permissions import SimpleJWTAuthentication, APIKeyAuthentication, IsAuthenticatedWithJWTOrAPIKey
@@ -1646,9 +1648,8 @@ def cuenta_corriente_pdf(request):
     GET /cuenta-corriente/pdf/?cli_codi=12,34&desde=2026-09-01&hasta=2026-09-30
     Extracto de cuenta corriente en PDF, un cliente por página (como &MSelec en Clieext).
     cli_codi acepta lista separada por comas o el parámetro repetido.
-    Por ahora solo un vendedor gerente activo (ven_gere=True; JWT con
-    'vendedor_suplantante') puede exportar, de cualquier cliente. Los clientes
-    y los vendedores no gerentes reciben 403.
+    Lo exporta cualquier vendedor activo (JWT con 'vendedor_suplantante'), de
+    cualquier cliente; no depende de ven_gere. Los clientes solos reciben 403.
     """
     if request.method == 'OPTIONS':
         return JsonResponse({'status': 'ok'})
@@ -1661,9 +1662,9 @@ def cuenta_corriente_pdf(request):
     except TokenError:
         return JsonResponse({'success': False, 'detail': 'Token inválido o vencido'}, status=401)
     ven_codi = token.get('vendedor_suplantante')
-    es_gerente = bool(ven_codi) and Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1, ven_gere=True).exists()
-    if not es_gerente:
-        return JsonResponse({'success': False, 'detail': 'Solo los vendedores gerentes pueden exportar la cuenta corriente'}, status=403)
+    es_vendedor = bool(ven_codi) and Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1).exists()
+    if not es_vendedor:
+        return JsonResponse({'success': False, 'detail': 'Solo los vendedores pueden exportar la cuenta corriente'}, status=403)
 
     try:
         desde = datetime.strptime(request.GET.get('desde', ''), '%Y-%m-%d').date()
@@ -1693,6 +1694,64 @@ def cuenta_corriente_pdf(request):
 
     nombre = f"cuenta_corriente_{clientes[0].cli_codi if len(clientes) == 1 else 'varios'}_{desde:%Y%m%d}_{hasta:%Y%m%d}.pdf"
     return FileResponse(pdf_file, as_attachment=True, filename=nombre, content_type='application/pdf')
+
+
+# SALDOS AL DIA: comentado hasta habilitarlo
+# @require_http_methods(['GET', 'OPTIONS'])
+# def saldos_clientes_pdf(request):
+#     """
+#     GET /saldos-clientes/pdf/?fecha=2026-11-14&zon_codi=3&loc_codi=12
+#     Listado de saldos de clientes al día `fecha` (fecha de factura), como SaldCFF de GeneXus.
+#     Solo para el Panel de Vendedores (JWT con 'vendedor_suplantante' de un vendedor activo):
+#     el vendedor ve su cartera; el gerente (ven_gere), todos los clientes.
+#     zon_codi y loc_codi son opcionales (los mismos filtros del panel).
+#     """
+#     if request.method == 'OPTIONS':
+#         return JsonResponse({'status': 'ok'})
+
+#     auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+#     if not auth_header.startswith('Bearer '):
+#         return JsonResponse({'success': False, 'detail': 'Token requerido'}, status=401)
+#     try:
+#         token = AccessToken(auth_header[7:].strip())
+#     except TokenError:
+#         return JsonResponse({'success': False, 'detail': 'Token inválido o vencido'}, status=401)
+#     ven_codi = token.get('vendedor_suplantante')
+#     vendedor = Vendedor.objects.filter(ven_codi=ven_codi, ven_actv=1).first() if ven_codi else None
+#     if vendedor is None:
+#         return JsonResponse({'success': False, 'detail': 'Solo los vendedores pueden ver el listado de saldos'}, status=403)
+
+#     try:
+#         fecha = datetime.strptime(request.GET.get('fecha', ''), '%Y-%m-%d').date()
+#     except ValueError:
+#         return JsonResponse({'success': False, 'detail': 'fecha es requerida (AAAA-MM-DD)'}, status=400)
+
+#     clientes = Clientes.objects.all()
+#     if not vendedor.ven_gere:
+#         clientes = clientes.filter(ven_codi=vendedor)
+
+#     filtros = {'zona': 'Todos', 'localidad': 'Todas', 'vendedor': 'Todos' if vendedor.ven_gere else vendedor.ven_nomb}
+#     try:
+#         zon_codi = request.GET.get('zon_codi')
+#         if zon_codi:
+#             zona = Zona.objects.filter(zon_codi=int(zon_codi)).first()
+#             clientes = clientes.filter(zon_codi_id=int(zon_codi))
+#             filtros['zona'] = (zona.zon_nomb if zona else '') or zon_codi
+#         loc_codi = request.GET.get('loc_codi')
+#         if loc_codi:
+#             localidad = Localidad.objects.filter(loc_codi=int(loc_codi)).first()
+#             clientes = clientes.filter(loc_codi_id=int(loc_codi))
+#             filtros['localidad'] = (localidad.loc_nomb if localidad else '') or loc_codi
+#     except ValueError:
+#         return JsonResponse({'success': False, 'detail': 'zon_codi / loc_codi inválido'}, status=400)
+
+#     try:
+#         pdf_file = SaldosService.generar_pdf(clientes, fecha, filtros)
+#     except Exception as e:
+#         logger.exception('Error al generar el listado de saldos')
+#         return JsonResponse({'success': False, 'detail': f'Error al generar PDF: {e}'}, status=500)
+
+#     return FileResponse(pdf_file, as_attachment=True, filename=f"saldos_clientes_{fecha:%Y%m%d}.pdf", content_type='application/pdf')
 
 
 @require_http_methods(['GET', 'OPTIONS'])

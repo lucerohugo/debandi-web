@@ -74,7 +74,7 @@ function formatCuit(cuit?: string) {
 }
 
 // Reportes por intervalo de fechas: cada uno es un botón en la columna Acción.
-// Solo los ven los vendedores gerentes (ven_gere = true).
+// Los ven todos los vendedores (no depende de ven_gere).
 // Para sumar uno nuevo (saldos, etc.) se agrega acá y su caso en
 // handleIntervaloConfirm.
 const REPORTES = [
@@ -175,6 +175,11 @@ export default function VendedorClientesPage() {
   // el intervalo para ese reporte.
   const [intervalo, setIntervalo] = useState<{ cliente: Cliente; accion: Reporte } | null>(null)
 
+  // SALDOS AL DIA: comentado hasta habilitarlo
+//   // Listado de saldos al día (SaldCFF): de toda la cartera con los filtros de
+//   // zona/localidad aplicados. Lo ven todos los vendedores.
+//   const [showSaldos, setShowSaldos] = useState(false)
+
   const limit = 20
 
   const loadClientes = useCallback(async () => {
@@ -245,6 +250,17 @@ export default function VendedorClientesPage() {
       setError(err.message || "Error al generar el reporte")
     }
   }
+
+  // SALDOS AL DIA: comentado hasta habilitarlo
+//   const handleSaldosConfirm = async (fecha: string) => {
+//     try {
+//       await ExportUtils.exportarSaldosClientes(fecha, zonaFiltro || undefined, localidadFiltro || undefined)
+//       setShowSaldos(false)
+//     } catch (err: any) {
+//       setShowSaldos(false)
+//       setError(err.message || "Error al generar el listado de saldos")
+//     }
+//   }
 
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
@@ -377,6 +393,18 @@ export default function VendedorClientesPage() {
                   Limpiar filtros
                 </Button>
               )}
+              {/* SALDOS AL DIA: comentado hasta habilitarlo
+              <Button
+                variant="outline"
+                size="sm"
+                className="sm:ml-auto"
+                onClick={() => { setError(""); setShowSaldos(true) }}
+                title="Listado de saldos de clientes a una fecha (fecha factura)"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Saldos al Día
+              </Button>
+              */}
             </div>
           </CardHeader>
           <CardContent>
@@ -496,7 +524,7 @@ export default function VendedorClientesPage() {
                                 </>
                               )}
                             </Button>
-                            {vendedor?.ven_gere && REPORTES.map(r => (
+                            {REPORTES.map(r => (
                               <Button
                                 key={r.value}
                                 variant="outline"
@@ -555,6 +583,17 @@ export default function VendedorClientesPage() {
         confirmLabel="Exportar"
         onConfirm={handleIntervaloConfirm}
       />
+
+      {/* SALDOS AL DIA: comentado hasta habilitarlo
+      <IntervaloDialog
+        open={showSaldos}
+        onOpenChange={setShowSaldos}
+        fechaUnica
+        descripcion={`Fecha de Saldos (Fecha Factura)${zonaFiltro || localidadFiltro ? " - se aplican los filtros de zona/localidad" : ""}`}
+        confirmLabel="Exportar"
+        onConfirm={handleSaldosConfirm}
+      />
+      */}
     </div>
   )
 }
