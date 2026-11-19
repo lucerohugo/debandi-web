@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, ShoppingCart, Heart, Moon, Sun, LogOut, User, Shield, Key, UserCog, Package, FileText, Download, Menu, X } from "lucide-react"
+import { Search, ShoppingCart, Heart, Moon, Sun, LogOut, User, Shield, Key, UserCog, Package, Download, Menu, X, ArrowLeftRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/contexts/favorites-context"
 import { useConfig } from "@/contexts/config-context"
@@ -18,6 +18,7 @@ import AuthModal from "./auth-modal"
 import ChangePasswordModal from "./change-password-modal"
 import ProductPreviewModal from "./product-preview-modal"
 import IntervaloDialog from "./intervalo-dialog"
+import CuentaCorrientePanel from "./cuenta-corriente-panel"
 import { ExportUtils } from "@/lib/export-utils"
 import { Button } from "./ui/button"
 
@@ -59,6 +60,8 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const puedeExportarCtaCte = Boolean(impersonation?.isImpersonating)
   const [showCtaCte, setShowCtaCte] = useState(false)
   const [ctaCteError, setCtaCteError] = useState<string | null>(null)
+  // Panel "Movimientos" (cuenta corriente) del cliente logueado: solo el suyo
+  const [movimientosCliente, setMovimientosCliente] = useState<{ cli_codi: number; cli_nomb: string } | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDropdownRef = useRef<HTMLDivElement>(null)
@@ -232,6 +235,12 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
   const abrirCuentaCorriente = () => {
     setCtaCteError(null)
     setShowCtaCte(true)
+  }
+
+  const abrirMovimientos = () => {
+    const cliCodi = Number(user?.cli_codi ?? user?.id)
+    if (!cliCodi) return
+    setMovimientosCliente({ cli_codi: cliCodi, cli_nomb: user?.firstName || "Cliente" })
   }
 
   const handleCuentaCorrienteConfirm = async (desde: string, hasta: string) => {
@@ -485,6 +494,19 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                           <UserCog className="w-4 h-4 inline mr-3" />
                           Mis Datos
                         </Link>
+                        {/* Botón Movimientos del cliente deshabilitado (el vendedor lo sigue teniendo en Clientes)
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false)
+                            abrirMovimientos()
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        >
+                          <ArrowLeftRight className="w-4 h-4 inline mr-3" />
+                          Movimientos
+                        </button>
+                        */}
+                        {/* Botón Exportar Cuenta Corriente deshabilitado (vendedor/cliente)
                         {puedeExportarCtaCte && (
                           <button
                             onClick={() => {
@@ -496,17 +518,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                             <Download className="w-4 h-4 inline mr-3" />
                             Exportar Cuenta Corriente
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            // Exportar Facturas PDF
-                            setShowUserMenu(false)
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-900/80 dark:text-white/80 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                        >
-                          <FileText className="w-4 h-4 inline mr-3" />
-                          Exportar Facturas PDF
-                        </button>
+                        )} */}
                         {!bannerData?.isImpersonating && (
                           <button
                             onClick={handleLogout}
@@ -663,6 +675,19 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                     <UserCog className="w-5 h-5" />
                     Mis Datos
                   </Link>
+                  {/* Botón Movimientos del cliente deshabilitado (el vendedor lo sigue teniendo en Clientes)
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      abrirMovimientos()
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
+                  >
+                    <ArrowLeftRight className="w-5 h-5" />
+                    Movimientos
+                  </button>
+                  */}
+                  {/* Botón Exportar Cuenta Corriente deshabilitado (vendedor/cliente)
                   {puedeExportarCtaCte && (
                     <button
                       onClick={() => {
@@ -674,14 +699,7 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
                       <Download className="w-5 h-5" />
                       Exportar Cuenta Corriente
                     </button>
-                  )}
-                  <button
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent rounded-lg transition-colors text-sm text-left"
-                  >
-                    <FileText className="w-5 h-5" />
-                    Exportar Facturas PDF
-                  </button>
+                  )} */}
                   {!bannerData?.isImpersonating && (
                     <button
                       onClick={() => {
@@ -723,6 +741,10 @@ export default function SiteHeader({ onSearch }: SiteHeaderProps) {
       {/* Modales */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      <CuentaCorrientePanel
+        cliente={movimientosCliente}
+        onOpenChange={(open) => { if (!open) setMovimientosCliente(null) }}
+      />
       <IntervaloDialog
         open={showCtaCte}
         onOpenChange={setShowCtaCte}

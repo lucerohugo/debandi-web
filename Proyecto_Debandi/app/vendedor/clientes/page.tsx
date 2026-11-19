@@ -35,6 +35,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import IntervaloDialog from "@/components/intervalo-dialog"
+import CuentaCorrientePanel from "@/components/cuenta-corriente-panel"
 import { ExportUtils } from "@/lib/export-utils"
 import {
   Loader2,
@@ -48,6 +49,7 @@ import {
   ChevronsUpDown,
   Check,
   Download,
+  ArrowLeftRight,
   X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -72,16 +74,6 @@ function formatCuit(cuit?: string) {
   if (digits.length !== 11) return cuit
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
 }
-
-// Reportes por intervalo de fechas: cada uno es un botón en la columna Acción.
-// Los ven todos los vendedores (no depende de ven_gere).
-// Para sumar uno nuevo (saldos, etc.) se agrega acá y su caso en
-// handleIntervaloConfirm.
-const REPORTES = [
-  { value: "cuenta-corriente", label: "Cuenta Corriente", boton: "Cta. Corriente", accion: "Exportar Cuenta Corriente" },
-] as const
-
-type Reporte = typeof REPORTES[number]["value"]
 
 interface OpcionFiltro {
   value: string
@@ -171,14 +163,17 @@ export default function VendedorClientesPage() {
   const [zonas, setZonas] = useState<OpcionFiltro[]>([])
   const [localidades, setLocalidades] = useState<OpcionFiltro[]>([])
 
-  // Reporte por intervalo de fechas: el botón del reporte en cada cliente abre
-  // el intervalo para ese reporte.
-  const [intervalo, setIntervalo] = useState<{ cliente: Cliente; accion: Reporte } | null>(null)
+  // Panel de cuenta corriente (extracto + detalle de operación) del cliente.
+  // Lo ven todos los vendedores (no depende de ven_gere).
+  const [ctaCteCliente, setCtaCteCliente] = useState<Cliente | null>(null)
 
-  // SALDOS AL DIA: comentado hasta habilitarlo
-//   // Listado de saldos al día (SaldCFF): de toda la cartera con los filtros de
-//   // zona/localidad aplicados. Lo ven todos los vendedores.
-//   const [showSaldos, setShowSaldos] = useState(false)
+  // Listado de saldos al día (SaldCFF): de toda la cartera con los filtros de
+  // zona/localidad aplicados. Lo ven todos los vendedores.
+  const [showSaldos, setShowSaldos] = useState(false)
+
+  // Listado general de ventas (facturado) entre dos fechas: cartera del vendedor
+  // (todos si es gerente) con los filtros de zona/localidad aplicados.
+  const [showVentas, setShowVentas] = useState(false)
 
   const limit = 20
 
@@ -239,28 +234,25 @@ export default function VendedorClientesPage() {
     setPage(1)
   }, [estadoFiltro, zonaFiltro, localidadFiltro])
 
-  const handleIntervaloConfirm = async (desde: string, hasta: string) => {
-    if (!intervalo) return
+  const handleSaldosConfirm = async (fecha: string) => {
     try {
-      if (intervalo.accion === "cuenta-corriente") {
-        await ExportUtils.exportarCuentaCorriente(intervalo.cliente.cli_codi, desde, hasta)
-      }
-      setIntervalo(null)
+      await ExportUtils.exportarSaldosClientes(fecha, zonaFiltro || undefined, localidadFiltro || undefined)
+      setShowSaldos(false)
     } catch (err: any) {
-      setError(err.message || "Error al generar el reporte")
+      setShowSaldos(false)
+      setError(err.message || "Error al generar el listado de saldos")
     }
   }
 
-  // SALDOS AL DIA: comentado hasta habilitarlo
-//   const handleSaldosConfirm = async (fecha: string) => {
-//     try {
-//       await ExportUtils.exportarSaldosClientes(fecha, zonaFiltro || undefined, localidadFiltro || undefined)
-//       setShowSaldos(false)
-//     } catch (err: any) {
-//       setShowSaldos(false)
-//       setError(err.message || "Error al generar el listado de saldos")
-//     }
-//   }
+  const handleVentasConfirm = async (desde: string, hasta: string) => {
+    try {
+      await ExportUtils.exportarVentasVendedor(desde, hasta, zonaFiltro || undefined, localidadFiltro || undefined)
+      setShowVentas(false)
+    } catch (err: any) {
+      setShowVentas(false)
+      setError(err.message || "Error al generar el listado de ventas")
+    }
+  }
 
   const handleImpersonate = async (cli_codi: number) => {
     setImpersonating(cli_codi)
@@ -353,14 +345,25 @@ export default function VendedorClientesPage() {
                   </Badge>
                 )}
               </div>
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nombre, CUIT o email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setError(""); setShowVentas(true) }}
+                  title="Listado general de ventas (facturado) de la cartera del vendedor entre dos fechas"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Listado General de Ventas
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setError(""); setShowSaldos(true) }}
+                  title="Listado de saldos de clientes a una fecha (fecha factura)"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Saldos por Fec.Factura
+                </Button>
               </div>
             </div>
             <CardDescription>
@@ -369,6 +372,15 @@ export default function VendedorClientesPage() {
                 : "Selecciona un cliente para ingresar al sistema como supervisor"}
             </CardDescription>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre, CUIT o email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
               <FiltroCombobox
                 placeholder="Buscar zona..."
                 todosLabel="Todas las zonas"
@@ -393,18 +405,9 @@ export default function VendedorClientesPage() {
                   Limpiar filtros
                 </Button>
               )}
-              {/* SALDOS AL DIA: comentado hasta habilitarlo
-              <Button
-                variant="outline"
-                size="sm"
-                className="sm:ml-auto"
-                onClick={() => { setError(""); setShowSaldos(true) }}
-                title="Listado de saldos de clientes a una fecha (fecha factura)"
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Saldos al Día
-              </Button>
-              */}
+              <span className="text-[11px] text-muted-foreground italic">
+                (Zona y Localidad también aplican a la impresion de Listado General de Ventas)
+              </span>
             </div>
           </CardHeader>
           <CardContent>
@@ -524,19 +527,16 @@ export default function VendedorClientesPage() {
                                 </>
                               )}
                             </Button>
-                            {REPORTES.map(r => (
-                              <Button
-                                key={r.value}
-                                variant="outline"
-                                size="sm"
-                                title={r.accion}
-                                aria-label={r.accion}
-                                onClick={() => setIntervalo({ cliente, accion: r.value })}
-                              >
-                                <Download className="w-4 h-4 mr-1" />
-                                {r.boton}
-                              </Button>
-                            ))}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="Ver Movimientos"
+                              aria-label="Ver Movimientos"
+                              onClick={() => setCtaCteCliente(cliente)}
+                            >
+                              <ArrowLeftRight className="w-4 h-4 mr-1" />
+                              Movimientos
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -576,15 +576,12 @@ export default function VendedorClientesPage() {
         </Card>
       </div>
 
-      <IntervaloDialog
-        open={intervalo !== null}
-        onOpenChange={(open) => { if (!open) setIntervalo(null) }}
-        descripcion={REPORTES.find(r => r.value === intervalo?.accion)?.label}
-        confirmLabel="Exportar"
-        onConfirm={handleIntervaloConfirm}
+      <CuentaCorrientePanel
+        cliente={ctaCteCliente}
+        onOpenChange={(open) => { if (!open) setCtaCteCliente(null) }}
+        onSaldos={() => { setError(""); setShowSaldos(true) }}
       />
 
-      {/* SALDOS AL DIA: comentado hasta habilitarlo
       <IntervaloDialog
         open={showSaldos}
         onOpenChange={setShowSaldos}
@@ -593,7 +590,14 @@ export default function VendedorClientesPage() {
         confirmLabel="Exportar"
         onConfirm={handleSaldosConfirm}
       />
-      */}
+
+      <IntervaloDialog
+        open={showVentas}
+        onOpenChange={setShowVentas}
+        descripcion={`Listado General de Ventas${zonaFiltro || localidadFiltro ? " - se aplican los filtros de zona/localidad" : ""}`}
+        confirmLabel="Exportar"
+        onConfirm={handleVentasConfirm}
+      />
     </div>
   )
 }

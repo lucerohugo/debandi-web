@@ -9,7 +9,7 @@ from .views import (
     GeneralViewSet, UsuarioViewSet, TipoComprobantesViewSet, ComprobanteViewSet, get_csrf_token, health_check, vendedor_login,
     importar_datos, actualizar_precios, actualizar_claves, cliente_login, cliente_asignar_clave, cliente_cambiar_clave, cliente_register, cliente_update_password, cliente_update_parametros, favoritos_manage,
     carrito_manage, vendedor_impersonate, vendedor_stop_impersonation, vendedor_check_impersonation,
-    crear_pedido_desde_carrito, contacto_enviar, cuenta_corriente_pdf, comprobante_pdf  # , saldos_clientes_pdf (SALDOS AL DIA: comentado hasta habilitarlo)
+    crear_pedido_desde_carrito, contacto_enviar, cuenta_corriente_pdf, cuenta_corriente_extracto, saldos_clientes_pdf, ventas_vendedor_pdf, comprobante_pdf
 )
 
 # 👇 CLAVE: agregar trailing_slash opcional
@@ -71,9 +71,10 @@ urlpatterns = [
     path('vendedor/impersonate/', vendedor_impersonate, name='vendedor-impersonate'),
     path('vendedor/stop-impersonation/', vendedor_stop_impersonation, name='vendedor-stop-impersonation'),
     path('vendedor/check-impersonation/', vendedor_check_impersonation, name='vendedor-check-impersonation'),
+    path('cuenta-corriente/', cuenta_corriente_extracto, name='cuenta-corriente'),
     path('cuenta-corriente/pdf/', cuenta_corriente_pdf, name='cuenta-corriente-pdf'),
-    # SALDOS AL DIA: comentado hasta habilitarlo
-    # path('saldos-clientes/pdf/', saldos_clientes_pdf, name='saldos-clientes-pdf'),
+    path('saldos-clientes/pdf/', saldos_clientes_pdf, name='saldos-clientes-pdf'),
+    path('ventas-vendedor/pdf/', ventas_vendedor_pdf, name='ventas-vendedor-pdf'),
     path('csrf/', get_csrf_token, name='csrf-token'),
     path('health/', health_check, name='health-check'),
     path('importar_datos/', importar_datos, name='importar-datos'),

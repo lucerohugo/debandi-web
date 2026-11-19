@@ -114,6 +114,7 @@ class CuentaCorrienteService:
             for concepto, importe, es_detalle in CuentaCorrienteService._movimientos(cpb):
                 saldo += importe
                 renglones.append({
+                    'cpb_codi': cpb.cpb_codi,  # para el detalle de operación en el panel web
                     'fecha': None if es_detalle else cpb.cpb_fech,
                     'concepto': concepto,
                     'debito': importe if importe >= 0 else None,  # GeneXus imprime 0.00 en Débito

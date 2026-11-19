@@ -630,32 +630,79 @@ export class ExportUtils {
     window.URL.revokeObjectURL(url);
   }
 
-  // SALDOS AL DIA: comentado hasta habilitarlo
-//   /**
-//    * Descarga el listado de saldos de clientes (PDF) al día `fecha` (YYYY-MM-DD).
-//    * Solo Panel de Vendedores: cartera del vendedor (todos si es gerente), con los
-//    * filtros opcionales de zona y localidad.
-//    */
-//   static async exportarSaldosClientes(fecha: string, zona?: string, localidad?: string): Promise<void> {
-//     const params = new URLSearchParams({ fecha });
-//     if (zona) params.set('zon_codi', zona);
-//     if (localidad) params.set('loc_codi', localidad);
-//     const response = await fetchConAuth(`${process.env.NEXT_PUBLIC_API_URL}/saldos-clientes/pdf/?${params}`);
+  /**
+   * Abre en otra pestaña el PDF de un comprobante de venta (factura, remito, N.CR/N.DB)
+   */
+  static async verComprobante(cpbCodi: number): Promise<void> {
+    // La pestaña se abre antes del await para que el navegador no la bloquee como popup
+    const ventana = window.open('', '_blank');
+    try {
+      const response = await fetchConAuth(`${process.env.NEXT_PUBLIC_API_URL}/comprobantes/${cpbCodi}/pdf/`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail || `Error ${response.status}: No se pudo abrir el comprobante`);
+      }
+      const url = window.URL.createObjectURL(await response.blob());
+      if (ventana) ventana.location.href = url;
+      else window.open(url, '_blank');
+    } catch (error) {
+      ventana?.close();
+      throw error;
+    }
+  }
 
-//     if (!response.ok) {
-//       const data = await response.json().catch(() => null);
-//       throw new Error(data?.detail || `Error ${response.status}: No se pudo generar el listado de saldos`);
-//     }
+  /**
+   * Descarga el listado general de ventas (PDF) entre desde y hasta (YYYY-MM-DD).
+   * Solo Panel de Vendedores: cartera del vendedor (todos si es gerente), con los
+   * filtros opcionales de zona y localidad.
+   */
+  static async exportarVentasVendedor(desde: string, hasta: string, zona?: string, localidad?: string): Promise<void> {
+    const params = new URLSearchParams({ desde, hasta });
+    if (zona) params.set('zon_codi', zona);
+    if (localidad) params.set('loc_codi', localidad);
+    const response = await fetchConAuth(`${process.env.NEXT_PUBLIC_API_URL}/ventas-vendedor/pdf/?${params}`);
 
-//     const blob = await response.blob();
-//     const url = window.URL.createObjectURL(blob);
-//     const link = document.createElement('a');
-//     link.href = url;
-//     link.download = `saldos_clientes_${fecha}.pdf`;
-//     document.body.appendChild(link);
-//     link.click();
-//     document.body.removeChild(link);
-//     window.URL.revokeObjectURL(url);
-//   }
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.detail || `Error ${response.status}: No se pudo generar el listado de ventas`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ventas_${desde}_${hasta}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Descarga el listado de saldos de clientes (PDF) al día `fecha` (YYYY-MM-DD).
+   * Solo Panel de Vendedores: cartera del vendedor (todos si es gerente), con los
+   * filtros opcionales de zona y localidad.
+   */
+  static async exportarSaldosClientes(fecha: string, zona?: string, localidad?: string): Promise<void> {
+    const params = new URLSearchParams({ fecha });
+    if (zona) params.set('zon_codi', zona);
+    if (localidad) params.set('loc_codi', localidad);
+    const response = await fetchConAuth(`${process.env.NEXT_PUBLIC_API_URL}/saldos-clientes/pdf/?${params}`);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.detail || `Error ${response.status}: No se pudo generar el listado de saldos`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `saldos_clientes_${fecha}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 }
 

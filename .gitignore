@@ -93,3 +93,5 @@ descImg
 estructuraV2.md
 relacion.md
 estructuraV3.md
+# backups locales de la base (no subir)
+db.sqlite3.local-backup-*
